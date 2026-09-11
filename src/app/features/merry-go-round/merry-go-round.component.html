@@ -1,0 +1,743 @@
+@if (!selectedCycle) {
+  <div class="page-header">
+    <div>
+      <h1>Merry-Go-Round</h1>
+      <p>Rotating savings and payout system for group members.</p>
+    </div>
+    @if (session.can('CREATE_MGR_CYCLE')) {
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus"></app-icon> Start New Cycle
+      </button>
+    }
+  </div>
+}
+
+@if (loading) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading merry-go-round data...</p>
+  </div>
+} @else if (loadError) {
+  <div class="error-state-card">
+    <app-icon name="close"></app-icon>
+    <h3>Unable to Load</h3>
+    <p>{{ loadError }}</p>
+    <button class="btn btn-primary" (click)="loadData()">
+      <app-icon name="refresh"></app-icon> Try Again
+    </button>
+  </div>
+} @else if (!selectedCycle) {
+  <!-- MGR SUMMARY SECTION - Independent from main chama finance -->
+  @if (summary && cycles.length > 0) {
+    <div class="mgr-summary-section">
+      <div class="summary-header">
+        <h2>
+          <app-icon name="pie-chart"></app-icon>
+          MGR Fund Summary
+        </h2>
+        <span class="summary-note">Independent fund - not included in main chama finances</span>
+      </div>
+      
+      <div class="mgr-summary-grid">
+        <div class="summary-card">
+          <div class="summary-icon cycles">
+            <app-icon name="refresh-cw"></app-icon>
+          </div>
+          <div class="summary-content">
+            <span class="summary-value">{{ summary.totalCycles }}</span>
+            <span class="summary-label">Total Cycles</span>
+            <span class="summary-sub">{{ summary.activeCycles }} active · {{ summary.completedCycles }} completed</span>
+          </div>
+        </div>
+        
+        <div class="summary-card">
+          <div class="summary-icon contributions">
+            <app-icon name="trending-up"></app-icon>
+          </div>
+          <div class="summary-content">
+            <span class="summary-value">KES {{ summary.totalContributions | number }}</span>
+            <span class="summary-label">Total Contributions</span>
+            <span class="summary-sub">Collected from members</span>
+          </div>
+        </div>
+        
+        <div class="summary-card">
+          <div class="summary-icon payouts">
+            <app-icon name="send"></app-icon>
+          </div>
+          <div class="summary-content">
+            <span class="summary-value">KES {{ summary.totalPayouts | number }}</span>
+            <span class="summary-label">Total Payouts</span>
+            <span class="summary-sub">Disbursed to recipients</span>
+          </div>
+        </div>
+        
+        <div class="summary-card">
+          <div class="summary-icon fines">
+            <app-icon name="alert-circle"></app-icon>
+          </div>
+          <div class="summary-content">
+            <span class="summary-value">KES {{ summary.totalFinesCollected | number }}</span>
+            <span class="summary-label">Fines Collected</span>
+            @if (summary.totalFinesPending > 0) {
+              <span class="summary-sub warning">KES {{ summary.totalFinesPending | number }} pending</span>
+            } @else {
+              <span class="summary-sub">No pending fines</span>
+            }
+          </div>
+        </div>
+        
+        <div class="summary-card balance">
+          <div class="summary-icon balance-icon">
+            <app-icon name="wallet"></app-icon>
+          </div>
+          <div class="summary-content">
+            <span class="summary-value large">KES {{ summary.currentBalance | number }}</span>
+            <span class="summary-label">Current Balance</span>
+            <span class="summary-sub">Contributions + Fines - Payouts</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- CYCLES LIST VIEW -->
+  @if (cycles.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="refresh-cw"></app-icon>
+      <h3>No merry-go-round cycles yet</h3>
+      <p>Start a new cycle to begin rotating payouts among members.</p>
+      @if (session.can('CREATE_MGR_CYCLE')) {
+        <button class="btn btn-primary" (click)="openCreateModal()">
+          <app-icon name="plus"></app-icon> Start New Cycle
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="section-header">
+      <h2>Cycles</h2>
+    </div>
+    <div class="mgr-cycles-grid">
+      @for (cycle of cycles; track cycle.id) {
+        <div class="mgr-cycle-card" [class.active]="cycle.status === 'ACTIVE'" (click)="viewCycleDetails(cycle)">
+          <div class="cycle-header">
+            <h3>{{ cycle.name }}</h3>
+            <span class="badge" [ngClass]="getStatusClass(cycle.status)">{{ cycle.status }}</span>
+          </div>
+          
+          <div class="cycle-info">
+            <div class="cycle-stat">
+              <span class="stat-label">Contribution</span>
+              <span class="stat-value">KES {{ cycle.contributionAmount | number }}</span>
+            </div>
+            <div class="cycle-stat">
+              <span class="stat-label">Frequency</span>
+              <span class="stat-value">{{ getFrequencyLabel(cycle) }}</span>
+            </div>
+            <div class="cycle-stat">
+              <span class="stat-label">Participants</span>
+              <span class="stat-value">{{ cycle.participantCount }}</span>
+            </div>
+            <div class="cycle-stat">
+              <span class="stat-label">Progress</span>
+              <span class="stat-value">{{ cycle.completedRounds }}/{{ cycle.totalRounds }} rounds</span>
+            </div>
+          </div>
+
+          @if (cycle.currentRound && cycle.status === 'ACTIVE') {
+            <div class="current-round-info">
+              <span class="round-label">Next Payout:</span>
+              <span class="round-recipient">{{ cycle.currentRound.recipientName }}</span>
+              <span class="round-date">{{ cycle.currentRound.payoutDate | date:'d MMM y' }}</span>
+            </div>
+          }
+
+          <div class="cycle-footer">
+            <span class="date-range">{{ cycle.startDate | date:'d MMM y' }} - {{ cycle.endDate | date:'d MMM y' }}</span>
+            <button class="btn btn-sm btn-ghost" (click)="viewCycleDetails(cycle); $event.stopPropagation()">
+              View Details <app-icon name="chevronRight"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+} @else {
+  <!-- CYCLE DETAILS VIEW -->
+  <div class="cycle-details-view">
+    <div class="cycle-detail-header">
+      <div>
+        <h2>{{ selectedCycle.name }}</h2>
+        <p>{{ getFrequencyLabel(selectedCycle) }} · {{ selectedCycle.startDate | date:'d MMM y' }} - {{ selectedCycle.endDate | date:'d MMM y' }}</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" (click)="backToCycles()">
+          <app-icon name="chevronLeft"></app-icon> Back
+        </button>
+        <span class="badge" [ngClass]="getStatusClass(selectedCycle.status)">{{ selectedCycle.status }}</span>
+        @if (session.can('DELETE_MGR_CYCLE') && selectedCycle.status !== 'COMPLETED') {
+          <button class="btn btn-sm btn-danger" (click)="deleteCycle(selectedCycle)">
+            <app-icon name="trash"></app-icon> Delete
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-strip stats-strip-compact">
+      <div class="stats-strip-item">
+        <div class="stats-strip-label">Participants</div>
+        <div class="stats-strip-value">{{ selectedCycle.participantCount }}</div>
+      </div>
+      <div class="stats-strip-item">
+        <div class="stats-strip-label">Progress</div>
+        <div class="stats-strip-value">{{ selectedCycle.completedRounds }}/{{ selectedCycle.totalRounds }}</div>
+      </div>
+      <div class="stats-strip-item">
+        <div class="stats-strip-label">Total Contributed</div>
+        <div class="stats-strip-value">KES {{ selectedCycle.totalContributed | number }}</div>
+      </div>
+      <div class="stats-strip-item">
+        <div class="stats-strip-label">Total Paid Out</div>
+        <div class="stats-strip-value">KES {{ selectedCycle.totalPaidOut | number }}</div>
+      </div>
+      <div class="stats-strip-item">
+        <div class="stats-strip-label">Fines Collected</div>
+        <div class="stats-strip-value">KES {{ selectedCycle.totalFinesCollected | number }}</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="detail-tabs">
+      <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="activeTab = 'details'">
+        Rounds
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'contributions'" (click)="activeTab = 'contributions'">
+        Contributions
+        @if (getPendingContributionsCount() > 0) {
+          <span class="tab-badge">{{ getPendingContributionsCount() }}</span>
+        }
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'fines'" (click)="activeTab = 'fines'">
+        Fines
+        @if (getPendingFinesCount() > 0) {
+          <span class="tab-badge">{{ getPendingFinesCount() }}</span>
+        }
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    @if (activeTab === 'details') {
+      <!-- Rounds List -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Payout Schedule</h3>
+          @if (selectedCycle.isRecurring) {
+            <span class="badge badge-info">Recurring</span>
+          } @else if (selectedCycle.numberOfCycles > 1) {
+            <span class="badge badge-neutral">Cycle {{ selectedCycle.currentCycleNumber }} of {{ selectedCycle.numberOfCycles }}</span>
+          }
+        </div>
+        <div class="card-body" style="padding: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Recipient</th>
+                <th>Payout Date</th>
+                <th>Expected</th>
+                <th>Collected</th>
+                <th>Paid Out</th>
+                <th>Available</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (round of selectedCycle.rounds; track round.id) {
+                <tr [class.current-round]="(round.status === 'PENDING' || round.status === 'PARTIAL') && round.position === (selectedCycle.completedRounds + 1)">
+                  <td>{{ round.position }}</td>
+                  <td><strong>{{ round.recipientName }}</strong></td>
+                  <td>{{ round.payoutDate | date:'d MMM y' }}</td>
+                  <td>KES {{ round.expectedAmount | number }}</td>
+                  <td>
+                    <span [class.text-success]="round.collectedAmount >= round.expectedAmount"
+                          [class.text-warning]="round.collectedAmount > 0 && round.collectedAmount < round.expectedAmount"
+                          [class.text-muted]="round.collectedAmount === 0">
+                      KES {{ round.collectedAmount | number }}
+                    </span>
+                    <div class="progress-bar-mini">
+                      <div class="progress-fill" [style.width.%]="(round.collectedAmount / round.expectedAmount) * 100"></div>
+                    </div>
+                  </td>
+                  <td>KES {{ round.paidAmount | number }}</td>
+                  <td>
+                    @if (round.payoutBalance > 0) {
+                      <span class="text-primary"><strong>KES {{ round.payoutBalance | number }}</strong></span>
+                    } @else {
+                      <span class="text-muted">-</span>
+                    }
+                  </td>
+                  <td>
+                    <span class="badge" [ngClass]="getStatusClass(round.status)">{{ round.status }}</span>
+                  </td>
+                  <td>
+                    @if ((round.status === 'PENDING' || round.status === 'PARTIAL') && session.can('COMPLETE_MGR_ROUND')) {
+                      @if (round.payoutBalance > 0) {
+                        <button class="btn btn-sm btn-primary" (click)="markRoundPaid(round)">
+                          Pay KES {{ round.payoutBalance | number }}
+                        </button>
+                      } @else {
+                        <span class="text-muted">No funds</span>
+                      }
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    } @else if (activeTab === 'contributions') {
+      <!-- Contributions - Grouped by Round -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Contributions</h3>
+          @if (getPendingContributionsCount() > 0) {
+            <button class="btn btn-sm btn-primary" (click)="markSelectedContributionsPaid()">
+              Record all payments
+            </button>
+          }
+        </div>
+        <div class="card-body" style="padding: 0;">
+          @if (contributions.length === 0) {
+            <div class="empty-state" style="padding: 24px;">No contributions yet.</div>
+          } @else {
+            @for (round of getGroupedContributions(); track round.roundId) {
+              <div class="round-group">
+                <!-- Round Header -->
+                <div class="round-header">
+                  <div class="round-header-left">
+                    <span class="round-badge">Round #{{ round.roundPosition }}</span>
+                    <span class="round-recipient"><strong>{{ round.roundRecipientName }}</strong> receives payout</span>
+                    <span class="round-due">· due {{ round.dueDate | date:'d MMM y' }}</span>
+                  </div>
+                  <div class="round-header-right">
+                    @if (round.paidCount === round.totalCount) {
+                      <span class="round-status complete">Complete · KES {{ round.collectedAmount | number }}/{{ round.expectedAmount | number }}</span>
+                    } @else {
+                      <span class="round-status partial">{{ round.paidCount }}/{{ round.totalCount }} paid · KES {{ round.collectedAmount | number }}/{{ round.expectedAmount | number }}</span>
+                    }
+                  </div>
+                </div>
+                <!-- Round Contributions Table -->
+                <table class="data-table round-table">
+                  <thead>
+                    <tr>
+                      <th>Contributor</th>
+                      <th>Amount</th>
+                      <th>Paid date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (contrib of round.contributions; track contrib.id) {
+                      <tr>
+                        <td>{{ contrib.memberName }}</td>
+                        <td>KES {{ contrib.amount | number }}</td>
+                        <td>{{ contrib.paidDate ? (contrib.paidDate | date:'d MMM y') : '—' }}</td>
+                        <td>
+                          <span class="badge" [ngClass]="getStatusClass(contrib.status)">
+                            {{ contrib.status === 'PAID' ? 'Paid' : contrib.status === 'PENDING' ? 'Pending' : contrib.status }}
+                          </span>
+                        </td>
+                        <td class="action-cell">
+                          @if (contrib.status === 'PENDING' || contrib.status === 'LATE') {
+                            <button class="btn btn-sm btn-primary" (click)="markContributionPaid(contrib)">
+                              Record payment
+                            </button>
+                            @if (!contrib.hasFine && (session.can('IMPOSE_MGR_FINE') || session.can('FULL_ACCESS'))) {
+                              <button class="btn btn-sm btn-outline" (click)="imposeFineForContribution(contrib)">
+                                Fine
+                              </button>
+                            }
+                          } @else {
+                            <span class="text-muted">Settled</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    } @else if (activeTab === 'fines') {
+      <!-- Fines -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Fines</h3>
+          @if (session.can('RECORD_FINE')) {
+            <button class="btn btn-sm btn-primary" (click)="openFineModal()">
+              <app-icon name="plus"></app-icon> Impose Fine
+            </button>
+          }
+        </div>
+        <div class="card-body" style="padding: 0;">
+          @if (fines.length === 0) {
+            <div class="empty-state" style="padding: 24px;">No fines imposed.</div>
+          } @else {
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Reason</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (fine of fines; track fine.id) {
+                  <tr>
+                    <td>{{ fine.memberName }}</td>
+                    <td>
+                      {{ fine.reason }}
+                      @if (fine.autoImposed) {
+                        <span class="badge badge-neutral" style="margin-left: 4px;">Auto</span>
+                      }
+                    </td>
+                    <td>KES {{ fine.amount | number }}</td>
+                    <td>{{ fine.imposedDate | date:'d MMM y' }}</td>
+                    <td>
+                      <span class="badge" [ngClass]="getStatusClass(fine.status)">{{ fine.status }}</span>
+                    </td>
+                    <td>
+                      @if (fine.status === 'PENDING') {
+                        <button class="btn btn-sm btn-outline" (click)="payFine(fine)" style="margin-right: 4px;">
+                          Pay
+                        </button>
+                        <button class="btn btn-sm btn-ghost" (click)="waiveFine(fine)">
+                          Waive
+                        </button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}
+
+<!-- Create Cycle Modal -->
+@if (showCreateModal) {
+  <div class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Start New Merry-Go-Round Cycle</h3>
+        <button class="icon-btn" (click)="closeCreateModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <form (ngSubmit)="saveCycle()">
+        <div class="modal-body">
+          <!-- Basic Info -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <app-icon name="info"></app-icon>
+              Basic Information
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label>Cycle Name <span class="required">*</span></label>
+                <input type="text" [(ngModel)]="formData.name" name="name" placeholder="e.g., 2024 Q1 Cycle" required>
+              </div>
+              <div class="form-field">
+                <label>Contribution Amount (KES) <span class="required">*</span></label>
+                <input type="number" [(ngModel)]="formData.contributionAmount" name="amount" min="1" required>
+              </div>
+              <div class="form-field">
+                <label>Start Date <span class="required">*</span></label>
+                <input type="date" [(ngModel)]="formData.startDate" name="startDate" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Frequency Settings -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <app-icon name="calendar"></app-icon>
+              Payout Frequency
+            </div>
+            <div class="form-field">
+              <label>Frequency <span class="required">*</span></label>
+              <select [(ngModel)]="formData.frequency" name="frequency">
+                <option value="DAILY">Daily</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+              </select>
+            </div>
+
+            @if (formData.frequency === 'WEEKLY') {
+              <div class="form-field">
+                <label>Day of Week <span class="required">*</span></label>
+                <select [(ngModel)]="formData.dayOfWeek" name="dayOfWeek">
+                  <option [value]="1">Monday</option>
+                  <option [value]="2">Tuesday</option>
+                  <option [value]="3">Wednesday</option>
+                  <option [value]="4">Thursday</option>
+                  <option [value]="5">Friday</option>
+                  <option [value]="6">Saturday</option>
+                  <option [value]="7">Sunday</option>
+                </select>
+              </div>
+            }
+
+            @if (formData.frequency === 'MONTHLY') {
+              <div class="form-field">
+                <label>Monthly Schedule Type</label>
+                <select [(ngModel)]="formData.monthlyType" name="monthlyType">
+                  <option value="specific">Specific Day (e.g., 15th of each month)</option>
+                  <option value="weekday">Weekday (e.g., First Monday of each month)</option>
+                </select>
+              </div>
+
+              @if (formData.monthlyType === 'specific') {
+                <div class="form-field">
+                  <label>Day of Month <span class="required">*</span></label>
+                  <select [(ngModel)]="formData.dayOfMonth" name="dayOfMonth">
+                    @for (d of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]; track d) {
+                      <option [value]="d">{{ getOrdinal(d) }}</option>
+                    }
+                  </select>
+                </div>
+              } @else {
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label>Week of Month <span class="required">*</span></label>
+                    <select [(ngModel)]="formData.weekOfMonth" name="weekOfMonth">
+                      <option [value]="1">First</option>
+                      <option [value]="2">Second</option>
+                      <option [value]="3">Third</option>
+                      <option [value]="4">Fourth</option>
+                      <option [value]="5">Last</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label>Day <span class="required">*</span></label>
+                    <select [(ngModel)]="formData.dayOfWeekInMonth" name="dayOfWeekInMonth">
+                      <option [value]="1">Monday</option>
+                      <option [value]="2">Tuesday</option>
+                      <option [value]="3">Wednesday</option>
+                      <option [value]="4">Thursday</option>
+                      <option [value]="5">Friday</option>
+                      <option [value]="6">Saturday</option>
+                      <option [value]="7">Sunday</option>
+                    </select>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+
+          <!-- Cycle Type Settings -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <app-icon name="refresh-cw"></app-icon>
+              Cycle Type
+            </div>
+            <div class="form-field">
+              <label>How should this cycle run?</label>
+              <select [(ngModel)]="formData.cycleType" name="cycleType">
+                <option value="fixed">Fixed Cycles - Run specific number of rounds</option>
+                <option value="recurring">Recurring - Runs continuously until stopped</option>
+              </select>
+            </div>
+            
+            @if (formData.cycleType === 'fixed') {
+              <div class="form-field">
+                <label>Number of Cycles <span class="required">*</span></label>
+                <input type="number" [(ngModel)]="formData.numberOfCycles" name="numberOfCycles" min="1" placeholder="1">
+                <p class="help-text">Each cycle = all participants receive payout once. E.g., 2 cycles with 5 members = 10 rounds total.</p>
+              </div>
+            } @else {
+              <p class="help-text">The cycle will repeat indefinitely. After all participants have received payouts, it will start again with the first participant.</p>
+            }
+          </div>
+
+          <!-- Fine Settings -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <app-icon name="alert-triangle"></app-icon>
+              Late Payment Fines
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label>Fine Amount (KES)</label>
+                <input type="number" [(ngModel)]="formData.latePaymentFineAmount" name="fineAmount" min="0" placeholder="0">
+              </div>
+              <div class="form-field">
+                <label>Grace Period (Days)</label>
+                <input type="number" [(ngModel)]="formData.gracePeriodDays" name="gracePeriod" min="0" placeholder="0">
+              </div>
+            </div>
+            <div class="form-field checkbox-field">
+              <label>
+                <input type="checkbox" [(ngModel)]="formData.autoImposeFine" name="autoImposeFine">
+                Automatically impose fines after grace period
+              </label>
+            </div>
+          </div>
+
+          <!-- Participants -->
+          <div class="form-section">
+            <div class="form-section-title">
+              <app-icon name="users"></app-icon>
+              Participants
+            </div>
+            <div class="form-field">
+              <label>Select Participants</label>
+              <select [(ngModel)]="formData.participantSelection" name="participantSelection" (change)="buildOrderedParticipants()">
+                <option value="ALL">All Active Members</option>
+                <option value="SPECIFIC">Specific Members</option>
+              </select>
+            </div>
+
+            @if (formData.participantSelection === 'SPECIFIC') {
+              <div class="participant-selection">
+                <div class="selection-actions">
+                  <button type="button" class="btn btn-sm btn-ghost" (click)="selectAllParticipants()">Select All</button>
+                  <button type="button" class="btn btn-sm btn-ghost" (click)="deselectAllParticipants()">Deselect All</button>
+                  <span class="selection-count">{{ formData.participantIds.length }} selected</span>
+                </div>
+                <div class="participant-list">
+                  @for (member of members; track member.id) {
+                    <label class="checkbox-item">
+                      <input type="checkbox" [checked]="isParticipant(member.id)" (change)="toggleParticipant(member.id)">
+                      {{ member.name }}
+                    </label>
+                  }
+                </div>
+              </div>
+            } @else {
+              <p class="help-text">All {{ members.length }} active members will be included in this cycle.</p>
+            }
+
+            <!-- Payout Order Settings -->
+            <div class="form-field" style="margin-top: 16px;">
+              <label>Payout Order</label>
+              <select [(ngModel)]="formData.orderingMode" name="orderingMode" (change)="buildOrderedParticipants()">
+                <option value="sequential">Sequential - Use selection order</option>
+                <option value="random">Random - Shuffle randomly</option>
+                <option value="custom">Custom - Define order manually</option>
+              </select>
+            </div>
+
+            @if (formData.orderingMode === 'random') {
+              <div style="margin-top: 8px;">
+                <button type="button" class="btn btn-sm btn-outline" (click)="shuffleParticipants()">
+                  <app-icon name="refresh-cw"></app-icon> Reshuffle
+                </button>
+              </div>
+            }
+
+            <!-- Drag and Drop Ordering -->
+            @if (formData.orderingMode === 'custom' || formData.orderingMode === 'random') {
+              <div class="order-list" style="margin-top: 12px;">
+                <p class="help-text" style="margin-bottom: 8px;">
+                  @if (formData.orderingMode === 'custom') {
+                    Drag to reorder participants. First person receives payout first.
+                  } @else {
+                    Randomized order preview (reshuffle if needed):
+                  }
+                </p>
+                @if (formData.orderedParticipants.length === 0) {
+                  <p class="text-muted">Select participants first</p>
+                } @else {
+                  <div class="sortable-list">
+                    @for (participant of formData.orderedParticipants; track participant.id; let i = $index) {
+                      <div class="sortable-item" 
+                           [class.dragging]="draggedIndex === i"
+                           [attr.draggable]="formData.orderingMode === 'custom'"
+                           (dragstart)="onDragStart(i)"
+                           (dragover)="onDragOver($event, i)"
+                           (drop)="onDrop($event, i)"
+                           (dragend)="onDragEnd()">
+                        <span class="order-number">{{ i + 1 }}</span>
+                        <span class="participant-name">{{ participant.name }}</span>
+                        @if (formData.orderingMode === 'custom') {
+                          <span class="order-controls">
+                            <button type="button" class="icon-btn-sm" (click)="moveParticipantUp(i)" [disabled]="i === 0" title="Move up">
+                              <app-icon name="chevron-up"></app-icon>
+                            </button>
+                            <button type="button" class="icon-btn-sm" (click)="moveParticipantDown(i)" [disabled]="i === formData.orderedParticipants.length - 1" title="Move down">
+                              <app-icon name="chevron-down"></app-icon>
+                            </button>
+                          </span>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" (click)="closeCreateModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="saving">
+            {{ saving ? 'Creating...' : 'Create Cycle' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Impose Fine Modal -->
+@if (showFineModal && selectedCycle) {
+  <div class="modal-backdrop" (click)="closeFineModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Impose Fine</h3>
+        <button class="icon-btn" (click)="closeFineModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <form (ngSubmit)="imposeFine()">
+        <div class="modal-body">
+          <div class="form-field">
+            <label>Reason <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="fineData.reason" name="reason" placeholder="e.g., Late payment" required>
+          </div>
+          <div class="form-field">
+            <label>Amount (KES) <span class="required">*</span></label>
+            <input type="number" [(ngModel)]="fineData.amount" name="amount" min="1" required>
+          </div>
+          <div class="form-field">
+            <label>Select Members <span class="required">*</span></label>
+            <div class="participant-list">
+              @for (participant of getParticipantsForCycle(); track participant.id) {
+                <label class="checkbox-item">
+                  <input type="checkbox" [checked]="isFineMember(participant.memberId)" (change)="toggleFineMember(participant.memberId)">
+                  {{ participant.memberName }}
+                </label>
+              }
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" (click)="closeFineModal()">Cancel</button>
+          <button type="submit" class="btn btn-danger" [disabled]="fineData.memberIds.length === 0">
+            Impose Fine
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

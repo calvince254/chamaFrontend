@@ -1,0 +1,381 @@
+@if (loading) {
+  <div class="loading-state"><div class="spinner"></div><p>Loading investment...</p></div>
+} @else if (investment) {
+  <!-- Header -->
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button type="button" class="btn btn-ghost" onclick="console.log('back')" (click)="goBack()" title="Back to investments" style="padding:6px 10px;">
+        <app-icon name="arrow-left"></app-icon> Back
+      </button>
+      <div style="border-left:1px solid var(--color-border);padding-left:12px;">
+        <h1 style="margin:0;">{{ investment.name }}</h1>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <span class="badge badge-neutral">{{ getCategoryLabel(investment.category) }}</span>
+          <span class="badge" [ngClass]="getStatusClass(investment.status)">{{ investment.status }}</span>
+          <span class="badge" [ngClass]="getApprovalClass(investment.approvalStatus)">{{ investment.approvalStatus }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      @if (investment.status === 'ACTIVE' && investment.approvalStatus === 'APPROVED') {
+        <button type="button" class="btn btn-secondary" onclick="console.log('update')" (click)="openUpdateValueModal()">
+          <app-icon name="edit-2"></app-icon> Update Value
+        </button>
+        <button type="button" class="btn btn-primary" onclick="console.log('sell')" (click)="openSellModal()">
+          <app-icon name="dollar-sign"></app-icon> Sell
+        </button>
+        <button type="button" class="btn btn-danger" onclick="console.log('writeoff')" (click)="openWriteOffModal()">
+          <app-icon name="x-circle"></app-icon> Write Off
+        </button>
+      }
+      @if (session.can('DELETE_INVESTMENT')) {
+        <button type="button" class="btn btn-ghost text-danger" onclick="console.log('delete')" (click)="openDeleteModal()">
+          <app-icon name="trash"></app-icon> Delete
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-grid">
+    <!-- Left Column: Stats + Chart -->
+    <div class="dashboard-main">
+      <!-- Financial Overview -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Financial Overview</h3>
+        </div>
+        <div class="card-body">
+          <div class="stat-grid stat-grid-4">
+            <div class="stat-card">
+              <div class="stat-label">Amount Invested</div>
+              <div class="stat-value">KES {{ investment.amountInvested | number }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Current Value</div>
+              <div class="stat-value">KES {{ investment.currentValue | number }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Net Gain/Loss</div>
+              <div class="stat-value" [class.text-success]="(investment.netGain || 0) >= 0" [class.text-danger]="(investment.netGain || 0) < 0">
+                {{ (investment.netGain || 0) >= 0 ? '+' : '' }}KES {{ investment.netGain | number }}
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Return %</div>
+              <div class="stat-value" [class.text-success]="(investment.returnPercentage || 0) >= 0" [class.text-danger]="(investment.returnPercentage || 0) < 0">
+                {{ (investment.returnPercentage || 0) >= 0 ? '+' : '' }}{{ investment.returnPercentage | number:'1.1-1' }}%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Value History Chart -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Value History</h3>
+        </div>
+        <div class="card-body">
+          @if (loadingHistory) {
+            <div style="display:flex;justify-content:center;padding:60px;"><div class="spinner"></div></div>
+          } @else if (valueHistory.length < 2) {
+            <div class="empty-state-card" style="margin:0;padding:40px;">
+              <app-icon name="bar-chart-2"></app-icon>
+              <h4>Not enough data for chart</h4>
+              <p>Add more value updates to see the trend.</p>
+            </div>
+          } @else {
+            <canvas #chartCanvas style="width:100%;height:320px;"></canvas>
+          }
+        </div>
+      </div>
+
+      <!-- Value History Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Value History Log</h3>
+        </div>
+        <div class="card-body" style="padding:0;">
+          @if (valueHistory.length === 0) {
+            <p class="text-muted" style="padding:24px;text-align:center;">No value history recorded.</p>
+          } @else {
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Value (KES)</th>
+                  <th>Change</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of valueHistory; track h.id) {
+                  <tr>
+                    <td>{{ h.valueDate | date:'d MMM yyyy, HH:mm' }}</td>
+                    <td><strong>{{ h.recordedValue | number }}</strong></td>
+                    <td>
+                      @if (h.previousValue != null) {
+                        <span [class.text-success]="(h.valueChange || 0) >= 0" [class.text-danger]="(h.valueChange || 0) < 0">
+                          {{ (h.valueChange || 0) >= 0 ? '+' : '' }}{{ h.valueChange | number }}
+                          <small class="text-muted">({{ h.previousValue ? (((h.valueChange || 0) / h.previousValue) * 100) : 0 | number:'1.1-1' }}%)</small>
+                        </span>
+                      } @else {
+                        <span class="badge badge-neutral">Initial</span>
+                      }
+                    </td>
+                    <td>{{ h.notes || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Details + Activity -->
+    <div class="dashboard-sidebar">
+      <!-- Investment Details -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Details</h3>
+        </div>
+        <div class="card-body">
+          <div class="detail-list">
+            <div class="detail-row">
+              <span class="detail-label">Category</span>
+              <span class="detail-value">{{ getCategoryLabel(investment.category) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Status</span>
+              <span class="badge" [ngClass]="getStatusClass(investment.status)">{{ investment.status }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Approval</span>
+              <span class="badge" [ngClass]="getApprovalClass(investment.approvalStatus)">{{ investment.approvalStatus }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Date Invested</span>
+              <span class="detail-value">{{ investment.dateInvested | date:'d MMM yyyy' }}</span>
+            </div>
+            @if (investment.description) {
+              <div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:6px;padding-top:16px;border-top:1px solid #f0f2f1;">
+                <span class="detail-label">Description</span>
+                <span class="detail-value" style="text-align:left;">{{ investment.description }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Approval Info -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Approval Info</h3>
+        </div>
+        <div class="card-body">
+          <div class="detail-list">
+            <div class="detail-row">
+              <span class="detail-label">Created By</span>
+              <span class="detail-value">{{ investment.createdByMemberName || 'Unknown' }}</span>
+            </div>
+            @if (investment.approvedBy) {
+              <div class="detail-row">
+                <span class="detail-label">Approved By</span>
+                <span class="detail-value">{{ investment.approvedBy }}</span>
+              </div>
+            }
+            @if (investment.approvedAt) {
+              <div class="detail-row">
+                <span class="detail-label">Approved At</span>
+                <span class="detail-value">{{ investment.approvedAt | date:'d MMM yyyy, HH:mm' }}</span>
+              </div>
+            }
+            @if (investment.rejectionReason) {
+              <div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:6px;padding-top:16px;border-top:1px solid #f0f2f1;">
+                <span class="detail-label">Rejection Reason</span>
+                <span class="detail-value text-danger" style="text-align:left;">{{ investment.rejectionReason }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Sold/Written Off Info (if applicable) -->
+      @if (investment.status === 'SOLD' && investment.soldDate) {
+        <div class="card">
+          <div class="card-header" style="background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);">
+            <h3 style="color:var(--color-success);">Sale Information</h3>
+          </div>
+          <div class="card-body">
+            <div class="detail-list">
+              <div class="detail-row">
+                <span class="detail-label">Sale Date</span>
+                <span class="detail-value">{{ investment.soldDate | date:'d MMM yyyy' }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Sale Amount</span>
+                <span class="detail-value"><strong>KES {{ investment.soldAmount | number }}</strong></span>
+              </div>
+              @if (investment.finalGain != null) {
+                <div class="detail-row">
+                  <span class="detail-label">Final Gain</span>
+                  <span class="detail-value" [class.text-success]="investment.finalGain >= 0" [class.text-danger]="investment.finalGain < 0">
+                    {{ investment.finalGain >= 0 ? '+' : '' }}KES {{ investment.finalGain | number }}
+                  </span>
+                </div>
+              }
+              @if (investment.soldBy) {
+                <div class="detail-row">
+                  <span class="detail-label">Sold By</span>
+                  <span class="detail-value">{{ investment.soldBy }}</span>
+                </div>
+              }
+              @if (investment.soldNotes) {
+                <div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                  <span class="detail-label">Notes</span>
+                  <span class="detail-value" style="text-align:left;">{{ investment.soldNotes }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (investment.status === 'WRITTEN_OFF') {
+        <div class="card">
+          <div class="card-header" style="background:linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);">
+            <h3 style="color:var(--color-danger);">Written Off</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-muted" style="margin-bottom:8px;">This investment was written off.</p>
+            <p><strong>Loss: KES {{ investment.amountInvested | number }}</strong></p>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- UPDATE VALUE MODAL -->
+@if (showUpdateValueModal && investment) {
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Update Value</h3>
+      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeUpdateValueModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <form (ngSubmit)="submitUpdateValue()">
+      <div class="modal-body">
+        <p><strong>{{ investment.name }}</strong></p>
+        <p class="text-muted">Current: KES {{ investment.currentValue | number }}</p>
+        <div class="form-field">
+          <label>New Value (KES)</label>
+          <input type="number" [(ngModel)]="updateValueForm.newValue" name="newValue" min="0" required>
+        </div>
+        <div class="form-field">
+          <label>Notes</label>
+          <textarea [(ngModel)]="updateValueForm.notes" name="notes" rows="2" placeholder="Optional notes about this value change"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeUpdateValueModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">{{ saving ? 'Saving...' : 'Update Value' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+<!-- SELL MODAL -->
+@if (showSellModal && investment) {
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Sell Investment</h3>
+      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeSellModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <form (ngSubmit)="submitSell()">
+      <div class="modal-body">
+        <p><strong>{{ investment.name }}</strong></p>
+        <p class="text-muted">Current Value: KES {{ investment.currentValue | number }}</p>
+        <div class="form-field">
+          <label>Sale Amount (KES)</label>
+          <input type="number" [(ngModel)]="sellForm.soldAmount" name="soldAmount" min="0" required>
+        </div>
+        <div class="form-field">
+          <label>Sale Date</label>
+          <input type="date" [(ngModel)]="sellForm.soldDate" name="soldDate" required>
+        </div>
+        <div class="form-field">
+          <label>Notes</label>
+          <textarea [(ngModel)]="sellForm.notes" name="notes" rows="2" placeholder="Optional notes about this sale"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeSellModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">{{ saving ? 'Processing...' : 'Confirm Sale' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+<!-- WRITE OFF MODAL -->
+@if (showWriteOffModal && investment) {
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Write Off Investment</h3>
+      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeWriteOffModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <form (ngSubmit)="submitWriteOff()">
+      <div class="modal-body">
+        <div class="alert alert-danger" style="margin-bottom:16px;">
+          <strong>Warning:</strong> This will mark the investment as written off and set its value to zero. This action cannot be undone.
+        </div>
+        <p><strong>{{ investment.name }}</strong></p>
+        <p class="text-muted">Current Value: KES {{ investment.currentValue | number }} → KES 0</p>
+        <div class="form-field">
+          <label>Reason for Write Off</label>
+          <textarea [(ngModel)]="writeOffReason" name="reason" rows="3" required placeholder="Explain why this investment is being written off"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeWriteOffModal()">Cancel</button>
+        <button type="submit" class="btn btn-danger" [disabled]="saving || !writeOffReason.trim()">{{ saving ? 'Processing...' : 'Confirm Write Off' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+
+<!-- DELETE CONFIRMATION MODAL -->
+@if (showDeleteModal && investment) {
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Delete Investment</h3>
+      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeDeleteModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-danger" style="margin-bottom:16px;">
+        <strong>Warning:</strong> This will permanently delete this investment and all its value history. This action cannot be undone.
+      </div>
+      <p><strong>{{ investment.name }}</strong></p>
+      <p class="text-muted">Invested: KES {{ investment.amountInvested | number }}</p>
+      @if (investment.status !== 'ACTIVE') {
+        <p class="text-muted">Status: {{ investment.status }}</p>
+      }
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeDeleteModal()">Cancel</button>
+      <button type="button" class="btn btn-danger" onclick="console.log('delete')" (click)="confirmDelete()" [disabled]="saving">
+        {{ saving ? 'Deleting...' : 'Delete Permanently' }}
+      </button>
+    </div>
+  </div>
+</div>
+}

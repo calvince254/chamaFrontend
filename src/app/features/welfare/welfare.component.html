@@ -1,0 +1,267 @@
+<div class="page-header">
+  <div>
+    <h1>Welfare Fund</h1>
+    <p>Bereavement, illness and marriage support — per-member contribution collected within 48 hours.</p>
+  </div>
+  @if (session.can('CREATE_WELFARE_EVENT')) {
+    <button class="btn btn-primary" (click)="openNew()"><app-icon name="plus"></app-icon> Report Event</button>
+  }
+</div>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading welfare events...</p>
+  </div>
+} @else if (events.length === 0) {
+  <div class="empty-state-card">
+    <app-icon name="heart" class="empty-icon"></app-icon>
+    <h3>No welfare events</h3>
+    <p>Report welfare events when members need support (bereavement, illness, marriage).</p>
+    @if (session.can('CREATE_WELFARE_EVENT')) {
+      <button class="btn btn-primary" (click)="openNew()">
+        <app-icon name="plus"></app-icon> Report First Event
+      </button>
+    }
+  </div>
+} @else {
+  <div class="card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Event</th>
+          <th>Relation</th>
+          <th>Reported</th>
+          <th>Per-Member</th>
+          <th>Collection</th>
+          <th>Members Paid</th>
+          <th>Status</th>
+          @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
+            <th>Actions</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (e of events; track e.id) {
+          <tr>
+            <td>{{ e.memberName }}</td>
+            <td><span class="badge badge-info">{{ e.eventType }}</span></td>
+            <td>{{ e.relation }}</td>
+            <td>{{ e.dateReported | date:'d MMM y' }}</td>
+            <td>KES {{ e.amountPerMember | number }}</td>
+            <td>
+              <div class="progress-track"><div class="progress-fill" [style.width.%]="progress(e)"></div></div>
+              <div class="progress-label">KES {{ e.totalCollected | number }} / {{ e.totalExpected | number }}</div>
+            </td>
+            <td>
+              @if (e.totalInvolved && e.totalInvolved > 0) {
+                <div class="progress-track"><div class="progress-fill" [style.width.%]="paymentProgress(e)"></div></div>
+                <div class="progress-label">{{ e.paidCount || 0 }} / {{ e.totalInvolved }} members</div>
+              } @else {
+                <span class="text-muted">—</span>
+              }
+            </td>
+            <td><span class="badge" [ngClass]="e.status === 'CLOSED' ? 'badge-success' : 'badge-warning'">{{ e.status }}</span></td>
+            @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
+              <td>
+                <button class="btn btn-sm btn-ghost" (click)="openPaymentsModal(e)" onclick="console.log()">
+                  <app-icon name="users"></app-icon> Payments
+                </button>
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- Create/Edit Welfare Event Modal -->
+@if (showForm) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal modal-lg" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Report Welfare Event</h3>
+        <button class="icon-btn" (click)="close()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Beneficiary Member *</label>
+            <select [(ngModel)]="editing.memberId" name="memberId" required>
+              <option value="">Select member</option>
+              @for (m of members; track m.id) {
+                <option [value]="m.id">{{ m.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Event Type *</label>
+            <select [(ngModel)]="editing.eventType" name="eventType">
+              <option value="BEREAVEMENT">Bereavement</option>
+              <option value="ILLNESS">Illness</option>
+              <option value="MARRIAGE">Marriage</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Relation</label>
+            <input type="text" [(ngModel)]="editing.relation" name="relation" placeholder="e.g. Father, Self" />
+          </div>
+          <div class="form-field">
+            <label>Amount Per Member (KES) *</label>
+            <input type="number" [(ngModel)]="editing.amountPerMember" name="amountPerMember" />
+          </div>
+          <div class="form-field full-width">
+            <label>Description</label>
+            <textarea [(ngModel)]="editing.description" name="description" rows="2" placeholder="Details about the event..."></textarea>
+          </div>
+        </div>
+
+        <!-- Member Selection Section -->
+        <div class="section-divider"></div>
+        <h4>Contributing Members</h4>
+        
+        <div class="form-field">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="editing.allMembersInvolved" name="allMembersInvolved" (change)="toggleAllMembers()" />
+            <span>All active members contribute</span>
+          </label>
+        </div>
+
+        @if (!editing.allMembersInvolved) {
+          <div class="member-selection-grid">
+            @for (m of members; track m.id) {
+              <div class="member-checkbox" [class.selected]="isMemberSelected(m.id)" (click)="toggleMemberSelection(m.id)">
+                <input type="checkbox" [checked]="isMemberSelected(m.id)" (click)="$event.stopPropagation()" (change)="toggleMemberSelection(m.id)" />
+                <span class="member-name">{{ m.name }}</span>
+                <span class="member-no">{{ m.memberNo }}</span>
+              </div>
+            }
+          </div>
+          @if (editing.involvedMemberIds && editing.involvedMemberIds.length > 0) {
+            <p class="selection-count">{{ editing.involvedMemberIds.length }} member(s) selected</p>
+          }
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="close()" [disabled]="saving()">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : 'Report Event' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Payments Tracking Modal -->
+@if (showPaymentsModal && selectedEvent) {
+  <div class="modal-backdrop" (click)="closePaymentsModal()">
+    <div class="modal modal-lg" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Payment Tracking</h3>
+          <p class="modal-subtitle">{{ selectedEvent.eventType }} — {{ selectedEvent.memberName }}</p>
+        </div>
+        <button class="icon-btn" (click)="closePaymentsModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Payment Summary -->
+        <div class="payment-summary">
+          <div class="summary-stat">
+            <span class="stat-value">{{ paidContributions.length }}</span>
+            <span class="stat-label">Paid</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-value">{{ unpaidContributions.length }}</span>
+            <span class="stat-label">Pending</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-value">{{ contributions.length }}</span>
+            <span class="stat-label">Total</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-value">KES {{ selectedEvent.amountPerMember | number }}</span>
+            <span class="stat-label">Per Member</span>
+          </div>
+        </div>
+
+        @if (loadingContributions()) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading contributions...</p>
+          </div>
+        } @else if (contributions.length === 0) {
+          <div class="empty-state-inline">
+            <p>No contributions found for this event.</p>
+          </div>
+        } @else {
+          <!-- Mark All Paid Button -->
+          @if (unpaidContributions.length > 0) {
+            <div class="action-bar">
+              <button class="btn btn-sm btn-primary" (click)="markAllPaid()" [disabled]="updatingPayment()" onclick="console.log()">
+                <app-icon name="check"></app-icon> Mark All as Paid
+              </button>
+            </div>
+          }
+
+          <!-- Contributions Table -->
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Member No</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Paid Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of contributions; track c.id) {
+                <tr [class.paid-row]="c.paid">
+                  <td>{{ c.memberName }}</td>
+                  <td>{{ c.memberNo }}</td>
+                  <td>KES {{ c.amountExpected | number }}</td>
+                  <td>
+                    @if (c.paid) {
+                      <span class="badge badge-success">Paid</span>
+                    } @else {
+                      <span class="badge badge-warning">Pending</span>
+                    }
+                  </td>
+                  <td>
+                    @if (c.paidDate) {
+                      {{ c.paidDate | date:'d MMM y, h:mm a' }}
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </td>
+                  <td>
+                    <button 
+                      class="btn btn-sm" 
+                      [class.btn-success]="!c.paid" 
+                      [class.btn-ghost]="c.paid"
+                      (click)="togglePayment(c)" 
+                      [disabled]="updatingPayment()"
+                      onclick="console.log()">
+                      @if (c.paid) {
+                        <app-icon name="close"></app-icon> Mark Unpaid
+                      } @else {
+                        <app-icon name="check"></app-icon> Mark Paid
+                      }
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closePaymentsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,551 @@
+<div class="page-header">
+  <div>
+    <h1>Member Shares</h1>
+    <p>Ownership distribution based on contributions and profit pool value.</p>
+  </div>
+  <button class="btn btn-ghost" (click)="refresh()" [disabled]="loading() || loadingPayouts()">
+    <app-icon name="refresh"></app-icon> Refresh
+  </button>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab" [class.active]="activeTab === 'ownership'" (click)="onTabChange('ownership')">
+    Member Ownership
+  </button>
+  @if (session.can('VIEW_PAYOUTS')) {
+    <button class="tab" [class.active]="activeTab === 'payouts'" (click)="onTabChange('payouts')">
+      Payouts
+    </button>
+  }
+</div>
+
+<!-- ==================== MEMBER OWNERSHIP TAB ==================== -->
+@if (activeTab === 'ownership') {
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Calculating shares...</p>
+    </div>
+  } @else if (error()) {
+    <div class="empty-state-card">
+      <app-icon name="alert-circle" class="empty-icon"></app-icon>
+      <h3>Error</h3>
+      <p>{{ error() }}</p>
+      <button class="btn btn-primary" (click)="refresh()">
+        <app-icon name="refresh"></app-icon> Try Again
+      </button>
+    </div>
+  } @else if (!isConfigured) {
+    <div class="empty-state-card">
+      <app-icon name="pie-chart" class="empty-icon"></app-icon>
+      <h3>Share Calculation Not Configured</h3>
+      <p>An administrator needs to configure which contribution types determine share percentages and which profit sources make up the value pool.</p>
+      @if (session.can('MANAGE_SHARE_SETTINGS')) {
+        <a routerLink="/settings" class="btn btn-primary">
+          <app-icon name="settings"></app-icon> Configure Share Settings
+        </a>
+      }
+    </div>
+  } @else {
+    <div class="shares-container">
+      <!-- Pool Breakdown Horizontal Scroll -->
+      @if (calculation) {
+        <div class="shares-pool-scroll-wrapper">
+          <div class="shares-pool-scroll">
+            @if (calculation.poolContributions > 0) {
+              <div class="shares-pool-chip">
+                <span class="shares-pool-chip-label">Contributions</span>
+                <span class="shares-pool-chip-value">KES {{ calculation.poolContributions | number }}</span>
+              </div>
+            }
+            @if (calculation.poolFines > 0) {
+              <div class="shares-pool-chip">
+                <span class="shares-pool-chip-label">Fines collected</span>
+                <span class="shares-pool-chip-value">KES {{ calculation.poolFines | number }}</span>
+              </div>
+            }
+            @if (calculation.poolLoanInterest > 0) {
+              <div class="shares-pool-chip">
+                <span class="shares-pool-chip-label">Loan interest</span>
+                <span class="shares-pool-chip-value">KES {{ calculation.poolLoanInterest | number }}</span>
+              </div>
+            }
+            @if (calculation.poolInvestmentReturns > 0) {
+              <div class="shares-pool-chip">
+                <span class="shares-pool-chip-label">Investment returns</span>
+                <span class="shares-pool-chip-value">KES {{ calculation.poolInvestmentReturns | number }}</span>
+              </div>
+            }
+            @if (calculation.poolPenalties > 0) {
+              <div class="shares-pool-chip">
+                <span class="shares-pool-chip-label">Penalties</span>
+                <span class="shares-pool-chip-value">KES {{ calculation.poolPenalties | number }}</span>
+              </div>
+            }
+            @if (calculation.totalPaidOut && calculation.totalPaidOut > 0) {
+              <div class="shares-pool-chip shares-pool-chip-paidout">
+                <span class="shares-pool-chip-label">Paid out</span>
+                <span class="shares-pool-chip-value">- KES {{ calculation.totalPaidOut | number }}</span>
+              </div>
+            }
+            <div class="shares-pool-chip shares-pool-chip-total">
+              <span class="shares-pool-chip-label">Total pool</span>
+              <span class="shares-pool-chip-value">KES {{ totalPoolValue | number }}</span>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- How shares are calculated button -->
+      <button class="shares-info-btn" (click)="showInfoModal = true">
+        <app-icon name="info"></app-icon>
+        How shares are calculated
+      </button>
+
+      <!-- Member Ownership Table -->
+      @if (memberShares.length === 0) {
+        <div class="empty-state-card">
+          <app-icon name="users" class="empty-icon"></app-icon>
+          <h3>No Member Shares</h3>
+          <p>No members have contributed to the selected contribution types yet.</p>
+        </div>
+      } @else {
+        <div class="shares-table-card">
+          <div class="shares-table-header">
+            <span class="shares-table-title">Member ownership</span>
+            @if (calculation?.calculatedAt) {
+              <span class="shares-table-date">As of {{ calculation!.calculatedAt | date:'d MMM y, h:mm a' }}</span>
+            }
+          </div>
+          <table class="shares-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th class="text-right">Contributions</th>
+                <th class="text-center">Share %</th>
+                <th class="text-right">Estimated value</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (share of memberShares; track share.memberId) {
+                <tr>
+                  <td class="shares-member-name">{{ share.memberName }}</td>
+                  <td class="text-right">KES {{ share.contributionAmount | number }}</td>
+                  <td class="text-center">
+                    <span class="shares-percentage-badge">{{ share.sharePercentage | number:'1.2-2' }}%</span>
+                  </td>
+                  <td class="text-right shares-value">KES {{ share.memberValue | number:'1.0-0' }}</td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr class="shares-total-row">
+                <td class="shares-total-label">Total</td>
+                <td class="text-right shares-total-value">KES {{ totalShareContributions | number }}</td>
+                <td class="text-center shares-total-value">100%</td>
+                <td class="text-right shares-total-value shares-total-primary">KES {{ totalPoolValue | number:'1.0-0' }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      }
+    </div>
+  }
+}
+
+<!-- ==================== PAYOUTS TAB ==================== -->
+@if (activeTab === 'payouts') {
+  <div class="payouts-container">
+    <!-- Liquidity Breakdown -->
+    @if (loadingLiquidity()) {
+      <div class="loading-inline">
+        <div class="spinner-sm"></div>
+        <span>Loading liquidity...</span>
+      </div>
+    } @else if (liquidity) {
+      <div class="liquidity-section">
+        <div class="liquidity-grid">
+          <div class="liquidity-card">
+            <span class="liquidity-label">Total Pool Value</span>
+            <span class="liquidity-value">KES {{ liquidity.totalPoolValue | number }}</span>
+          </div>
+          <div class="liquidity-card liquidity-card-primary">
+            <span class="liquidity-label">Liquid Cash</span>
+            <span class="liquidity-value">KES {{ liquidity.liquidCash | number }}</span>
+          </div>
+          <div class="liquidity-card">
+            <span class="liquidity-label">Locked in Investments</span>
+            <span class="liquidity-value">KES {{ liquidity.lockedInInvestments | number }}</span>
+          </div>
+          <div class="liquidity-card">
+            <span class="liquidity-label">Outstanding Loans</span>
+            <span class="liquidity-value">KES {{ liquidity.outstandingLoans | number }}</span>
+          </div>
+        </div>
+        @if (liquidity.hasActivePayout) {
+          <div class="liquidity-warning">
+            <app-icon name="alert-triangle"></app-icon>
+            <span>There is an active payout in progress. Complete or cancel it before creating a new one.</span>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Action Button -->
+    @if (session.can('CREATE_PAYOUT') && liquidity && !liquidity.hasActivePayout) {
+      <div style="margin-bottom: 16px;">
+        <button class="btn btn-primary" (click)="openNewPayoutModal()">
+          <app-icon name="plus"></app-icon> New Payout
+        </button>
+      </div>
+    }
+
+    <!-- Payout History -->
+    <div class="card">
+      <div class="card-header">
+        <h3 style="margin: 0; font-size: 0.85rem; font-weight: 600;">Payout History</h3>
+      </div>
+      @if (loadingPayouts()) {
+        <div class="loading-inline" style="padding: 20px;">
+          <div class="spinner-sm"></div>
+          <span>Loading payouts...</span>
+        </div>
+      } @else if (payouts.length === 0) {
+        <div class="empty-state-small" style="padding: 30px;">
+          <p>No payouts yet.</p>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Members</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (payout of payouts; track payout.id) {
+              <tr>
+                <td>{{ payout.createdAt | date:'d MMM y' }}</td>
+                <td>{{ getPayoutTypeLabel(payout.payoutType) }}</td>
+                <td style="font-weight: 500;">KES {{ payout.payoutAmount | number }}</td>
+                <td>{{ payout.paidCount }}/{{ payout.memberCount }}</td>
+                <td>
+                  <span class="badge" [ngClass]="getPayoutStatusBadgeClass(payout.status)">
+                    {{ payout.status }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  <button class="btn btn-ghost btn-sm" (click)="openPayoutDetail(payout)" title="View details">
+                    <app-icon name="eye"></app-icon>
+                  </button>
+                  @if (payout.status === 'DRAFT' && session.can('CREATE_PAYOUT')) {
+                    <button class="btn btn-ghost btn-sm" (click)="submitForApproval(payout.id)" title="Submit for approval">
+                      <app-icon name="send"></app-icon>
+                    </button>
+                  }
+                  @if (payout.status === 'PENDING' && session.can('APPROVE_PAYOUT')) {
+                    <button class="btn btn-ghost btn-sm" (click)="approvePayout(payout.id)" title="Approve">
+                      <app-icon name="check"></app-icon>
+                    </button>
+                  }
+                  @if ((payout.status === 'DRAFT' || payout.status === 'PENDING') && session.can('CANCEL_PAYOUT')) {
+                    <button class="btn btn-ghost btn-sm" (click)="cancelPayout(payout.id)" title="Cancel">
+                      <app-icon name="close"></app-icon>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- How Shares Are Calculated Modal -->
+@if (showInfoModal) {
+  <div class="modal-backdrop" (click)="showInfoModal = false">
+    <div class="modal shares-info-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>How shares are calculated</h3>
+        <button class="icon-btn" (click)="showInfoModal = false"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="shares-info-section">
+          <h4>Share Percentage</h4>
+          <p>Each member's ownership percentage is based on their contributions to the selected contribution types divided by total contributions.</p>
+          <div class="shares-info-formula">
+            Member Share % = (Member's Contributions) ÷ (Total Contributions) × 100
+          </div>
+        </div>
+        <div class="shares-info-section">
+          <h4>Estimated Value</h4>
+          <p>The estimated value applies that share percentage to the total pool value, which includes contributions, fines, loan interest, investment returns, and penalties.</p>
+          <div class="shares-info-formula">
+            Member Value = Share % × Total Pool Value
+          </div>
+        </div>
+        <div class="shares-info-note">
+          <app-icon name="info"></app-icon>
+          <span>Merry-Go-Round and Welfare contributions are excluded from calculations since they're distributed back to members.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" (click)="showInfoModal = false">Got it</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- New Payout Modal -->
+@if (showNewPayoutModal) {
+  <div class="modal-backdrop" (click)="closeNewPayoutModal()">
+    <div class="modal modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Create New Payout</h3>
+        <button class="icon-btn" (click)="closeNewPayoutModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="payout-form">
+          <!-- Payout Type -->
+          <div class="form-field">
+            <label>Payout Type</label>
+            <select [(ngModel)]="newPayoutType" (ngModelChange)="onPayoutTypeChange()">
+              <option value="PARTIAL_DIVIDEND">Partial Dividend</option>
+              <option value="FULL_DISTRIBUTION">Full Distribution (Year-End)</option>
+              <option value="INDIVIDUAL_WITHDRAWAL">Individual Withdrawal</option>
+            </select>
+            <small class="form-hint">
+              @if (newPayoutType === 'FULL_DISTRIBUTION') {
+                Distribute entire liquid cash to all members based on share percentage.
+              } @else if (newPayoutType === 'PARTIAL_DIVIDEND') {
+                Distribute a portion of profits to all members.
+              } @else {
+                Withdraw a specific member's share (partial or full).
+              }
+            </small>
+          </div>
+
+          <!-- Member Selection (for Individual Withdrawal) -->
+          @if (newPayoutType === 'INDIVIDUAL_WITHDRAWAL') {
+            <div class="form-field">
+              <label>Member</label>
+              <select [(ngModel)]="newPayoutMemberId">
+                <option [ngValue]="null">Select member</option>
+                @for (m of members; track m.id) {
+                  <option [ngValue]="m.id">{{ m.name }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <!-- Amount -->
+          <div class="form-field">
+            <label>Amount (KES)</label>
+            <input type="number" [(ngModel)]="newPayoutAmount" [disabled]="newPayoutType === 'FULL_DISTRIBUTION'" />
+            @if (liquidity) {
+              <small class="form-hint">
+                Available: KES {{ liquidity.liquidCash | number }}
+              </small>
+            }
+          </div>
+
+          <!-- Description -->
+          <div class="form-field">
+            <label>Description (optional)</label>
+            <input type="text" [(ngModel)]="newPayoutDescription" placeholder="e.g., Q3 2026 Dividend" />
+          </div>
+
+          <!-- Preview Button -->
+          <button class="btn btn-outline" (click)="previewPayout()" [disabled]="loadingPreview()">
+            {{ loadingPreview() ? 'Loading...' : 'Preview Distribution' }}
+          </button>
+
+          <!-- Preview Results -->
+          @if (payoutPreview) {
+            <div class="payout-preview">
+              <h4>Distribution Preview</h4>
+              
+              @if (payoutPreview.warning) {
+                <div class="payout-preview-warning">
+                  <app-icon name="alert-triangle"></app-icon>
+                  <span>{{ payoutPreview.warning }}</span>
+                </div>
+              }
+
+              <div class="payout-preview-summary">
+                <div class="preview-stat">
+                  <span class="preview-stat-label">Total Amount</span>
+                  <span class="preview-stat-value">KES {{ payoutPreview.totalAmount | number }}</span>
+                </div>
+                <div class="preview-stat">
+                  <span class="preview-stat-label">Members</span>
+                  <span class="preview-stat-value">{{ payoutPreview.memberCount }}</span>
+                </div>
+              </div>
+
+              <div class="payout-preview-table">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Member</th>
+                      <th class="text-right">Share %</th>
+                      <th class="text-right">Payout</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (mp of payoutPreview.memberPreviews; track mp.memberId) {
+                      <tr>
+                        <td>{{ mp.memberName }}</td>
+                        <td class="text-right">{{ mp.sharePercentage | number:'1.2-2' }}%</td>
+                        <td class="text-right" style="font-weight: 500;">KES {{ mp.payoutAmount | number }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeNewPayoutModal()">Cancel</button>
+        <button 
+          class="btn btn-primary" 
+          (click)="createPayout()" 
+          [disabled]="!payoutPreview || !payoutPreview.canProceed || creatingPayout()">
+          {{ creatingPayout() ? 'Creating...' : 'Create Payout' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Payout Detail Modal -->
+@if (showPayoutDetailModal && selectedPayout) {
+  <div class="modal-backdrop" (click)="closePayoutDetailModal()">
+    <div class="modal modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Payout Details</h3>
+          <span class="badge" [ngClass]="getPayoutStatusBadgeClass(selectedPayout.status)">
+            {{ selectedPayout.status }}
+          </span>
+        </div>
+        <button class="icon-btn" (click)="closePayoutDetailModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Payout Info -->
+        <div class="payout-detail-info">
+          <div class="detail-row">
+            <span class="detail-label">Type</span>
+            <span class="detail-value">{{ getPayoutTypeLabel(selectedPayout.payoutType) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value" style="font-weight: 600;">KES {{ selectedPayout.payoutAmount | number }}</span>
+          </div>
+          @if (selectedPayout.description) {
+            <div class="detail-row">
+              <span class="detail-label">Description</span>
+              <span class="detail-value">{{ selectedPayout.description }}</span>
+            </div>
+          }
+          <div class="detail-row">
+            <span class="detail-label">Initiated By</span>
+            <span class="detail-value">{{ selectedPayout.initiatedByName || '-' }}</span>
+          </div>
+          @if (selectedPayout.approvedByName) {
+            <div class="detail-row">
+              <span class="detail-label">Approved By</span>
+              <span class="detail-value">{{ selectedPayout.approvedByName }}</span>
+            </div>
+          }
+          @if (selectedPayout.cancellationReason) {
+            <div class="detail-row">
+              <span class="detail-label">Cancellation Reason</span>
+              <span class="detail-value">{{ selectedPayout.cancellationReason }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Progress -->
+        <div class="payout-progress">
+          <span>{{ selectedPayout.paidCount }} of {{ selectedPayout.memberCount }} members paid</span>
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="(selectedPayout.paidCount / selectedPayout.memberCount) * 100"></div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        @if (selectedPayout.status === 'APPROVED' && session.can('PROCESS_PAYOUT')) {
+          <div style="margin-bottom: 16px;">
+            <button class="btn btn-primary btn-sm" (click)="markAllPaid(selectedPayout.id)">
+              <app-icon name="check"></app-icon> Mark All as Paid
+            </button>
+          </div>
+        }
+
+        <!-- Member Payouts Table -->
+        <div class="payout-members-section">
+          <h4>Member Payments</h4>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th class="text-right">Share %</th>
+                <th class="text-right">Amount</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (mp of selectedPayout.memberPayouts; track mp.id) {
+                <tr>
+                  <td>{{ mp.memberName }}</td>
+                  <td class="text-right">{{ mp.sharePercentage | number:'1.2-2' }}%</td>
+                  <td class="text-right" style="font-weight: 500;">KES {{ mp.payoutAmount | number }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="getMemberStatusBadgeClass(mp.status)">
+                      {{ mp.status }}
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    @if (mp.status === 'PENDING' && selectedPayout.status === 'APPROVED' && session.can('PROCESS_PAYOUT')) {
+                      <button class="btn btn-ghost btn-sm" (click)="markMemberPaid(selectedPayout.id, mp.memberId)" title="Mark as paid">
+                        <app-icon name="check"></app-icon>
+                      </button>
+                    }
+                    @if (mp.paymentReference) {
+                      <span class="text-muted" style="font-size: 0.7rem;">Ref: {{ mp.paymentReference }}</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        @if (selectedPayout.status === 'DRAFT' && session.can('CREATE_PAYOUT')) {
+          <button class="btn btn-primary" (click)="submitForApproval(selectedPayout.id)">Submit for Approval</button>
+        }
+        @if (selectedPayout.status === 'PENDING' && session.can('APPROVE_PAYOUT')) {
+          <button class="btn btn-primary" (click)="approvePayout(selectedPayout.id)">Approve</button>
+        }
+        @if ((selectedPayout.status === 'DRAFT' || selectedPayout.status === 'PENDING') && session.can('CANCEL_PAYOUT')) {
+          <button class="btn btn-danger" (click)="cancelPayout(selectedPayout.id)">Cancel Payout</button>
+        }
+        <button class="btn btn-ghost" (click)="closePayoutDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}

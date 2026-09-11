@@ -1,0 +1,622 @@
+<div class="page-header">
+  <div>
+    <h1>Loans</h1>
+    <p>Manage loan applications, approvals, disbursements, and repayments.</p>
+  </div>
+  @if (session.can('APPLY_FOR_LOAN')) {
+    <button class="btn btn-primary" (click)="openNewApplication()">
+      <app-icon name="plus"></app-icon> Apply for Loan
+    </button>
+  }
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab" [class.active]="activeTab === 'my-loans'" (click)="onTabChange('my-loans')">
+    My Loans
+  </button>
+  @if (session.canAny('APPROVE_LOAN', 'VIEW_ALL_LOANS')) {
+    <button class="tab" [class.active]="activeTab === 'pending'" (click)="onTabChange('pending')">
+      Pending Approvals
+      @if (myPendingApprovalCount > 0) {
+        <span class="badge badge-danger" style="margin-left: 6px; font-size: 10px;">{{ myPendingApprovalCount }}</span>
+      }
+    </button>
+    <button class="tab" [class.active]="activeTab === 'all'" (click)="onTabChange('all')">
+      All Loans
+    </button>
+  }
+  <button class="tab" [class.active]="activeTab === 'penalties'" (click)="onTabChange('penalties')">
+    Loan Penalties
+  </button>
+</div>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading...</p>
+  </div>
+} @else {
+  <!-- Stats (only for All Loans tab) -->
+  @if (activeTab === 'all' && allLoans.length > 0) {
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Outstanding</div>
+        <div class="stat-value">KES {{ totalOutstanding | number }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Loans</div>
+        <div class="stat-value">{{ activeCount }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending Approval</div>
+        <div class="stat-value">{{ pendingCount }}</div>
+      </div>
+    </div>
+  }
+
+  <!-- Loans Table -->
+  @if (activeTab !== 'penalties') {
+    @if (currentLoans.length === 0) {
+      <div class="empty-state-card">
+        <app-icon name="credit-card" class="empty-icon"></app-icon>
+        @if (activeTab === 'my-loans') {
+          <h3>No loans yet</h3>
+          <p>You haven't applied for any loans yet.</p>
+          @if (session.can('APPLY_FOR_LOAN')) {
+            <button class="btn btn-primary" (click)="openNewApplication()">
+              <app-icon name="plus"></app-icon> Apply for Loan
+            </button>
+          }
+        } @else if (activeTab === 'pending') {
+          <h3>No pending approvals</h3>
+          <p>There are no loan applications waiting for your approval.</p>
+        } @else {
+          <h3>No loans yet</h3>
+          <p>No loan applications have been submitted.</p>
+        }
+      </div>
+    } @else {
+      <!-- Filter -->
+      @if (activeTab === 'all') {
+        <div class="toolbar">
+          <select [(ngModel)]="statusFilter">
+            <option value="ALL">All statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="PENDING_APPROVAL">Pending Approval</option>
+            <option value="APPROVED">Approved</option>
+            <option value="ACTIVE">Active</option>
+            <option value="OVERDUE">Overdue</option>
+            <option value="DEFAULTED">Defaulted</option>
+            <option value="CLEARED">Cleared</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+      }
+
+      <div class="card">
+        <table class="data-table loans-table">
+          <thead>
+            <tr>
+              @if (activeTab !== 'my-loans') {
+                <th>Member</th>
+              }
+              <th>Product</th>
+              <th>Principal</th>
+              <th>Balance</th>
+              <th>Term</th>
+              <th>Status</th>
+              @if (activeTab === 'pending') {
+                <th>Awaiting</th>
+              }
+              <th>Next Due</th>
+              <th class="th-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (loan of filteredLoans; track loan.id) {
+              <tr>
+                @if (activeTab !== 'my-loans') {
+                  <td>
+                    <div style="font-weight: 500;">{{ loan.memberName }}</div>
+                    @if (loan.memberNo) {
+                      <div style="font-size: 10px; color: var(--color-text-muted);">{{ loan.memberNo }}</div>
+                    }
+                  </td>
+                }
+                <td>{{ loan.loanProductName || 'Custom' }}</td>
+                <td>KES {{ loan.principal | number }}</td>
+                <td>
+                  <span [style.color]="loan.balanceOutstanding > 0 ? 'var(--color-warning)' : 'var(--color-success)'">
+                    KES {{ loan.balanceOutstanding | number }}
+                  </span>
+                </td>
+                <td>{{ loan.termMonths }} mo · {{ loan.interestRate }}%</td>
+                <td>
+                  <span class="badge" [ngClass]="getStatusBadgeClass(loan.status)">
+                    {{ loan.status | titlecase }}
+                  </span>
+                </td>
+                @if (activeTab === 'pending') {
+                  <td>
+                    @if (loan.pendingApprovalRole) {
+                      <span class="badge badge-info">{{ loan.pendingApprovalRole }}</span>
+                    } @else {
+                      <span style="color: var(--color-text-muted);">—</span>
+                    }
+                  </td>
+                }
+                <td>{{ loan.nextDueDate ? (loan.nextDueDate | date:'d MMM yyyy') : '—' }}</td>
+                <td class="actions-cell">
+                  <div class="action-buttons">
+                    <button class="btn btn-sm btn-ghost" (click)="viewLoanDetails(loan)" title="View Details">
+                      <app-icon name="eye"></app-icon>
+                    </button>
+                    @if (canApprove(loan)) {
+                      <button class="btn btn-sm btn-success" (click)="openApprovalModal(loan, 'approve')" title="Approve">
+                        <app-icon name="check"></app-icon>
+                      </button>
+                      <button class="btn btn-sm btn-danger" (click)="openApprovalModal(loan, 'reject')" title="Reject">
+                        <app-icon name="close"></app-icon>
+                      </button>
+                    }
+                    @if (canDisburse(loan)) {
+                      <button class="btn btn-sm btn-primary" (click)="openDisbursementModal(loan)" title="Disburse">
+                        Disburse
+                      </button>
+                    }
+                    @if (canRecordPayment(loan)) {
+                      <button class="btn btn-sm btn-outline" (click)="openRepaymentModal(loan)" title="Record Payment">
+                        Pay
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+  <!-- Penalties Tab -->
+  @if (activeTab === 'penalties') {
+    @if (loadingPenalties()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading penalties...</p>
+      </div>
+    } @else if (loanPenalties.length === 0) {
+      <div class="empty-state-card">
+        <app-icon name="check" class="empty-icon"></app-icon>
+        <h3>No penalties</h3>
+        <p>{{ isAdmin() ? 'No loan penalties have been imposed.' : 'You have no loan penalties.' }}</p>
+      </div>
+    } @else {
+      <div class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              @if (isAdmin()) {
+                <th>Member</th>
+              }
+              <th>Loan Product</th>
+              <th>Amount</th>
+              <th>Paid</th>
+              <th>Balance</th>
+              <th>Status</th>
+              <th>Reason</th>
+              <th>Imposed</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (penalty of loanPenalties; track penalty.id) {
+              <tr>
+                @if (isAdmin()) {
+                  <td>
+                    <div style="font-weight: 600;">{{ penalty.memberName }}</div>
+                    <div style="font-size: 10px; color: var(--color-text-muted);">{{ penalty.memberNo }}</div>
+                  </td>
+                }
+                <td>{{ penalty.loanProductName || '—' }}</td>
+                <td>KES {{ penalty.amount | number }}</td>
+                <td>KES {{ penalty.paidAmount | number }}</td>
+                <td>
+                  <span [style.color]="penalty.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'">
+                    KES {{ penalty.balance | number }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="getPenaltyStatusClass(penalty.status)">
+                    {{ penalty.status }}
+                  </span>
+                </td>
+                <td style="font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                  {{ penalty.reason }}
+                </td>
+                <td>{{ penalty.imposedAt | date:'d MMM yyyy' }}</td>
+                <td style="text-align: right;">
+                  @if (penalty.status !== 'PAID' && penalty.status !== 'WAIVED' && isAdmin()) {
+                    <button class="btn btn-ghost btn-sm" (click)="waivePenalty(penalty)" title="Waive Penalty">
+                      Waive
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+}
+
+<!-- Loan Application Modal -->
+@if (showForm) {
+  <div class="modal-backdrop" (click)="closeForm()">
+    <div class="modal" style="max-width: 520px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Loan Application</h3>
+        <button class="icon-btn" (click)="closeForm()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-stack">
+          @if (isAdmin()) {
+            <div class="form-field">
+              <label>Applicant <span class="required">*</span></label>
+              <select [(ngModel)]="editing.memberId" name="memberId">
+                <option [ngValue]="null">Select member</option>
+                @for (m of members; track m.id) {
+                  <option [value]="m.id">{{ m.name }} ({{ m.memberNo }})</option>
+                }
+              </select>
+            </div>
+          }
+          
+          <div class="form-field">
+            <label>Loan Product</label>
+            <select [(ngModel)]="editing.loanProductId" (ngModelChange)="onProductChange()">
+              <option [ngValue]="null">-- Select loan product (optional) --</option>
+              @for (p of loanProducts; track p.id) {
+                <option [value]="p.id">{{ p.name }} ({{ p.interestRate }}%, {{ p.repaymentPeriod }} {{ p.repaymentPeriodType === 'MONTHS' ? 'months' : 'days' }})</option>
+              }
+            </select>
+            <small style="color: var(--color-text-muted); font-size: 10px;">
+              Select a loan product to auto-fill interest rate and term.
+            </small>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-field">
+              <label>Principal Amount (KES) <span class="required">*</span></label>
+              <input type="number" [(ngModel)]="editing.principal" min="0" />
+              @if (selectedProduct) {
+                @if (selectedProduct.minAmount || selectedProduct.maxAmount) {
+                  <small style="color: var(--color-text-muted); font-size: 10px;">
+                    @if (selectedProduct.minAmount && selectedProduct.maxAmount) {
+                      Limit: KES {{ selectedProduct.minAmount | number }} - {{ selectedProduct.maxAmount | number }}
+                    } @else if (selectedProduct.minAmount) {
+                      Min: KES {{ selectedProduct.minAmount | number }}
+                    } @else if (selectedProduct.maxAmount) {
+                      Max: KES {{ selectedProduct.maxAmount | number }}
+                    }
+                  </small>
+                }
+                @if (selectedProduct.minAmount && editing.principal && editing.principal < selectedProduct.minAmount) {
+                  <small style="color: var(--color-danger); font-size: 10px;">
+                    Amount below minimum (KES {{ selectedProduct.minAmount | number }})
+                  </small>
+                }
+                @if (selectedProduct.maxAmount && editing.principal && editing.principal > selectedProduct.maxAmount) {
+                  <small style="color: var(--color-danger); font-size: 10px;">
+                    Amount exceeds maximum (KES {{ selectedProduct.maxAmount | number }})
+                  </small>
+                }
+              }
+            </div>
+            <div class="form-field">
+              <label>Term (months)</label>
+              <input type="number" [(ngModel)]="editing.termMonths" min="1" [readonly]="editing.loanProductId" />
+            </div>
+          </div>
+          
+          @if (selectedProduct) {
+            <div class="form-hint info" style="margin-bottom: 12px;">
+              <strong>{{ selectedProduct.name }}:</strong> 
+              {{ selectedProduct.interestRate }}% {{ selectedProduct.interestType === 'REDUCING_BALANCE' ? 'reducing balance' : 'flat rate' }} interest, 
+              {{ selectedProduct.repaymentPeriod }} {{ selectedProduct.repaymentPeriodType === 'MONTHS' ? 'months' : 'days' }} term
+              @if (selectedProduct.requiredGuarantors > 0) {
+                , requires {{ selectedProduct.requiredGuarantors }} guarantor(s)
+              }
+            </div>
+          }
+          
+          <div class="form-field">
+            <label>Purpose <span class="required">*</span></label>
+            <textarea [(ngModel)]="editing.purpose" rows="2" placeholder="What is the loan for?"></textarea>
+          </div>
+          
+          <div class="form-field">
+            <label>Guarantors @if (selectedProduct && selectedProduct.requiredGuarantors) { <span class="required">*</span> (min {{ selectedProduct.requiredGuarantors }})} </label>
+            <div class="guarantor-checkboxes">
+              @for (m of members; track m.id) {
+                @if (m.id !== editing.memberId) {
+                  <label class="checkbox-item">
+                    <input type="checkbox" 
+                           [checked]="editing.guarantorIds?.includes(m.id)" 
+                           (change)="toggleGuarantor(m.id, $event)" />
+                    <span>{{ m.name }}</span>
+                  </label>
+                }
+              }
+            </div>
+            @if (selectedProduct && selectedProduct.requiredGuarantors && (editing.guarantorIds?.length || 0) < selectedProduct.requiredGuarantors) {
+              <small style="color: var(--color-danger); font-size: 10px;">
+                Please select at least {{ selectedProduct.requiredGuarantors }} guarantor(s).
+              </small>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeForm()" [disabled]="saving()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitApplication()" [disabled]="saving()">
+          {{ saving() ? 'Submitting...' : 'Submit Application' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Loan Detail Modal -->
+@if (showDetailModal && selectedLoan) {
+  <div class="modal-backdrop" (click)="closeDetailModal()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Loan details</h3>
+          <p style="color: var(--color-text-muted); margin-top: 2px;">{{ selectedLoan.loanProductName || 'Custom Loan' }} · {{ selectedLoan.memberNo }}</p>
+        </div>
+        <button class="icon-btn" (click)="closeDetailModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Basic Info -->
+        <div class="loan-detail-grid">
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Member</div>
+            <div class="loan-detail-value">{{ selectedLoan.memberName }}</div>
+          </div>
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Status</div>
+            <span class="badge" [ngClass]="getStatusBadgeClass(selectedLoan.status)">{{ selectedLoan.status | titlecase }}</span>
+          </div>
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Product</div>
+            <div class="loan-detail-value">{{ selectedLoan.loanProductName || 'Custom Loan' }}</div>
+          </div>
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Applied On</div>
+            <div class="loan-detail-value">{{ selectedLoan.applicationDate | date:'d MMM yyyy' }}</div>
+          </div>
+        </div>
+        
+        <!-- Amounts Card -->
+        <div class="loan-amounts-card">
+          <div class="loan-amounts-grid">
+            <div class="loan-amount-item">
+              <div class="loan-amount-label">Principal</div>
+              <div class="loan-amount-value">KES {{ selectedLoan.principal | number }}</div>
+            </div>
+            <div class="loan-amount-item">
+              <div class="loan-amount-label">Interest</div>
+              <div class="loan-amount-value">KES {{ selectedLoan.totalInterest | number }}</div>
+            </div>
+            <div class="loan-amount-item">
+              <div class="loan-amount-label">Total amount</div>
+              <div class="loan-amount-value">KES {{ selectedLoan.totalAmount | number }}</div>
+            </div>
+          </div>
+          <div class="loan-amounts-grid secondary">
+            <div class="loan-amount-item">
+              <div class="loan-amount-label">Paid</div>
+              <div class="loan-amount-value success">KES {{ selectedLoan.totalPaid | number }}</div>
+            </div>
+            <div class="loan-amount-item">
+              <div class="loan-amount-label">Outstanding</div>
+              <div class="loan-amount-value danger">KES {{ selectedLoan.balanceOutstanding | number }}</div>
+            </div>
+            <div class="loan-amount-item">
+              <div class="loan-amount-label">Monthly payment</div>
+              <div class="loan-amount-value">KES {{ selectedLoan.monthlyPayment | number }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Terms -->
+        <div class="loan-detail-grid">
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Interest Rate</div>
+            <div class="loan-detail-value">{{ selectedLoan.interestRate }}% per month</div>
+          </div>
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Term</div>
+            <div class="loan-detail-value">{{ selectedLoan.termMonths }} months</div>
+          </div>
+        </div>
+        
+        <!-- Purpose & Guarantors -->
+        <div class="loan-detail-grid" style="margin-top: 16px;">
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Purpose</div>
+            <div class="loan-detail-value">{{ selectedLoan.purpose || 'N/A' }}</div>
+          </div>
+          <div class="loan-detail-item">
+            <div class="loan-detail-label">Guarantors</div>
+            <div class="loan-detail-value">{{ (selectedLoan.guarantorNames && selectedLoan.guarantorNames.length > 0) ? selectedLoan.guarantorNames.join(', ') : 'None' }}</div>
+          </div>
+        </div>
+        
+        <!-- Approval History -->
+        @if (selectedLoan.approvalHistory && selectedLoan.approvalHistory.length > 0) {
+          <div class="loan-section">
+            <div class="loan-section-title">Approval history</div>
+            @for (approval of selectedLoan.approvalHistory; track approval.level) {
+              <div class="approval-history-item">
+                <span class="badge" [ngClass]="approval.action === 'APPROVED' ? 'badge-success' : 'badge-danger'">
+                  {{ approval.action | titlecase }}
+                </span>
+                <div class="approval-history-content">
+                  <div class="approval-history-title">{{ approval.levelName }}</div>
+                  <div class="approval-history-meta">
+                    {{ approval.approverName }} ({{ approval.approverRole }}) · {{ approval.actionDate | date:'d MMM yyyy, HH:mm' }}
+                  </div>
+                  @if (approval.comments) {
+                    <div class="approval-history-comments">"{{ approval.comments }}"</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
+        
+        <!-- Rejection Info -->
+        @if (selectedLoan.status === 'REJECTED' && selectedLoan.rejectionReason) {
+          <div class="loan-rejection-box">
+            <div class="loan-detail-label">Rejection Reason</div>
+            <div class="loan-detail-value">{{ selectedLoan.rejectionReason }}</div>
+            @if (selectedLoan.rejectedByName) {
+              <div class="approval-history-meta" style="margin-top: 8px;">
+                Rejected by {{ selectedLoan.rejectedByName }} on {{ selectedLoan.rejectedAt | date:'d MMM yyyy' }}
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeDetailModal()">Close</button>
+        @if (selectedLoan.status === 'APPROVED' && canDisburse(selectedLoan)) {
+          <button class="btn btn-primary" (click)="openDisbursementModal(selectedLoan)">Disburse</button>
+        }
+        @if (selectedLoan.status === 'ACTIVE') {
+          <button class="btn btn-primary" (click)="openRepaymentModal(selectedLoan)">Record Payment</button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Approval Modal -->
+@if (showApprovalModal && selectedLoan) {
+  <div class="modal-backdrop" (click)="closeApprovalModal()">
+    <div class="modal" style="max-width: 420px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ approvalAction === 'approve' ? 'Approve Loan' : 'Reject Loan' }}</h3>
+        <button class="icon-btn" (click)="closeApprovalModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 16px;">
+          <p><strong>Member:</strong> {{ selectedLoan.memberName }}</p>
+          <p><strong>Amount:</strong> KES {{ selectedLoan.principal | number }}</p>
+          <p><strong>Current Level:</strong> {{ (selectedLoan.currentApprovalLevel || 0) + 1 }} of {{ selectedLoan.requiredApprovalLevels }}</p>
+        </div>
+        
+        @if (approvalAction === 'approve') {
+          <div class="form-field">
+            <label>Comments (optional)</label>
+            <textarea [(ngModel)]="approvalComments" rows="2" placeholder="Add any comments for this approval..."></textarea>
+          </div>
+        } @else {
+          <div class="form-field">
+            <label>Reason for Rejection <span class="required">*</span></label>
+            <textarea [(ngModel)]="rejectionReason" rows="3" placeholder="Please explain why this loan is being rejected..."></textarea>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeApprovalModal()" [disabled]="saving()">Cancel</button>
+        @if (approvalAction === 'approve') {
+          <button class="btn btn-primary" (click)="submitApproval()" [disabled]="saving()">
+            {{ saving() ? 'Approving...' : 'Approve' }}
+          </button>
+        } @else {
+          <button class="btn btn-danger" (click)="submitApproval()" [disabled]="saving()">
+            {{ saving() ? 'Rejecting...' : 'Reject' }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Disbursement Modal -->
+@if (showDisbursementModal && selectedLoan) {
+  <div class="modal-backdrop" (click)="closeDisbursementModal()">
+    <div class="modal" style="max-width: 420px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Disburse Loan</h3>
+        <button class="icon-btn" (click)="closeDisbursementModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align: center; padding: 16px;">
+          <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 8px;">Disbursing to</div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">{{ selectedLoan.memberName }}</div>
+          
+          <div style="font-size: 32px; font-weight: 700; color: var(--color-primary);">
+            KES {{ selectedLoan.principal | number }}
+          </div>
+          
+          <div style="margin-top: 16px; padding: 12px; background: var(--color-warning-subtle); border-radius: 6px; font-size: 12px;">
+            <strong>Important:</strong> Disbursing this loan will mark it as active and record an outgoing transaction.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeDisbursementModal()" [disabled]="saving()">Cancel</button>
+        <button class="btn btn-primary" (click)="confirmDisbursement()" [disabled]="saving()">
+          {{ saving() ? 'Disbursing...' : 'Confirm Disbursement' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Repayment Modal -->
+@if (showRepaymentModal && selectedLoan) {
+  <div class="modal-backdrop" (click)="closeRepaymentModal()">
+    <div class="modal" style="max-width: 420px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Record Loan Payment</h3>
+        <button class="icon-btn" (click)="closeRepaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 16px;">
+          <p><strong>Member:</strong> {{ selectedLoan.memberName }}</p>
+          <p><strong>Outstanding Balance:</strong> KES {{ selectedLoan.balanceOutstanding | number }}</p>
+          <p><strong>Monthly Payment:</strong> KES {{ selectedLoan.monthlyPayment | number }}</p>
+        </div>
+        
+        <div class="form-field">
+          <label>Payment Amount (KES) <span class="required">*</span></label>
+          <input type="number" [(ngModel)]="repaymentAmount" min="0" [max]="selectedLoan.balanceOutstanding" />
+        </div>
+        
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-outline btn-sm" (click)="repaymentAmount = selectedLoan.monthlyPayment || 0">
+            Monthly ({{ selectedLoan.monthlyPayment | number }})
+          </button>
+          <button class="btn btn-outline btn-sm" (click)="repaymentAmount = selectedLoan.balanceOutstanding || 0">
+            Full Balance
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeRepaymentModal()" [disabled]="saving()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitRepayment()" [disabled]="saving()">
+          {{ saving() ? 'Recording...' : 'Record Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,72 @@
+<div class="shell">
+  <!-- Mobile overlay -->
+  @if (mobileMenuOpen()) {
+    <div class="mobile-overlay" (click)="closeMobileMenu()"></div>
+  }
+
+  <aside class="sidebar" [class.open]="mobileMenuOpen()">
+    <div class="brand">
+      <div class="brand-name">Calpex Chama Manager</div>
+      <div class="brand-tenant">{{ user()?.tenantName }}</div>
+    </div>
+
+    <nav class="nav">
+      @for (item of visibleNav(); track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          class="nav-item"
+          (click)="closeMobileMenu()"
+        >
+          <app-icon [name]="item.icon"></app-icon>
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <img src="images/calpex-final-512px.png" alt="Calpex Technologies" class="footer-logo" />
+      <div class="footer-text">
+        <span class="company-name">Calpex Technologies</span>
+        <span class="version">v1.0</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <!-- Mobile menu toggle -->
+      <button class="mobile-menu-btn" (click)="toggleMobileMenu()">
+        <app-icon [name]="mobileMenuOpen() ? 'close' : 'menu'"></app-icon>
+      </button>
+
+      @if (!user()?.isSuperAdmin) {
+        <div class="topbar-title">{{ user()?.tenantName }}</div>
+      }
+      @if (user()?.isSuperAdmin) {
+        <div class="topbar-title">Platform Administration</div>
+      }
+
+      <div class="spacer"></div>
+
+      <button class="icon-btn hide-mobile" title="Notifications"><app-icon name="bell"></app-icon></button>
+
+      <div class="user-menu">
+        <div class="user-avatar">{{ user()?.avatarInitials }}</div>
+        <div class="user-info hide-mobile">
+          <span class="user-name">{{ user()?.name }}</span>
+          <span class="user-role">{{ user()?.roleName }}</span>
+        </div>
+        <div class="user-divider hide-mobile"></div>
+        <button class="logout-btn" (click)="logout()" title="Log out">
+          <app-icon name="logout"></app-icon>
+          <span class="hide-mobile">Logout</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

@@ -1,0 +1,185 @@
+<div class="page-header">
+  <div>
+    <h1>Investments</h1>
+    <p class="text-muted">Track and manage group investments</p>
+  </div>
+  <div class="header-actions">
+    @if (pendingApprovalCount > 0) {
+      <button type="button" class="btn btn-warning" onclick="console.log('pending')" (click)="openPendingApprovalsModal()">
+        <app-icon name="bell"></app-icon> Pending ({{ pendingApprovalCount }})
+      </button>
+    }
+    @if (session.can('CREATE_INVESTMENT')) {
+      <button type="button" class="btn btn-primary" onclick="console.log('create')" (click)="openCreateModal()">
+        <app-icon name="plus"></app-icon> Propose Investment
+      </button>
+    }
+  </div>
+</div>
+
+@if (loading) {
+  <div class="loading-state"><div class="spinner"></div><p>Loading investments...</p></div>
+} @else if (investments.length === 0) {
+  <div class="empty-state-card">
+    <app-icon name="trending-up"></app-icon>
+    <h3>No investments yet</h3>
+    <p>Propose an investment to grow the group's wealth and track its performance over time.</p>
+    @if (session.can('CREATE_INVESTMENT')) {
+      <button type="button" class="btn btn-primary" onclick="console.log('create')" (click)="openCreateModal()">
+        <app-icon name="plus"></app-icon> Propose First Investment
+      </button>
+    }
+  </div>
+} @else {
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Invested</div>
+      <div class="stat-value">KES {{ totalInvested | number }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Value</div>
+      <div class="stat-value">KES {{ totalCurrentActive | number }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Net Gain/Loss</div>
+      <div class="stat-value" [class.text-success]="totalNetGain >= 0" [class.text-danger]="totalNetGain < 0">
+        {{ totalNetGain >= 0 ? '+' : '' }}KES {{ totalNetGain | number }}
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Return %</div>
+      <div class="stat-value" [class.text-success]="returnPercentage >= 0" [class.text-danger]="returnPercentage < 0">
+        {{ returnPercentage >= 0 ? '+' : '' }}{{ returnPercentage | number:'1.1-1' }}%
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Invested</th>
+          <th>Current</th>
+          <th>Gain</th>
+          <th>Status</th>
+          <th>Approval</th>
+          <th style="width:40px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (inv of investments; track inv.id) {
+          <tr class="clickable-row" (click)="viewInvestment(inv)">
+            <td><strong>{{ inv.name }}</strong></td>
+            <td><span class="badge badge-neutral">{{ getCategoryLabel(inv.category) }}</span></td>
+            <td>KES {{ inv.amountInvested | number }}</td>
+            <td>KES {{ inv.currentValue | number }}</td>
+            <td [class.text-success]="(inv.netGain || 0) >= 0" [class.text-danger]="(inv.netGain || 0) < 0">
+              {{ (inv.netGain || 0) >= 0 ? '+' : '' }}KES {{ inv.netGain | number }}
+            </td>
+            <td><span class="badge" [ngClass]="getStatusClass(inv.status)">{{ inv.status }}</span></td>
+            <td><span class="badge" [ngClass]="getApprovalClass(inv.approvalStatus)">{{ inv.approvalStatus }}</span></td>
+            <td style="text-align:right;">
+              <app-icon name="chevron-right" style="color:var(--color-text-muted);"></app-icon>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- CREATE MODAL -->
+@if (showCreateModal) {
+<div class="modal-backdrop">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3>Propose Investment</h3>
+      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeCreateModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <form (ngSubmit)="submitCreate()">
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Name</label>
+          <input type="text" [(ngModel)]="createForm.name" name="name" required placeholder="e.g., Money Market Fund">
+        </div>
+        <div class="form-field">
+          <label>Category</label>
+          <select [(ngModel)]="createForm.category" name="category">
+            @for (c of categories; track c.value) {
+              <option [value]="c.value">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Amount (KES)</label>
+          <input type="number" [(ngModel)]="createForm.amountInvested" name="amount" min="1" required>
+        </div>
+        <div class="form-field">
+          <label>Description</label>
+          <textarea [(ngModel)]="createForm.description" name="description" rows="2" placeholder="Describe the investment opportunity"></textarea>
+        </div>
+        <div class="form-field">
+          <label><input type="checkbox" [(ngModel)]="createForm.requiresApproval" name="requiresApproval"> Requires Approval</label>
+        </div>
+        @if (createForm.requiresApproval) {
+          <div class="form-field">
+            <label>Select Approvers</label>
+            <div style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:8px;">
+              @for (m of members; track m.id) {
+                <label style="display:block;padding:4px 0;cursor:pointer;">
+                  <input type="checkbox" [checked]="isApproverSelected(m.id)" (change)="toggleApprover(m.id)"> {{ m.name }}
+                </label>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeCreateModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving || !createForm.name || !createForm.amountInvested">
+          {{ saving ? 'Saving...' : 'Create Investment' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+<!-- PENDING APPROVALS MODAL -->
+@if (showPendingApprovalsModal) {
+<div class="modal-backdrop">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3>Pending Approvals</h3>
+      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closePendingApprovalsModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <div class="modal-body">
+      @if (pendingApprovals.length === 0) {
+        <p class="text-muted" style="text-align:center;padding:20px;">No pending approvals.</p>
+      } @else {
+        @for (a of pendingApprovals; track a.id) {
+          <div class="approval-item">
+            <div>
+              <strong>{{ a.investmentName }}</strong>
+              <p class="text-muted" style="margin:4px 0 0;">Awaiting your decision</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn btn-success btn-sm" onclick="console.log('approve')" (click)="submitVote(a, true)">
+                <app-icon name="check"></app-icon> Approve
+              </button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="console.log('reject')" (click)="submitVote(a, false)">
+                <app-icon name="x"></app-icon> Reject
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="console.log('close')" (click)="closePendingApprovalsModal()">Close</button>
+    </div>
+  </div>
+</div>
+}

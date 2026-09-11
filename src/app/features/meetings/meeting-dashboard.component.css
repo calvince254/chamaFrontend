@@ -1,0 +1,635 @@
+/* Meeting Dashboard Styles - Compact */
+
+/* Back Link */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-primary);
+  font-size: 10px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* Meeting Header */
+.meeting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.meeting-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 2px 0;
+  color: var(--color-text);
+}
+.meeting-subtitle {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.quorum-status {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-danger);
+}
+.quorum-status.met {
+  color: var(--color-success);
+}
+
+/* Stats Grid */
+.meeting-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.meeting-stat-box {
+  background: white;
+  padding: 8px 12px;
+}
+.meeting-stat-label {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+.meeting-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Fines Summary Bar */
+.meeting-fines-bar {
+  display: flex;
+  gap: 16px;
+  padding: 8px 12px;
+  background: #f8fafa;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+  font-size: 10px;
+}
+.meeting-fines-bar strong {
+  font-weight: 600;
+}
+
+/* Your Response Bar */
+.your-response-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8fafa;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+.your-response-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.your-response-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+.your-response-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+.your-response-status.attending {
+  color: var(--color-success);
+}
+.your-response-status.not-attending {
+  color: var(--color-danger);
+}
+.your-response-status.pending {
+  color: var(--color-text-muted);
+}
+.your-response-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Meeting Tabs */
+.meeting-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0;
+}
+.meeting-tab {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.meeting-tab:hover {
+  color: var(--color-text);
+}
+.meeting-tab.active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-text);
+}
+
+/* Meeting Card */
+.meeting-card {
+  background: white;
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.meeting-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+.meeting-card-header h3 {
+  font-size: 11px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Meeting Table */
+.meeting-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.meeting-table th {
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.meeting-table td {
+  padding: 10px 14px;
+  font-size: 11px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+}
+.meeting-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.meeting-table.compact th,
+.meeting-table.compact td {
+  padding: 6px 10px;
+  font-size: 10px;
+}
+.meeting-table .text-right {
+  text-align: right;
+}
+
+/* Member Cell */
+.member-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.member-cell .member-name {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--color-text);
+}
+.member-cell .member-no {
+  font-size: 9px;
+  color: var(--color-primary);
+}
+
+/* RSVP Badge */
+.rsvp-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 500;
+  border-radius: 3px;
+}
+.rsvp-badge.rsvp-attending {
+  background: #dcfce7;
+  color: #166534;
+}
+.rsvp-badge.rsvp-not_attending {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.rsvp-badge.rsvp-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Attendance Checkbox */
+.attendance-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 10px;
+}
+.attendance-checkbox input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Fines Badge */
+.fines-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 500;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.fines-badge:hover {
+  background: #fecaca;
+}
+.no-fines {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+/* Status Badge */
+.status-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 500;
+  border-radius: 3px;
+}
+.status-badge.status-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+.status-badge.status-partial {
+  background: #fef3c7;
+  color: #92400e;
+}
+.status-badge.status-unpaid {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.status-badge.status-waived {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Icon Button Small */
+.icon-btn-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: 4px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+.icon-btn-sm:first-child {
+  margin-left: 0;
+}
+.icon-btn-sm:hover {
+  background: #f3f4f6;
+  color: var(--color-text);
+}
+
+/* Text Colors */
+.text-success {
+  color: var(--color-success) !important;
+}
+.text-danger {
+  color: var(--color-danger) !important;
+}
+
+/* Add Fine Section */
+.add-fine-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .meeting-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .meeting-fines-bar {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .your-response-bar {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .meeting-table th,
+  .meeting-table td {
+    padding: 6px 8px;
+  }
+}
+
+
+/* ==================== Attendance Buttons ==================== */
+.attendance-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.attendance-btn.present {
+  background: #dcfce7;
+  color: #166534;
+}
+.attendance-btn.present:hover {
+  background: #bbf7d0;
+}
+.attendance-btn.absent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.attendance-btn.absent:hover {
+  background: #fecaca;
+}
+.attendance-status {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+.attendance-status.present {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+/* ==================== Minutes Tab Styles ==================== */
+.badge-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--color-success);
+  border-radius: 50%;
+  margin-left: 4px;
+}
+
+.minutes-content {
+  padding: 20px;
+}
+
+.minutes-file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f8fafa;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.minutes-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+}
+
+.minutes-file-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.minutes-file-info .file-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.minutes-file-info .file-meta {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.minutes-file-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.minutes-upload-replace {
+  text-align: center;
+  padding-top: 8px;
+}
+
+.minutes-empty-state {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.minutes-empty-state .empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: #f3f4f6;
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+
+.minutes-empty-state h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: var(--color-text);
+}
+
+.minutes-empty-state p {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 0 0 16px 0;
+}
+
+.minutes-empty-state .upload-hint {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+}
+
+.minutes-status-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* ==================== Mark Absent Modal Styles ==================== */
+.modal-subtitle {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.modal-description {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 0 0 12px 0;
+}
+
+.fine-types-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.fine-type-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fine-type-checkbox:hover {
+  border-color: var(--color-primary);
+}
+
+.fine-type-checkbox.selected {
+  background: #f0fdf4;
+  border-color: var(--color-success);
+}
+
+.fine-type-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-success);
+  cursor: pointer;
+}
+
+.fine-type-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fine-type-name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.fine-type-amount {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+.fine-type-auto {
+  font-size: 9px;
+  font-weight: 500;
+  padding: 2px 5px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 3px;
+}
+
+.absence-summary {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #f8fafa;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.absence-summary .summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+/* ==================== Minutes Viewer Modal ==================== */
+.minutes-viewer-backdrop {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.modal-fullscreen {
+  width: 90vw;
+  height: 90vh;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.minutes-viewer-body {
+  flex: 1;
+  padding: 0;
+  overflow: hidden;
+}
+
+.minutes-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: white;
+}

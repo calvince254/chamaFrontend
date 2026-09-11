@@ -1,0 +1,154 @@
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Overview of your chama's savings, loans and activity.</p>
+  </div>
+</div>
+
+@if (loading) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading dashboard...</p>
+  </div>
+} @else {
+  <!-- Stats Grid - only show cards user has permission to view -->
+  <div class="stat-grid">
+    @if (session.can('VIEW_FINANCE_SUMMARY')) {
+      <div class="stat-card">
+        <div class="stat-label">Total Savings</div>
+        <div class="stat-value">KES {{ (summary?.totalSavings ?? 0) | number }}</div>
+        <div class="stat-sub">{{ memberCount }} active members</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Loans Outstanding</div>
+        <div class="stat-value">KES {{ (summary?.totalLoansOutstanding ?? 0) | number }}</div>
+        <div class="stat-sub">{{ pendingLoans.length }} need attention</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Welfare Fund</div>
+        <div class="stat-value">KES {{ (summary?.welfareFundBalance ?? 0) | number }}</div>
+        <div class="stat-sub">Balance available</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Investment Value</div>
+        <div class="stat-value">KES {{ (summary?.investmentValue ?? 0) | number }}</div>
+        <div class="stat-sub">Across all vehicles</div>
+      </div>
+    }
+  </div>
+
+  <div class="grid-2">
+    <!-- Next Meeting Card - only if user can view meetings -->
+    @if (session.can('VIEW_MEETINGS')) {
+      <div class="card">
+        <div class="card-header">
+          <h3>Next Meeting</h3>
+          <a routerLink="/app/meetings" class="btn btn-ghost btn-sm">View all</a>
+        </div>
+        @if (nextMeeting; as m) {
+          <div class="card-body">
+            <div class="meeting-row">
+              <app-icon name="calendar"></app-icon>
+              <div>
+                <div class="meeting-date">{{ m.date | date: 'EEEE, d MMMM y' }}</div>
+                <div class="meeting-venue">{{ m.venue }} · {{ m.type }}</div>
+              </div>
+            </div>
+            <div class="meeting-meta">
+              <span class="badge" [ngClass]="m.quorumMet ? 'badge-success' : 'badge-warning'">
+                {{ m.quorumMet ? 'Quorum met' : 'Awaiting quorum' }}
+              </span>
+              <span class="badge badge-neutral">{{ m.attendeesCount }}/{{ m.totalMembers }} attended</span>
+            </div>
+          </div>
+        } @else {
+          <div class="card-body">
+            <div class="empty-state-inline">
+              <app-icon name="calendar"></app-icon>
+              <p>No upcoming meetings scheduled.</p>
+              @if (session.can('SCHEDULE_MEETING')) {
+                <a routerLink="/app/meetings" class="btn btn-sm btn-primary">Schedule Meeting</a>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Loans Needing Attention - only if user can view loans -->
+    @if (session.canAny('VIEW_LOANS', 'VIEW_PENDING_LOAN_APPROVALS')) {
+      <div class="card">
+        <div class="card-header">
+          <h3>Loans Needing Attention</h3>
+          <a routerLink="/app/loans" class="btn btn-ghost btn-sm">View all</a>
+        </div>
+        <div class="card-body">
+          @if (pendingLoans.length === 0) {
+            <div class="empty-state-inline">
+              <app-icon name="check-circle"></app-icon>
+              <p>All loans in good standing.</p>
+            </div>
+          } @else {
+            @for (l of pendingLoans; track l.id) {
+              <div class="loan-row">
+                <div>
+                  <div class="loan-member">{{ l.memberName }}</div>
+                  <div class="loan-sub">KES {{ l.balanceOutstanding | number }} outstanding</div>
+                </div>
+                <span class="badge" [ngClass]="l.status === 'DEFAULTED' ? 'badge-danger' : 'badge-info'">{{ l.status }}</span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Recent Transactions - only if user can view transactions -->
+  @if (session.can('VIEW_TRANSACTIONS')) {
+    <div class="card" style="margin-top:20px">
+      <div class="card-header">
+        <h3>Recent Transactions</h3>
+        <a routerLink="/app/finance" class="btn btn-ghost btn-sm">View ledger</a>
+      </div>
+      @if (recentTransactions.length === 0) {
+        <div class="card-body">
+          <div class="empty-state-inline">
+            <app-icon name="file-text"></app-icon>
+            <p>No transactions yet. Activity will appear here as your chama grows.</p>
+          </div>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr>
+          </thead>
+          <tbody>
+            @for (t of recentTransactions; track t.id) {
+              <tr>
+                <td>{{ t.date | date: 'd MMM y' }}</td>
+                <td><span class="badge badge-neutral">{{ t.type }}</span></td>
+                <td>{{ t.description }}</td>
+                <td [ngClass]="t.direction === 'IN' ? 'amount-in' : 'amount-out'">
+                  {{ t.direction === 'IN' ? '+' : '-' }} KES {{ t.amount | number }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+
+  <!-- Show a message if user has very limited permissions -->
+  @if (!session.can('VIEW_FINANCE_SUMMARY') && !session.can('VIEW_MEETINGS') && !session.canAny('VIEW_LOANS', 'VIEW_PENDING_LOAN_APPROVALS') && !session.can('VIEW_TRANSACTIONS')) {
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state-inline">
+          <app-icon name="info"></app-icon>
+          <p>Welcome! Use the navigation menu to access the modules you have permission to view.</p>
+        </div>
+      </div>
+    </div>
+  }
+}

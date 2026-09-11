@@ -1,0 +1,329 @@
+<div class="page-header">
+  <div>
+    <h1>Meetings</h1>
+    <p>Monthly meetings, attendance, quorum and minutes.</p>
+  </div>
+  @if (session.can('SCHEDULE_MEETING')) {
+    <button class="btn btn-primary" (click)="openNew()"><app-icon name="plus"></app-icon> Schedule Meeting</button>
+  }
+</div>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading meetings...</p>
+  </div>
+} @else if (meetings.length === 0) {
+  <div class="empty-state-card">
+    <app-icon name="calendar" class="empty-icon"></app-icon>
+    <h3>No meetings yet</h3>
+    <p>Schedule your first meeting to get started.</p>
+    @if (session.can('SCHEDULE_MEETING')) {
+      <button class="btn btn-primary" (click)="openNew()">
+        <app-icon name="plus"></app-icon> Schedule First Meeting
+      </button>
+    }
+  </div>
+} @else {
+  <div class="card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Venue</th>
+          <th>Type</th>
+          <th>RSVP</th>
+          <th>Attendance</th>
+          <th>Quorum</th>
+          <th>Fines</th>
+          <th>Minutes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of meetings; track m.id) {
+          <tr>
+            <td>{{ m.date | date: 'd MMM y' }}</td>
+            <td>{{ m.venue }}</td>
+            <td><span class="badge badge-neutral">{{ m.type }}</span></td>
+            <td>
+              <div class="rsvp-summary">
+                <span class="rsvp-count rsvp-yes" title="Attending">{{ m.rsvpAttending || 0 }}</span>
+                <span class="rsvp-count rsvp-no" title="Not attending">{{ m.rsvpNotAttending || 0 }}</span>
+                <span class="rsvp-count rsvp-pending" title="Pending">{{ m.rsvpPending || 0 }}</span>
+              </div>
+            </td>
+            <td>{{ m.attendeesCount }}/{{ m.totalMembers }}</td>
+            <td>
+              <span class="badge" [ngClass]="m.quorumMet ? 'badge-success' : 'badge-warning'">
+                {{ m.quorumMet ? 'Met' : 'Not met' }}
+              </span>
+            </td>
+            <td>KES {{ m.finesCollected | number }}</td>
+            <td>
+              <span class="badge" [ngClass]="m.minutesStatus === 'CONFIRMED' ? 'badge-success' : 'badge-neutral'">
+                {{ m.minutesStatus }}
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-primary btn-sm" (click)="viewMeeting(m)">
+                <app-icon name="eye"></app-icon> View
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+<!-- Schedule Meeting Modal -->
+@if (showForm) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Schedule Meeting</h3>
+        <button class="icon-btn" (click)="close()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Date <span class="required">*</span></label>
+            <input type="date" [(ngModel)]="editing.date" name="date" required />
+          </div>
+          <div class="form-field">
+            <label>Venue <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="editing.venue" name="venue" placeholder="e.g. Community Hall" required />
+          </div>
+          <div class="form-field">
+            <label>Type</label>
+            <select [(ngModel)]="editing.type" name="type">
+              <option value="REGULAR">Regular</option>
+              <option value="AGM">AGM</option>
+              <option value="SPECIAL">Special</option>
+            </select>
+          </div>
+          <div class="form-field" style="grid-column: 1 / -1;">
+            <label>Agenda</label>
+            <textarea [(ngModel)]="editing.agenda" name="agenda" rows="2" placeholder="Meeting agenda..."></textarea>
+          </div>
+        </div>
+
+        <!-- Member Invitation Section -->
+        <div class="invite-section">
+          <h4>Invite Members</h4>
+          <div class="invite-toggle">
+            <label class="radio-label">
+              <input type="radio" name="inviteType" [value]="true" [(ngModel)]="editing.inviteAll" />
+              Invite all members
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="inviteType" [value]="false" [(ngModel)]="editing.inviteAll" />
+              Select specific members
+            </label>
+          </div>
+
+          @if (!editing.inviteAll) {
+            <div class="member-selection">
+              <div class="member-selection-header">
+                <input 
+                  type="text" 
+                  class="search-input" 
+                  placeholder="Search members..." 
+                  [(ngModel)]="memberSearch"
+                />
+                <div class="selection-actions">
+                  <button class="btn btn-ghost btn-sm" (click)="selectAllMembers()">Select All</button>
+                  <button class="btn btn-ghost btn-sm" (click)="clearMemberSelection()">Clear</button>
+                </div>
+              </div>
+              <div class="selected-count">
+                {{ selectedMembersCount }} member(s) selected
+              </div>
+              @if (loadingMembers()) {
+                <div class="loading-inline">
+                  <div class="spinner-sm"></div>
+                  <span>Loading members...</span>
+                </div>
+              } @else {
+                <div class="member-list">
+                  @for (member of filteredMembers; track member.id) {
+                    <label class="member-item" [class.selected]="isMemberSelected(member.id)">
+                      <input 
+                        type="checkbox" 
+                        [checked]="isMemberSelected(member.id)" 
+                        (change)="toggleMemberSelection(member.id)"
+                      />
+                      <div class="member-info">
+                        <span class="member-name">{{ member.name }}</span>
+                        <span class="member-no">{{ member.memberNo }}</span>
+                      </div>
+                    </label>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="close()" [disabled]="saving()">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : 'Schedule Meeting' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- RSVP Modal -->
+@if (showRsvpModal && selectedMeeting) {
+  <div class="modal-backdrop" (click)="closeRsvpModal()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Meeting - {{ selectedMeeting.date | date: 'd MMM y' }}</h3>
+          <p style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+            {{ selectedMeeting.venue }} · {{ selectedMeeting.type }}
+          </p>
+        </div>
+        <button class="icon-btn" (click)="closeRsvpModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- My RSVP Section (for future meetings) -->
+        @if (isFutureMeeting(selectedMeeting) && myRsvp) {
+          <div class="my-rsvp-section">
+            <h4>Your Response</h4>
+            <div class="my-rsvp-status">
+              <span class="badge" [ngClass]="getRsvpBadgeClass(myRsvp.rsvpStatus)">
+                {{ getRsvpStatusLabel(myRsvp.rsvpStatus) }}
+              </span>
+              @if (myRsvp.rsvpStatus === 'NOT_ATTENDING' && myRsvp.declineReason) {
+                <span class="decline-reason">Reason: {{ myRsvp.declineReason }}</span>
+              }
+            </div>
+            
+            @if (myRsvp.rsvpStatus === 'PENDING') {
+              <div class="rsvp-actions">
+                <button class="btn btn-primary" (click)="confirmAttending()" [disabled]="submittingRsvp()">
+                  <app-icon name="check"></app-icon> I'll Attend
+                </button>
+                <button class="btn btn-outline" (click)="openDeclineModal()" [disabled]="submittingRsvp()">
+                  Can't Attend
+                </button>
+              </div>
+            } @else {
+              <div class="rsvp-actions">
+                <button class="btn btn-ghost btn-sm" (click)="confirmAttending()" [disabled]="submittingRsvp()">
+                  Change to Attending
+                </button>
+                <button class="btn btn-ghost btn-sm" (click)="openDeclineModal()" [disabled]="submittingRsvp()">
+                  Change to Not Attending
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- RSVP Summary -->
+        <div class="rsvp-summary-section">
+          <h4>Responses Summary</h4>
+          <div class="rsvp-stats">
+            <div class="rsvp-stat">
+              <span class="rsvp-stat-value rsvp-yes">{{ attendingCount }}</span>
+              <span class="rsvp-stat-label">Attending</span>
+            </div>
+            <div class="rsvp-stat">
+              <span class="rsvp-stat-value rsvp-no">{{ notAttendingCount }}</span>
+              <span class="rsvp-stat-label">Not Attending</span>
+            </div>
+            <div class="rsvp-stat">
+              <span class="rsvp-stat-value rsvp-pending">{{ pendingCount }}</span>
+              <span class="rsvp-stat-label">Pending</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendees List -->
+        <div class="attendees-section">
+          <h4>All Members</h4>
+          @if (loadingAttendees()) {
+            <div class="loading-inline">
+              <div class="spinner-sm"></div>
+              <span>Loading attendees...</span>
+            </div>
+          } @else {
+            <table class="data-table compact">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>RSVP Status</th>
+                  @if (!isFutureMeeting(selectedMeeting) && session.can('RECORD_MEETING_ATTENDANCE')) {
+                    <th>Actual Attendance</th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (a of attendees; track a.id) {
+                  <tr>
+                    <td>
+                      <div style="font-weight: 600;">{{ a.memberName }}</div>
+                      <div style="font-size: 9px; color: var(--color-text-muted);">{{ a.memberNo }}</div>
+                    </td>
+                    <td>
+                      <span class="badge" [ngClass]="getRsvpBadgeClass(a.rsvpStatus)">
+                        {{ getRsvpStatusLabel(a.rsvpStatus) }}
+                      </span>
+                      @if (a.rsvpStatus === 'NOT_ATTENDING' && a.declineReason) {
+                        <div class="decline-reason-small">{{ a.declineReason }}</div>
+                      }
+                    </td>
+                    @if (!isFutureMeeting(selectedMeeting) && session.can('RECORD_MEETING_ATTENDANCE')) {
+                      <td>
+                        <label class="attendance-toggle">
+                          <input type="checkbox" [checked]="a.attended" (change)="toggleAttendance(a)" />
+                          <span>{{ a.attended ? 'Present' : 'Absent' }}</span>
+                        </label>
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeRsvpModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Decline Reason Modal -->
+@if (showDeclineModal) {
+  <div class="modal-backdrop" (click)="closeDeclineModal()">
+    <div class="modal" style="max-width: 360px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Can't Attend?</h3>
+        <button class="icon-btn" (click)="closeDeclineModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Please provide a reason <span class="required">*</span></label>
+          <textarea 
+            [(ngModel)]="declineReason" 
+            rows="3" 
+            placeholder="e.g. Work commitment, Travel, etc."
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeDeclineModal()" [disabled]="submittingRsvp()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitDecline()" [disabled]="submittingRsvp()">
+          {{ submittingRsvp() ? 'Submitting...' : 'Submit' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,355 @@
+<div class="page-header">
+  <div>
+    <h1>Platform Administration</h1>
+    <p>Manage all chamas on the platform.</p>
+  </div>
+  <button class="btn btn-primary btn-sm" (click)="openNew()">
+    <app-icon name="plus"></app-icon> Add Chama
+  </button>
+</div>
+
+@if (successMessage()) {
+  <div class="success-banner">
+    <app-icon name="check-circle"></app-icon>
+    {{ successMessage() }}
+  </div>
+}
+
+@if (loading) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading chamas...</p>
+  </div>
+} @else if (loadError) {
+  <div class="error-state-card">
+    <app-icon name="close"></app-icon>
+    <h3>Unable to Load</h3>
+    <p>{{ loadError }}</p>
+    <button class="btn btn-primary" (click)="loadTenants()">
+      <app-icon name="refresh"></app-icon> Try Again
+    </button>
+  </div>
+} @else if (tenants.length === 0) {
+  <div class="empty-state-card">
+    <app-icon name="users"></app-icon>
+    <h3>No chamas yet</h3>
+    <p>Register the first chama to get started.</p>
+    <button class="btn btn-primary" (click)="openNew()">
+      <app-icon name="plus"></app-icon> Add Chama
+    </button>
+  </div>
+} @else {
+  <!-- Stats Strip -->
+  <div class="stats-strip">
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Total Chamas</div>
+      <div class="stats-strip-value">{{ tenants.length }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Active</div>
+      <div class="stats-strip-value">{{ activeCount }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Suspended</div>
+      <div class="stats-strip-value">{{ suspendedCount }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Total Members</div>
+      <div class="stats-strip-value">{{ totalMembers }}</div>
+    </div>
+  </div>
+
+  <!-- Tabs and Search Toolbar -->
+  <div class="toolbar-row">
+    <div class="filter-tabs">
+      <button class="filter-tab" [class.active]="activeTab === 'all'" (click)="activeTab = 'all'">
+        All <span class="tab-count">{{ tenants.length }}</span>
+      </button>
+      <button class="filter-tab" [class.active]="activeTab === 'active'" (click)="activeTab = 'active'">
+        Active <span class="tab-count">{{ activeCount }}</span>
+      </button>
+      <button class="filter-tab" [class.active]="activeTab === 'suspended'" (click)="activeTab = 'suspended'">
+        Suspended <span class="tab-count">{{ suspendedCount }}</span>
+      </button>
+    </div>
+    <div class="search-box">
+      <app-icon name="search"></app-icon>
+      <input type="text" [(ngModel)]="searchQuery" placeholder="Search chamas..." />
+    </div>
+  </div>
+
+  <!-- Chama List -->
+  <div class="chama-list-container">
+    @for (tenant of filteredTenants; track tenant.id; let last = $last) {
+      <div class="chama-row" [class.expanded]="expandedTenantId === tenant.id" [class.last-row]="last">
+        <!-- Row Header (clickable) -->
+        <div class="chama-row-header" (click)="toggleExpand(tenant)">
+          <div class="chama-avatar">
+            {{ getInitials(tenant.name) }}
+          </div>
+          
+          <div class="chama-info">
+            <div class="chama-name-row">
+              <span class="chama-name">{{ tenant.name }}</span>
+              <span class="chama-slug">{{ tenant.code }}</span>
+            </div>
+          </div>
+
+          <span class="chama-member-count">{{ tenant.memberCount }} member{{ tenant.memberCount !== 1 ? 's' : '' }}</span>
+
+          <span class="chama-plan" [class.plan-premium]="tenant.plan === 'PREMIUM'" [class.plan-standard]="tenant.plan === 'STANDARD'">{{ tenant.plan }}</span>
+
+          <div class="chama-status">
+            <span class="status-dot" [class.status-active]="tenant.status === 'ACTIVE'" 
+                  [class.status-suspended]="tenant.status === 'SUSPENDED'"></span>
+            <span class="status-text">{{ tenant.status | lowercase }}</span>
+          </div>
+
+          <app-icon name="chevronDown" class="expand-chevron" [class.rotated]="expandedTenantId === tenant.id"></app-icon>
+        </div>
+
+        <!-- Expanded Details -->
+        @if (expandedTenantId === tenant.id) {
+          <div class="chama-details">
+            <!-- Contact Info with Action Buttons on same row -->
+            <div class="contact-actions-row">
+              <div class="contact-grid">
+                <div class="contact-item">
+                  <app-icon name="mail"></app-icon>
+                  <span>{{ tenant.contactEmail }}</span>
+                </div>
+                <div class="contact-item">
+                  <app-icon name="phone"></app-icon>
+                  <span>{{ tenant.contactPhone || 'Not provided' }}</span>
+                </div>
+                <div class="contact-item">
+                  <app-icon name="calendar"></app-icon>
+                  <span>Created {{ tenant.createdAt | date:'d MMM y' }}</span>
+                </div>
+              </div>
+              
+              <!-- Action Buttons aligned right on same row -->
+              <div class="chama-actions-row">
+                <button class="btn btn-outline-subtle" (click)="toggleTenantStatus(tenant); $event.stopPropagation()">
+                  <app-icon [name]="tenant.status === 'ACTIVE' ? 'pause' : 'check'"></app-icon>
+                  {{ tenant.status === 'ACTIVE' ? 'Suspend' : 'Reinstate' }}
+                </button>
+                <button class="btn btn-danger-solid" (click)="confirmDelete(tenant); $event.stopPropagation()">
+                  <app-icon name="close"></app-icon>
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            <!-- Members Table -->
+            <div class="members-section">
+              <h4>Members ({{ tenantMembers.length }})</h4>
+              
+              @if (loadingMembers) {
+                <div class="loading-inline">
+                  <div class="spinner-sm"></div>
+                  <span>Loading members...</span>
+                </div>
+              } @else if (tenantMembers.length === 0) {
+                <p class="no-members">No members in this chama.</p>
+              } @else {
+                <table class="members-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (member of tenantMembers; track member.id) {
+                      <tr>
+                        <td class="member-name">{{ member.name }}</td>
+                        <td class="member-email">{{ member.email }}</td>
+                        <td>
+                          <select class="role-dropdown" [value]="member.roleId" 
+                                  (change)="updateMemberRole(member, +$any($event.target).value)"
+                                  (click)="$event.stopPropagation()">
+                            @for (role of tenantRoles; track role.id) {
+                              <option [value]="role.id" [selected]="role.id === member.roleId">{{ role.name }}</option>
+                            }
+                          </select>
+                        </td>
+                        <td>
+                          <div class="member-status">
+                            <span class="status-dot" [class.status-active]="member.status === 'ACTIVE'"></span>
+                            <span>{{ member.status | lowercase }}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <button class="btn-icon btn-delete-sm" (click)="removeMember(member); $event.stopPropagation()" title="Remove member">
+                            <app-icon name="close"></app-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    @if (filteredTenants.length === 0 && searchQuery) {
+      <div class="no-results">
+        No chamas match "{{ searchQuery }}".
+      </div>
+    }
+  </div>
+}
+
+<!-- Create Chama Modal -->
+@if (showForm) {
+  <div class="modal-backdrop" (click)="showForm = false">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add New Chama</h3>
+        <button class="icon-btn" (click)="showForm = false"><app-icon name="close"></app-icon></button>
+      </div>
+      <form (ngSubmit)="save()">
+        <div class="modal-body">
+          @if (error()) {
+            <div class="error-banner">{{ error() }}</div>
+          }
+          
+          <div class="form-section" style="margin-bottom: 12px;">
+            <div class="form-section-title">
+              <app-icon name="users"></app-icon>
+              Chama Details
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label>Chama Name <span class="required">*</span></label>
+                <input type="text" [(ngModel)]="draft.name" name="name" 
+                       placeholder="e.g. Pentagon Welfare Association" 
+                       [class.input-error]="formErrors.name">
+                @if (formErrors.name) {
+                  <span class="error-text">{{ formErrors.name }}</span>
+                }
+              </div>
+              <div class="form-field">
+                <label>Chama Code</label>
+                <input type="text" [(ngModel)]="draft.code" name="code" placeholder="Auto-generated">
+              </div>
+              <div class="form-field">
+                <label>Contact Email <span class="required">*</span></label>
+                <input type="email" [(ngModel)]="draft.contactEmail" name="contactEmail" 
+                       placeholder="info@chama.co.ke"
+                       [class.input-error]="formErrors.contactEmail">
+                @if (formErrors.contactEmail) {
+                  <span class="error-text">{{ formErrors.contactEmail }}</span>
+                }
+              </div>
+              <div class="form-field">
+                <label>Contact Phone</label>
+                <input type="text" [(ngModel)]="draft.contactPhone" name="contactPhone" placeholder="+254700123456">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-title">
+              <app-icon name="user"></app-icon>
+              Chama Administrator
+            </div>
+            <p style="font-size: 9px; color: var(--color-text-muted); margin-bottom: 10px;">First member of the chama. Default roles (Admin, Treasurer, Secretary, Member) are created automatically.</p>
+            <div class="form-grid">
+              <div class="form-field">
+                <label>Name <span class="required">*</span></label>
+                <input type="text" [(ngModel)]="draft.adminName" name="adminName" 
+                       placeholder="Full name"
+                       [class.input-error]="formErrors.adminName">
+                @if (formErrors.adminName) {
+                  <span class="error-text">{{ formErrors.adminName }}</span>
+                }
+              </div>
+              <div class="form-field">
+                <label>Email <span class="required">*</span></label>
+                <input type="email" [(ngModel)]="draft.adminEmail" name="adminEmail" 
+                       placeholder="admin@example.com"
+                       [class.input-error]="formErrors.adminEmail">
+                @if (formErrors.adminEmail) {
+                  <span class="error-text">{{ formErrors.adminEmail }}</span>
+                }
+              </div>
+              <div class="form-field">
+                <label>Phone</label>
+                <input type="text" [(ngModel)]="draft.adminPhone" name="adminPhone" placeholder="+254712345678">
+              </div>
+              <div class="form-field">
+                <label>Password <span class="required">*</span></label>
+                <input type="password" [(ngModel)]="draft.adminPassword" name="adminPassword" 
+                       placeholder="••••••••"
+                       [class.input-error]="formErrors.adminPassword">
+                @if (formErrors.adminPassword) {
+                  <span class="error-text">{{ formErrors.adminPassword }}</span>
+                }
+              </div>
+              <div class="form-field">
+                <label>Role <span class="required">*</span></label>
+                <select [(ngModel)]="draft.adminRoleName" name="adminRoleName">
+                  @for (roleName of availableRoleNames; track roleName) {
+                    <option [value]="roleName">{{ roleName }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost btn-sm" (click)="showForm = false">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" [disabled]="saving()">
+            {{ saving() ? 'Creating...' : 'Create Chama' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+
+<!-- Delete Confirmation Modal -->
+@if (showDeleteConfirm && tenantToDelete) {
+  <div class="modal-backdrop" (click)="cancelDelete()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Delete Chama</h3>
+        <button class="icon-btn" (click)="cancelDelete()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align: center; padding: 10px 0;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--color-danger-bg); color: var(--color-danger); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+            <app-icon name="close"></app-icon>
+          </div>
+          <h4 style="margin-bottom: 8px;">Are you sure?</h4>
+          <p style="font-size: 10px; color: var(--color-text-muted); margin-bottom: 10px;">
+            This will permanently delete <strong>{{ tenantToDelete.name }}</strong> and all its data:
+          </p>
+          <ul style="font-size: 10px; text-align: left; margin: 0 auto; max-width: 280px; color: var(--color-text-muted);">
+            <li>{{ tenantToDelete.memberCount }} member(s) and accounts</li>
+            <li>All contributions, loans, and records</li>
+            <li>All meetings and welfare events</li>
+          </ul>
+          <p style="font-size: 10px; color: var(--color-danger); font-weight: 600; margin-top: 10px;">
+            This cannot be undone!
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost btn-sm" (click)="cancelDelete()">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" (click)="deleteTenant()" [disabled]="deleting()">
+          {{ deleting() ? 'Deleting...' : 'Delete Chama' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

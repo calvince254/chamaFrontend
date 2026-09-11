@@ -1,0 +1,941 @@
+<div class="page-header">
+  <div>
+    <h1>Chama Settings</h1>
+    <p>Constitution-derived configuration and fine types.</p>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab" [class.active]="activeTab === 'general'" (click)="activeTab = 'general'">
+    General Settings
+  </button>
+  <button class="tab" [class.active]="activeTab === 'fines'" (click)="activeTab = 'fines'">
+    Fine Types
+  </button>
+  <button class="tab" [class.active]="activeTab === 'contributions'" (click)="activeTab = 'contributions'">
+    Contribution Types
+  </button>
+  <button class="tab" [class.active]="activeTab === 'loans'" (click)="activeTab = 'loans'">
+    Loan Products
+  </button>
+  @if (session.can('VIEW_SHARE_SETTINGS') || session.can('MANAGE_SHARE_SETTINGS')) {
+    <button class="tab" [class.active]="activeTab === 'shares'" (click)="activeTab = 'shares'">
+      Share Calculation
+    </button>
+  }
+  @if (session.currentUser()?.isSuperAdmin) {
+    <button class="tab" [class.active]="activeTab === 'system'" (click)="activeTab = 'system'">
+      System Settings
+    </button>
+  }
+</div>
+
+<!-- General Settings Tab -->
+@if (activeTab === 'general') {
+  <div class="card">
+    <div class="card-body">
+      @if (loadingSettings()) {
+        <div class="loading-inline">
+          <div class="spinner-sm"></div>
+          <span>Loading settings...</span>
+        </div>
+      } @else {
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Chama name</label>
+            <input type="text" [(ngModel)]="chama.name" name="name" />
+          </div>
+          <div class="form-field">
+            <label>Registration fee (KES)</label>
+            <input type="number" [(ngModel)]="chama.registrationFee" name="registrationFee" />
+          </div>
+          <div class="form-field">
+            <label>Minimum members</label>
+            <input type="number" [(ngModel)]="chama.minMembers" name="minMembers" />
+          </div>
+          <div class="form-field">
+            <label>Maximum members</label>
+            <input type="number" [(ngModel)]="chama.maxMembers" name="maxMembers" />
+          </div>
+          <div class="form-field">
+            <label>Signatories required per transaction</label>
+            <input type="number" [(ngModel)]="chama.signaturesRequired" name="signaturesRequired" />
+          </div>
+        </div>
+        <div style="margin-top: 14px; text-align: right;">
+          @if (session.can('EDIT_TENANT_SETTINGS')) {
+            <button class="btn btn-primary" (click)="saveTenantSettings()" [disabled]="savingSettings()">
+              {{ savingSettings() ? 'Saving...' : 'Save Changes' }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- Fine Types Tab -->
+@if (activeTab === 'fines') {
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3>Fine Types</h3>
+        <p style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+          Define the types of fines that can be imposed on members during meetings.
+        </p>
+      </div>
+      @if (session.can('CREATE_FINE_TYPE')) {
+        <button class="btn btn-primary" (click)="openNewFineType()">
+          <app-icon name="plus"></app-icon> Add Fine Type
+        </button>
+      }
+    </div>
+    <div class="card-body">
+      @if (loadingFineTypes()) {
+        <div class="loading-inline">
+          <div class="spinner-sm"></div>
+          <span>Loading fine types...</span>
+        </div>
+      } @else if (fineTypes.length === 0) {
+        <div class="empty-state-small">
+          <p>No fine types configured yet.</p>
+          <button class="btn btn-outline" (click)="openNewFineType()">
+            <app-icon name="plus"></app-icon> Add First Fine Type
+          </button>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Amount (KES)</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ft of fineTypes; track ft.id) {
+              <tr [class.inactive-row]="!ft.active">
+                <td style="font-weight: 600;">{{ ft.name }}</td>
+                <td style="color: var(--color-text-muted);">{{ ft.description || '-' }}</td>
+                <td>{{ ft.amount | number }}</td>
+                <td>
+                  @if (ft.automatic) {
+                    <span class="badge badge-info" style="font-size: 9px;">
+                      Auto: {{ ft.triggerType === 'MEETING_ABSENT' ? 'Absent' : 'Late Payment' }}
+                    </span>
+                  } @else {
+                    <span class="badge badge-neutral" style="font-size: 9px;">Manual</span>
+                  }
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="ft.active ? 'badge-success' : 'badge-neutral'">
+                    {{ ft.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  @if (session.can('EDIT_FINE_TYPE')) {
+                    <button class="btn btn-ghost btn-sm" (click)="editFineType(ft)" title="Edit">
+                      <app-icon name="edit"></app-icon>
+                    </button>
+                    <button class="btn btn-ghost btn-sm" (click)="toggleFineTypeActive(ft)" [title]="ft.active ? 'Deactivate' : 'Activate'">
+                      <app-icon [name]="ft.active ? 'close' : 'check'"></app-icon>
+                    </button>
+                  }
+                  @if (session.can('DELETE_FINE_TYPE')) {
+                    <button class="btn btn-ghost btn-sm" (click)="deleteFineType(ft)" title="Delete">
+                      <app-icon name="trash"></app-icon>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+<!-- Fine Type Form Modal -->
+@if (showFineTypeForm) {
+  <div class="modal-backdrop" (click)="closeFineTypeForm()">
+    <div class="modal" style="max-width: 420px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ editingFineType.id ? 'Edit Fine Type' : 'Add Fine Type' }}</h3>
+        <button class="icon-btn" (click)="closeFineTypeForm()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-stack">
+          <div class="form-field">
+            <label>Name <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="editingFineType.name" placeholder="e.g. Late arrival" />
+          </div>
+          <div class="form-field">
+            <label>Description</label>
+            <input type="text" [(ngModel)]="editingFineType.description" placeholder="Optional description" />
+          </div>
+          <div class="form-field">
+            <label>Amount (KES) <span class="required">*</span></label>
+            <input type="number" [(ngModel)]="editingFineType.amount" placeholder="0" min="0" />
+          </div>
+          
+          <!-- Automatic Fine Settings -->
+          <div class="form-field">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="editingFineType.automatic" />
+              Automatic Fine
+            </label>
+            <small style="color: var(--color-text-muted); font-size: 10px; display: block; margin-top: 2px;">
+              Automatic fines are imposed by the system based on triggers.
+            </small>
+          </div>
+          
+          @if (editingFineType.automatic) {
+            <div class="form-field">
+              <label>Trigger Type <span class="required">*</span></label>
+              <select [(ngModel)]="editingFineType.triggerType">
+                <option [ngValue]="undefined">-- Select trigger --</option>
+                <option value="MEETING_ABSENT">Meeting Absence</option>
+                <option value="LATE_PAYMENT">Late Contribution Payment</option>
+              </select>
+              <small style="color: var(--color-text-muted); font-size: 10px; display: block; margin-top: 2px;">
+                @if (editingFineType.triggerType === 'MEETING_ABSENT') {
+                  Fine will be auto-imposed when a member is marked absent from a meeting.
+                } @else if (editingFineType.triggerType === 'LATE_PAYMENT') {
+                  Fine will be auto-imposed when a contribution payment is late (based on contribution type settings).
+                } @else {
+                  Select when this fine should be automatically imposed.
+                }
+              </small>
+            </div>
+          }
+          
+          @if (editingFineType.id) {
+            <div class="form-field">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="editingFineType.active" />
+                Active
+              </label>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeFineTypeForm()" [disabled]="savingFineType()">Cancel</button>
+        <button class="btn btn-primary" (click)="saveFineType()" [disabled]="savingFineType()">
+          {{ savingFineType() ? 'Saving...' : (editingFineType.id ? 'Update' : 'Create') }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Contribution Types Tab -->
+@if (activeTab === 'contributions') {
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3>Contribution Types</h3>
+        <p style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+          Configure savings and contribution types (e.g., Monthly Savings, Principal Contribution).
+        </p>
+      </div>
+      @if (session.can('CREATE_CONTRIBUTION_TYPE')) {
+        <button class="btn btn-primary" (click)="openNewContributionType()">
+          <app-icon name="plus"></app-icon> Add Contribution Type
+        </button>
+      }
+    </div>
+    <div class="card-body">
+      @if (loadingContributionTypes()) {
+        <div class="loading-inline">
+          <div class="spinner-sm"></div>
+          <span>Loading contribution types...</span>
+        </div>
+      } @else if (contributionTypes.length === 0) {
+        <div class="empty-state-small">
+          <p>No contribution types configured yet.</p>
+          <button class="btn btn-outline" (click)="openNewContributionType()">
+            <app-icon name="plus"></app-icon> Add First Contribution Type
+          </button>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Amount (KES)</th>
+              <th>Frequency</th>
+              <th>Due Day</th>
+              <th>Late Fine</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ct of contributionTypes; track ct.id) {
+              <tr [class.inactive-row]="!ct.active">
+                <td>
+                  <div style="font-weight: 600;">{{ ct.name }}</div>
+                  @if (ct.description) {
+                    <div style="font-size: 10px; color: var(--color-text-muted);">{{ ct.description }}</div>
+                  }
+                </td>
+                <td>{{ ct.amount | number }}</td>
+                <td>
+                  <span class="badge badge-info" style="font-size: 9px;">{{ getFrequencyLabel(ct.frequency) }}</span>
+                </td>
+                <td>{{ ct.dueDay ? 'Day ' + ct.dueDay : '-' }}</td>
+                <td>
+                  @if (ct.lateFineEnabled) {
+                    <span style="font-size: 11px;">
+                      {{ ct.lateFineAmount | number }} KES
+                      @if (ct.gracePeriodDays && ct.gracePeriodDays > 0) {
+                        <span style="color: var(--color-text-muted);">({{ ct.gracePeriodDays }}d grace)</span>
+                      }
+                    </span>
+                  } @else {
+                    <span style="color: var(--color-text-muted);">-</span>
+                  }
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="ct.active ? 'badge-success' : 'badge-neutral'">
+                    {{ ct.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  @if (session.can('EDIT_CONTRIBUTION_TYPE')) {
+                    <button class="btn btn-ghost btn-sm" (click)="editContributionType(ct)" title="Edit">
+                      <app-icon name="edit"></app-icon>
+                    </button>
+                    <button class="btn btn-ghost btn-sm" (click)="toggleContributionTypeActive(ct)" [title]="ct.active ? 'Deactivate' : 'Activate'">
+                      <app-icon [name]="ct.active ? 'close' : 'check'"></app-icon>
+                    </button>
+                  }
+                  @if (session.can('DELETE_CONTRIBUTION_TYPE')) {
+                    <button class="btn btn-ghost btn-sm" (click)="deleteContributionType(ct)" title="Delete">
+                      <app-icon name="trash"></app-icon>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+<!-- Contribution Type Form Modal -->
+@if (showContributionTypeForm) {
+  <div class="modal-backdrop" (click)="closeContributionTypeForm()">
+    <div class="modal" style="max-width: 480px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ editingContributionType.id ? 'Edit Contribution Type' : 'Add Contribution Type' }}</h3>
+        <button class="icon-btn" (click)="closeContributionTypeForm()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-stack">
+          <div class="form-field">
+            <label>Name <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="editingContributionType.name" placeholder="e.g. Monthly Savings" />
+          </div>
+          <div class="form-field">
+            <label>Description</label>
+            <input type="text" [(ngModel)]="editingContributionType.description" placeholder="Optional description" />
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-field">
+              <label>Amount (KES) <span class="required">*</span></label>
+              <input type="number" [(ngModel)]="editingContributionType.amount" placeholder="0" min="0" />
+            </div>
+            <div class="form-field">
+              <label>Frequency <span class="required">*</span></label>
+              <select [(ngModel)]="editingContributionType.frequency">
+                @for (opt of frequencyOptions; track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-field">
+            <label>Due Day of Month</label>
+            <input type="number" [(ngModel)]="editingContributionType.dueDay" placeholder="5" min="1" max="28" />
+            <small style="color: var(--color-text-muted); font-size: 10px;">
+              Day of the month when payment is due (1-28).
+            </small>
+          </div>
+          
+          <!-- Late Fine Settings -->
+          <div style="border-top: 1px solid var(--color-border); padding-top: 12px; margin-top: 8px;">
+            <div class="form-field">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="editingContributionType.lateFineEnabled" />
+                Enable Late Payment Fine
+              </label>
+              <small style="color: var(--color-text-muted); font-size: 10px; display: block; margin-top: 2px;">
+                Automatically impose a penalty when payment is late.
+              </small>
+            </div>
+            
+            @if (editingContributionType.lateFineEnabled) {
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+                <div class="form-field">
+                  <label>Fine Amount (KES) <span class="required">*</span></label>
+                  <input type="number" [(ngModel)]="editingContributionType.lateFineAmount" placeholder="0" min="0" />
+                </div>
+                <div class="form-field">
+                  <label>Grace Period (Days)</label>
+                  <input type="number" [(ngModel)]="editingContributionType.gracePeriodDays" placeholder="3" min="0" />
+                </div>
+              </div>
+              <small style="color: var(--color-text-muted); font-size: 10px;">
+                Penalty will be applied after due date + grace period days.
+              </small>
+            }
+          </div>
+          
+          @if (editingContributionType.id) {
+            <div class="form-field" style="margin-top: 8px;">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="editingContributionType.active" />
+                Active
+              </label>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeContributionTypeForm()" [disabled]="savingContributionType()">Cancel</button>
+        <button class="btn btn-primary" (click)="saveContributionType()" [disabled]="savingContributionType()">
+          {{ savingContributionType() ? 'Saving...' : (editingContributionType.id ? 'Update' : 'Create') }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Loan Products Tab -->
+@if (activeTab === 'loans') {
+  <div class="card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3>Loan Products</h3>
+        <p style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+          Configure loan types with interest rates, repayment periods, penalties, and approval workflows.
+        </p>
+      </div>
+      @if (session.can('CREATE_LOAN_PRODUCT')) {
+        <button class="btn btn-primary" (click)="openNewLoanProduct()">
+          <app-icon name="plus"></app-icon> Add Loan Product
+        </button>
+      }
+    </div>
+    <div class="card-body">
+      @if (loadingLoanProducts()) {
+        <div class="loading-inline">
+          <div class="spinner-sm"></div>
+          <span>Loading loan products...</span>
+        </div>
+      } @else if (loanProducts.length === 0) {
+        <div class="empty-state-small">
+          <p>No loan products configured yet.</p>
+          <button class="btn btn-outline" (click)="openNewLoanProduct()">
+            <app-icon name="plus"></app-icon> Add First Loan Product
+          </button>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Interest</th>
+              <th>Repayment</th>
+              <th>Limits</th>
+              <th>Penalty</th>
+              <th>Approval</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (lp of loanProducts; track lp.id) {
+              <tr [class.inactive-row]="!lp.active">
+                <td>
+                  <div style="font-weight: 600;">{{ lp.name }}</div>
+                  @if (lp.description) {
+                    <div style="font-size: 10px; color: var(--color-text-muted);">{{ lp.description }}</div>
+                  }
+                </td>
+                <td>
+                  <span style="font-weight: 600;">{{ lp.interestRate }}%</span>
+                  <span style="font-size: 10px; color: var(--color-text-muted); display: block;">
+                    {{ getInterestTypeLabel(lp.interestType) }}
+                  </span>
+                </td>
+                <td>
+                  <span>{{ lp.repaymentPeriod }} {{ getPeriodTypeLabel(lp.repaymentPeriodType) }}</span>
+                </td>
+                <td style="font-size: 11px;">
+                  @if (lp.minAmount || lp.maxAmount) {
+                    {{ lp.minAmount | number }} - {{ lp.maxAmount | number }}
+                  } @else {
+                    <span style="color: var(--color-text-muted);">No limits</span>
+                  }
+                </td>
+                <td>
+                  @if (lp.penaltyEnabled) {
+                    <span style="font-size: 11px;">
+                      {{ lp.penaltyRate }}%
+                      <span style="color: var(--color-text-muted);">({{ lp.gracePeriodDays }}d grace)</span>
+                    </span>
+                  } @else {
+                    <span style="color: var(--color-text-muted);">-</span>
+                  }
+                </td>
+                <td>
+                  @if (lp.requiresApproval) {
+                    <span class="badge badge-info" style="font-size: 9px;">
+                      {{ lp.approvalLevels }} Level{{ lp.approvalLevels > 1 ? 's' : '' }}
+                    </span>
+                  } @else {
+                    <span class="badge badge-neutral" style="font-size: 9px;">Auto</span>
+                  }
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="lp.active ? 'badge-success' : 'badge-neutral'">
+                    {{ lp.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  @if (session.can('EDIT_LOAN_PRODUCT')) {
+                    <button class="btn btn-ghost btn-sm" (click)="editLoanProduct(lp)" title="Edit">
+                      <app-icon name="edit"></app-icon>
+                    </button>
+                    <button class="btn btn-ghost btn-sm" (click)="toggleLoanProductActive(lp)" [title]="lp.active ? 'Deactivate' : 'Activate'">
+                      <app-icon [name]="lp.active ? 'close' : 'check'"></app-icon>
+                    </button>
+                  }
+                  @if (session.can('DELETE_LOAN_PRODUCT')) {
+                    <button class="btn btn-ghost btn-sm" (click)="deleteLoanProduct(lp)" title="Delete">
+                      <app-icon name="trash"></app-icon>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  </div>
+}
+
+<!-- Loan Product Form Modal -->
+@if (showLoanProductForm) {
+  <div class="modal-backdrop" (click)="closeLoanProductForm()">
+    <div class="modal modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>{{ editingLoanProduct.id ? 'Edit loan product' : 'Add loan product' }}</h3>
+          <p style="color: var(--color-text-muted); margin-top: 2px;">Define the terms members will borrow under.</p>
+        </div>
+        <button class="icon-btn" (click)="closeLoanProductForm()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-two-column">
+          
+          <!-- LEFT COLUMN -->
+          <div class="form-column">
+            <!-- Basic Info Section -->
+            <div class="form-section">
+              <div class="form-section-title"><app-icon name="info"></app-icon> Basic info</div>
+              <div class="form-field">
+                <label>Product name <span class="required">*</span></label>
+                <input type="text" [(ngModel)]="editingLoanProduct.name" placeholder="e.g. Emergency Loan" />
+              </div>
+              <div class="form-field">
+                <label>Description</label>
+                <input type="text" [(ngModel)]="editingLoanProduct.description" placeholder="Optional description" />
+              </div>
+            </div>
+
+            <!-- Interest Settings Section -->
+            <div class="form-section">
+              <div class="form-section-title"><app-icon name="percent"></app-icon> Interest settings</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-field">
+                  <label>Interest rate (%) <span class="required">*</span></label>
+                  <input type="number" [(ngModel)]="editingLoanProduct.interestRate" placeholder="10" min="0" step="0.1" />
+                </div>
+                <div class="form-field">
+                  <label>Interest type <span class="required">*</span></label>
+                  <select [(ngModel)]="editingLoanProduct.interestType">
+                    @for (opt of interestTypeOptions; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+              @if (editingLoanProduct.interestType === 'FLAT') {
+                <p class="form-hint info" style="margin-top: 10px;">
+                  <strong>Flat rate:</strong> Interest is calculated on the full principal amount throughout the loan term. Total interest = Principal × Rate × Period.
+                </p>
+              }
+              @if (editingLoanProduct.interestType === 'REDUCING_BALANCE') {
+                <p class="form-hint info" style="margin-top: 10px;">
+                  <strong>Reducing balance:</strong> Interest is calculated on the outstanding balance. As you repay, interest decreases. This method typically costs less in total.
+                </p>
+              }
+            </div>
+
+            <!-- Repayment Settings Section -->
+            <div class="form-section">
+              <div class="form-section-title"><app-icon name="calendar"></app-icon> Repayment settings</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-field">
+                  <label>Repayment period <span class="required">*</span></label>
+                  <input type="number" [(ngModel)]="editingLoanProduct.repaymentPeriod" placeholder="12" min="1" />
+                </div>
+                <div class="form-field">
+                  <label>Period type <span class="required">*</span></label>
+                  <select [(ngModel)]="editingLoanProduct.repaymentPeriodType">
+                    @for (opt of periodTypeOptions; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loan Limits Section -->
+            <div class="form-section">
+              <div class="form-section-title"><app-icon name="sliders"></app-icon> Loan limits</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div class="form-field">
+                  <label>Minimum</label>
+                  <input type="number" [(ngModel)]="editingLoanProduct.minAmount" placeholder="1000" min="0" />
+                </div>
+                <div class="form-field">
+                  <label>Maximum</label>
+                  <input type="number" [(ngModel)]="editingLoanProduct.maxAmount" placeholder="100000" min="0" />
+                </div>
+                <div class="form-field">
+                  <label>Guarantors</label>
+                  <input type="number" [(ngModel)]="editingLoanProduct.requiredGuarantors" placeholder="0" min="0" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN -->
+          <div class="form-column">
+            <!-- Late Payment Penalty Card -->
+            <div class="form-card">
+              <div class="form-card-header">
+                <span class="form-card-header-title"><app-icon name="alert-triangle"></app-icon> Late payment penalty</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="editingLoanProduct.penaltyEnabled" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              @if (editingLoanProduct.penaltyEnabled) {
+                <div class="form-card-body">
+                  <div class="penalty-settings-grid">
+                    <div class="form-field">
+                      <label>Penalty rate <span class="required">*</span></label>
+                      <input type="number" [(ngModel)]="editingLoanProduct.penaltyRate" placeholder="10" min="0" step="0.1" />
+                    </div>
+                    <div class="form-field">
+                      <label>Penalty type</label>
+                      <select [(ngModel)]="editingLoanProduct.penaltyType">
+                        @for (opt of penaltyTypeOptions; track opt.value) {
+                          <option [value]="opt.value">{{ opt.label }}</option>
+                        }
+                      </select>
+                    </div>
+                  </div>
+                  <div class="penalty-settings-grid">
+                    <div class="form-field">
+                      <label>Frequency</label>
+                      <select [(ngModel)]="editingLoanProduct.penaltyFrequency">
+                        @for (opt of penaltyFrequencyOptions; track opt.value) {
+                          <option [value]="opt.value">{{ opt.label }}</option>
+                        }
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label>Grace period (days)</label>
+                      <input type="number" [(ngModel)]="editingLoanProduct.gracePeriodDays" placeholder="3" min="0" />
+                    </div>
+                  </div>
+                  <p class="form-hint">
+                    @if (editingLoanProduct.penaltyFrequency === 'FLAT') {
+                      One-time penalty applied after grace period expires.
+                    } @else {
+                      Recurring penalty applied each period the loan remains overdue.
+                    }
+                  </p>
+                </div>
+              }
+            </div>
+
+            <!-- Approval Workflow Card -->
+            <div class="form-card">
+              <div class="form-card-header">
+                <div>
+                  <span class="form-card-header-title"><app-icon name="check-circle"></app-icon> Approval workflow</span>
+                  <p class="form-hint" style="margin-top: 2px;">Loans using this product need sign-off before disbursement.</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="editingLoanProduct.requiresApproval" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              @if (editingLoanProduct.requiresApproval) {
+                <div class="form-card-body">
+                  <div class="form-field">
+                    <label>Approval levels</label>
+                    <select [(ngModel)]="editingLoanProduct.approvalLevels" (ngModelChange)="onApprovalLevelsChange()">
+                      <option [value]="1">1 level</option>
+                      <option [value]="2">2 levels</option>
+                      <option [value]="3">3 levels</option>
+                    </select>
+                  </div>
+                  
+                  @if (editingLoanProduct.approvalLevelConfig && editingLoanProduct.approvalLevelConfig.length > 0) {
+                    <div class="approval-levels-list">
+                      @for (level of editingLoanProduct.approvalLevelConfig; track level.level) {
+                        <div class="approval-level-row">
+                          <span class="level-badge">L{{ level.level }}</span>
+                          <select [(ngModel)]="level.memberId" class="approver-select">
+                            <option [value]="0">-- Select --</option>
+                            @for (m of members; track m.id) {
+                              <option [value]="m.id">{{ m.name }}</option>
+                            }
+                          </select>
+                          <input type="text" [(ngModel)]="level.levelName" placeholder="Level name" class="level-name-input" />
+                          <label class="checkbox-inline">
+                            <input type="checkbox" [(ngModel)]="level.canReject" />
+                            Reject
+                          </label>
+                        </div>
+                      }
+                    </div>
+                    <p class="form-hint">Select the member who will approve loans at each level.</p>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (editingLoanProduct.id) {
+              <div class="form-field" style="margin-top: 16px;">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="editingLoanProduct.active" />
+                  Active
+                </label>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeLoanProductForm()" [disabled]="savingLoanProduct()">Cancel</button>
+        <button class="btn btn-primary" (click)="saveLoanProduct()" [disabled]="savingLoanProduct()">
+          {{ savingLoanProduct() ? 'Saving...' : (editingLoanProduct.id ? 'Update' : 'Create') }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+
+<!-- Share Calculation Settings Tab -->
+@if (activeTab === 'shares') {
+  <div class="share-settings-container">
+    <div class="share-settings-header">
+      <h3>Share calculation settings</h3>
+      <p>Configure how member ownership percentages and values are calculated.</p>
+    </div>
+
+    @if (loadingShareSettings()) {
+      <div class="loading-inline">
+        <div class="spinner-sm"></div>
+        <span>Loading share settings...</span>
+      </div>
+    } @else {
+      <!-- Section 1: Share Percentage Calculation -->
+      <div class="share-section share-section-green">
+        <div class="share-section-header">
+          <app-icon name="refresh"></app-icon>
+          <span>Share percentage calculation</span>
+        </div>
+        <div class="share-section-formula">
+          Member Share % = (Member's Contributions in Selected Types) ÷ (Total Contributions in Selected Types) × 100
+        </div>
+        
+        <div class="share-section-body">
+          <div class="share-subsection-label">SELECT CONTRIBUTION TYPES</div>
+          @if (contributionTypes.length === 0) {
+            <p class="text-muted" style="padding: 8px 0;">No contribution types configured. Add contribution types first.</p>
+          } @else {
+            <div class="share-checkbox-grid">
+              @for (ct of contributionTypes; track ct.id) {
+                <label class="share-checkbox-item">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isShareContributionType(ct.id)" 
+                    (change)="toggleShareContributionType(ct.id)" />
+                  <span class="share-checkbox-text">
+                    {{ ct.name }} <span class="share-checkbox-meta">KES {{ ct.amount | number }} / {{ ct.frequency | lowercase }}</span>
+                  </span>
+                </label>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Section 2: Profit Pool Calculation -->
+      <div class="share-section share-section-amber">
+        <div class="share-section-header">
+          <app-icon name="dollar-sign"></app-icon>
+          <span>Profit pool (member value calculation)</span>
+        </div>
+        <div class="share-section-formula">
+          Member Value = Share % × Total Pool Value
+        </div>
+
+        <div class="share-section-body">
+          <!-- Pool Contribution Types -->
+          <div class="share-subsection-label">CONTRIBUTIONS TO INCLUDE IN POOL</div>
+          @if (contributionTypes.length === 0) {
+            <p class="text-muted" style="padding: 8px 0;">No contribution types configured.</p>
+          } @else {
+            <div class="share-checkbox-grid">
+              @for (ct of contributionTypes; track ct.id) {
+                <label class="share-checkbox-item">
+                  <input 
+                    type="checkbox" 
+                    [checked]="isPoolContributionType(ct.id)" 
+                    (change)="togglePoolContributionType(ct.id)" />
+                  <span class="share-checkbox-text">{{ ct.name }}</span>
+                </label>
+              }
+            </div>
+          }
+
+          <!-- Other Profit Sources -->
+          <div class="share-subsection-label" style="margin-top: 20px;">OTHER PROFIT SOURCES</div>
+          <div class="share-checkbox-grid">
+            <label class="share-checkbox-item">
+              <input type="checkbox" [(ngModel)]="shareSettings.includeFines" />
+              <span class="share-checkbox-text">
+                Fines collected <span class="share-checkbox-meta">paid meeting fines</span>
+              </span>
+            </label>
+            <label class="share-checkbox-item">
+              <input type="checkbox" [(ngModel)]="shareSettings.includeLoanInterest" />
+              <span class="share-checkbox-text">
+                Loan interest <span class="share-checkbox-meta">from repayments</span>
+              </span>
+            </label>
+            <label class="share-checkbox-item">
+              <input type="checkbox" [(ngModel)]="shareSettings.includeInvestmentReturns" />
+              <span class="share-checkbox-text">
+                Investment returns <span class="share-checkbox-meta">sold & active</span>
+              </span>
+            </label>
+            <label class="share-checkbox-item">
+              <input type="checkbox" [(ngModel)]="shareSettings.includePenalties" />
+              <span class="share-checkbox-text">
+                Penalties collected <span class="share-checkbox-meta">late payment</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="share-info-box">
+            <app-icon name="info"></app-icon>
+            <div>
+              <strong>Not included:</strong> Merry-Go-Round and Welfare contributions are excluded, since they're distributed straight back to members.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; text-align: right;">
+        @if (session.can('MANAGE_SHARE_SETTINGS')) {
+          <button class="btn btn-warning" (click)="saveShareSettings()" [disabled]="savingShareSettings()">
+            {{ savingShareSettings() ? 'Saving...' : 'Save settings' }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+}
+
+<!-- System Settings Tab (Super Admin Only) -->
+@if (activeTab === 'system' && session.currentUser()?.isSuperAdmin) {
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>System Settings</h3>
+        <p style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+          Platform-wide configuration settings. Changes affect all chamas.
+        </p>
+      </div>
+    </div>
+    <div class="card-body">
+      @if (loadingSystemSettings()) {
+        <div class="loading-inline">
+          <div class="spinner-sm"></div>
+          <span>Loading system settings...</span>
+        </div>
+      } @else if (systemSettings) {
+        <div class="form-section">
+          <div class="form-section-title">
+            <app-icon name="clock"></app-icon> Session Settings
+          </div>
+          <div class="form-field" style="max-width: 400px;">
+            <label>Token Expiry Time (Hours)</label>
+            <input 
+              type="number" 
+              [(ngModel)]="systemSettings.tokenExpiryHours" 
+              [min]="systemSettings.minTokenExpiryHours"
+              [max]="systemSettings.maxTokenExpiryHours"
+              placeholder="24" />
+            <small style="color: var(--color-text-muted); font-size: 10px; display: block; margin-top: 4px;">
+              How long users stay logged in before their session expires.
+              Valid range: {{ systemSettings.minTokenExpiryHours }} - {{ systemSettings.maxTokenExpiryHours }} hours.
+            </small>
+          </div>
+          <div style="margin-top: 8px;">
+            <p class="form-hint info">
+              <strong>Note:</strong> Changes to token expiry will only apply to new logins. 
+              Currently logged-in users will keep their existing session until it expires.
+            </p>
+          </div>
+        </div>
+        <div style="margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 16px; text-align: right;">
+          <button class="btn btn-primary" (click)="saveSystemSettings()" [disabled]="savingSystemSettings()">
+            {{ savingSystemSettings() ? 'Saving...' : 'Save Changes' }}
+          </button>
+        </div>
+      } @else {
+        <div class="empty-state-small">
+          <p>Unable to load system settings.</p>
+          <button class="btn btn-outline" (click)="loadSystemSettings()">
+            <app-icon name="refresh-cw"></app-icon> Retry
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}

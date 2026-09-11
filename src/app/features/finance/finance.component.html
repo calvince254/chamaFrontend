@@ -1,0 +1,46 @@
+<div class="page-header">
+  <div>
+    <h1>Finance</h1>
+    <p>Consolidated financial position and transaction ledger. Externally audited annually once funds exceed KES 500,000.</p>
+  </div>
+  <button class="btn btn-outline">Export Statement</button>
+</div>
+
+@if (isLoading) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading financial data...</p>
+  </div>
+} @else {
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-label">Total Savings</div><div class="stat-value">KES {{ (summary?.totalSavings ?? 0) | number }}</div></div>
+    <div class="stat-card"><div class="stat-label">Loans Outstanding</div><div class="stat-value">KES {{ (summary?.totalLoansOutstanding ?? 0) | number }}</div></div>
+    <div class="stat-card"><div class="stat-label">Income (This Month)</div><div class="stat-value">KES {{ (summary?.incomeThisMonth ?? 0) | number }}</div></div>
+    <div class="stat-card"><div class="stat-label">Expenditure (This Month)</div><div class="stat-value">KES {{ (summary?.expenditureThisMonth ?? 0) | number }}</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Transaction Ledger</h3></div>
+    @if (transactions.length === 0) {
+      <div class="empty-state-card">
+        <app-icon name="file-text"></app-icon>
+        <h3>No transactions yet</h3>
+        <p>Transactions will appear here as members make contributions, loan payments, and other financial activities.</p>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr></thead>
+        <tbody>
+          @for (t of transactions; track t.id) {
+            <tr>
+              <td>{{ t.date | date:'d MMM y' }}</td>
+              <td><span class="badge badge-neutral">{{ t.type }}</span></td>
+              <td>{{ t.description }}</td>
+              <td [ngClass]="t.direction === 'IN' ? 'amount-in' : 'amount-out'">{{ t.direction === 'IN' ? '+' : '-' }} KES {{ t.amount | number }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+}

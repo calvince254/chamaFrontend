@@ -1,0 +1,401 @@
+<div class="page-header">
+  <div>
+    <h1>Members</h1>
+    <p>All registered members of the group.</p>
+  </div>
+  @if (session.can('CREATE_MEMBER')) {
+    <button class="btn btn-primary" (click)="openNew()">
+      <app-icon name="plus"></app-icon> Add Member
+    </button>
+  }
+</div>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading members...</p>
+  </div>
+} @else if (members.length === 0) {
+  <div class="empty-state-card">
+    <app-icon name="users" class="empty-icon"></app-icon>
+    <h3>No members yet</h3>
+    <p>Get started by adding your first member to the group.</p>
+    @if (session.can('CREATE_MEMBER')) {
+      <button class="btn btn-primary" (click)="openNew()">
+        <app-icon name="plus"></app-icon> Add First Member
+      </button>
+    }
+  </div>
+} @else {
+  <div class="toolbar">
+    <input type="search" placeholder="Search by name or member no." [(ngModel)]="search" />
+    <select [(ngModel)]="statusFilter">
+      <option value="ALL">All statuses</option>
+      <option value="ACTIVE">Active</option>
+      <option value="SUSPENDED">Suspended</option>
+      <option value="EXITED">Exited</option>
+    </select>
+    <div class="spacer"></div>
+    <span class="badge badge-neutral">{{ filtered.length }} members</span>
+  </div>
+
+  <div class="card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Member</th><th>Member No.</th><th>Role</th><th>Savings</th><th>Shares</th><th>Loan Bal.</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of filtered; track m.id) {
+          <tr>
+            <td>
+              <div style="font-weight:600">{{ m.name }}</div>
+              <div style="font-size:12px;color:var(--color-text-muted)">{{ m.phone }}</div>
+            </td>
+            <td>{{ m.memberNo }}</td>
+            <td>{{ m.role }}</td>
+            <td>KES {{ m.totalSavings | number }}</td>
+            <td>{{ m.totalShares }}</td>
+            <td>KES {{ m.outstandingLoan | number }}</td>
+            <td>
+              <span class="badge" [ngClass]="{
+                'badge-success': m.status === 'ACTIVE',
+                'badge-warning': m.status === 'SUSPENDED',
+                'badge-neutral': m.status === 'EXITED'
+              }">{{ m.status }}</span>
+              @if (m.arrearsMonths > 0) {
+                <span class="badge badge-danger" style="margin-left:4px">{{ m.arrearsMonths }}mo arrears</span>
+              }
+            </td>
+            <td>
+              <button class="btn btn-ghost btn-sm" (click)="viewMember(m)" title="View details">
+                <app-icon name="eye"></app-icon>
+              </button>
+              @if (session.can('EDIT_MEMBER')) {
+                <button class="btn btn-ghost btn-sm" (click)="edit(m)">Edit</button>
+              }
+              @if (session.can('DELETE_MEMBER')) {
+                <button class="btn btn-ghost btn-sm btn-danger" (click)="delete(m)">Delete</button>
+              }
+            </td>
+          </tr>
+        }
+        @if (filtered.length === 0 && members.length > 0) {
+          <tr><td colspan="8" class="empty-state">No members match your filters.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (showForm) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ editing.id ? 'Edit Member' : 'Add Member' }}</h3>
+        <button class="icon-btn" (click)="close()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-field" [class.has-error]="formErrors()['name']">
+            <label>Full name <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="editing.name" name="name" placeholder="Enter full name" />
+            @if (formErrors()['name']) {
+              <span class="error-text">{{ formErrors()['name'] }}</span>
+            }
+          </div>
+          <div class="form-field" [class.has-error]="formErrors()['phone']">
+            <label>Phone <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="editing.phone" name="phone" placeholder="e.g. 0712345678" />
+            @if (formErrors()['phone']) {
+              <span class="error-text">{{ formErrors()['phone'] }}</span>
+            }
+          </div>
+          <div class="form-field" [class.has-error]="formErrors()['email']">
+            <label>Email <span class="required">*</span></label>
+            <input type="email" [(ngModel)]="editing.email" name="email" placeholder="email@example.com" />
+            @if (formErrors()['email']) {
+              <span class="error-text">{{ formErrors()['email'] }}</span>
+            }
+          </div>
+          <div class="form-field" [class.has-error]="formErrors()['password']">
+            <label>Password @if (!editing.id) { <span class="required">*</span> }</label>
+            <input type="password" [(ngModel)]="editing.password" name="password" [placeholder]="editing.id ? 'Leave blank to keep current' : 'Minimum 6 characters'" />
+            @if (formErrors()['password']) {
+              <span class="error-text">{{ formErrors()['password'] }}</span>
+            }
+          </div>
+          <div class="form-field">
+            <label>Status</label>
+            <select [(ngModel)]="editing.status" name="status">
+              <option value="ACTIVE">Active</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="EXITED">Exited</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="close()" [disabled]="saving()">Cancel</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving()">
+          {{ saving() ? 'Saving...' : 'Save Member' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+
+<!-- Member Detail Modal -->
+@if (showDetailModal && selectedMember) {
+  <div class="modal-backdrop" (click)="closeDetailModal()">
+    <div class="modal modal-fullscreen" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>{{ selectedMember.name }} — Financial Statement</h3>
+          <span class="modal-subtitle">Full contribution, loan, and payout history for this member.</span>
+        </div>
+        <button class="icon-btn" (click)="closeDetailModal()"><app-icon name="close"></app-icon></button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="detail-tabs">
+        <button class="detail-tab" [class.active]="detailTab === 'overview'" (click)="detailTab = 'overview'">Overview</button>
+        <button class="detail-tab" [class.active]="detailTab === 'loans'" (click)="detailTab = 'loans'">Loans</button>
+        <button class="detail-tab" [class.active]="detailTab === 'fines'" (click)="detailTab = 'fines'">Fines & Welfare</button>
+        <button class="detail-tab" [class.active]="detailTab === 'payouts'" (click)="detailTab = 'payouts'">Payout History</button>
+        <button class="detail-tab" [class.active]="detailTab === 'transactions'" (click)="detailTab = 'transactions'">Transactions</button>
+      </div>
+
+      <div class="modal-body">
+        @if (loadingSummary()) {
+          <div class="loading-inline">
+            <div class="spinner-sm"></div>
+            <span>Loading financial summary...</span>
+          </div>
+        } @else if (memberSummary) {
+
+          <!-- OVERVIEW TAB -->
+          @if (detailTab === 'overview') {
+            <div class="detail-content">
+              <!-- Share Ownership Card -->
+              <div class="detail-card">
+                <h4>Share Ownership</h4>
+                <div class="stat-row">
+                  <div class="stat-item">
+                    <span class="stat-label">Original Contributions</span>
+                    <span class="stat-value">KES {{ memberSummary.originalContributions | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Adjusted (After Payouts)</span>
+                    <span class="stat-value">KES {{ memberSummary.adjustedContributions | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Share Percentage</span>
+                    <span class="stat-value stat-primary">{{ memberSummary.sharePercentage | number:'1.2-2' }}%</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Current Value</span>
+                    <span class="stat-value stat-primary">KES {{ memberSummary.currentShareValue | number }}</span>
+                  </div>
+                </div>
+                @if (memberSummary.totalPaidOut > 0) {
+                  <div class="detail-note">
+                    <app-icon name="info"></app-icon>
+                    <span>Received <strong>KES {{ memberSummary.totalPaidOut | number }}</strong> in payouts.</span>
+                  </div>
+                }
+              </div>
+
+              <!-- Contributions Card -->
+              <div class="detail-card">
+                <h4>Contributions</h4>
+                <div class="stat-row">
+                  <div class="stat-item">
+                    <span class="stat-label">Total Due</span>
+                    <span class="stat-value">KES {{ memberSummary.totalContributionsDue | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Total Paid</span>
+                    <span class="stat-value stat-success">KES {{ memberSummary.totalContributionsPaid | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Balance</span>
+                    <span class="stat-value" [class.stat-danger]="memberSummary.contributionsBalance > 0">KES {{ memberSummary.contributionsBalance | number }}</span>
+                  </div>
+                </div>
+                @if (memberSummary.contributionsByType && memberSummary.contributionsByType.length > 0) {
+                  <table class="detail-table">
+                    <thead>
+                      <tr><th>Type</th><th class="text-right">Due</th><th class="text-right">Paid</th><th class="text-right">Balance</th><th class="text-center">Months</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (ct of memberSummary.contributionsByType; track ct.contributionTypeId) {
+                        <tr>
+                          <td>{{ ct.contributionTypeName }}</td>
+                          <td class="text-right">KES {{ ct.totalDue | number }}</td>
+                          <td class="text-right">KES {{ ct.totalPaid | number }}</td>
+                          <td class="text-right" [class.text-danger]="ct.balance > 0">KES {{ ct.balance | number }}</td>
+                          <td class="text-center">{{ ct.monthsCount }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              </div>
+
+              <!-- Net Position Card -->
+              <div class="detail-card detail-card-highlight">
+                <div class="net-row">
+                  <div>
+                    <span class="net-label">Net Position</span>
+                    <span class="net-sub">Share Value − Loans − Fines − Arrears</span>
+                  </div>
+                  <span class="net-value" [class.positive]="memberSummary.netPosition >= 0" [class.negative]="memberSummary.netPosition < 0">
+                    KES {{ memberSummary.netPosition | number }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- LOANS TAB -->
+          @if (detailTab === 'loans') {
+            <div class="detail-content">
+              <div class="detail-card">
+                <h4>Loans</h4>
+                <div class="stat-row">
+                  <div class="stat-item">
+                    <span class="stat-label">Total Borrowed</span>
+                    <span class="stat-value">KES {{ memberSummary.totalLoansBorrowed | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Total Repaid</span>
+                    <span class="stat-value stat-success">KES {{ memberSummary.totalLoansRepaid | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Outstanding Balance</span>
+                    <span class="stat-value" [class.stat-danger]="memberSummary.outstandingLoanBalance > 0">KES {{ memberSummary.outstandingLoanBalance | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Loan Status</span>
+                    <span class="stat-value">{{ memberSummary.activeLoansCount }} active, {{ memberSummary.clearedLoansCount }} cleared</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- FINES & WELFARE TAB -->
+          @if (detailTab === 'fines') {
+            <div class="detail-content">
+              <div class="detail-card">
+                <h4>Fines & Penalties</h4>
+                <div class="stat-row">
+                  <div class="stat-item">
+                    <span class="stat-label">Fines Imposed</span>
+                    <span class="stat-value">KES {{ memberSummary.totalFinesImposed | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Fines Paid</span>
+                    <span class="stat-value stat-success">KES {{ memberSummary.totalFinesPaid | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Fines Balance</span>
+                    <span class="stat-value" [class.stat-danger]="memberSummary.finesBalance > 0">KES {{ memberSummary.finesBalance | number }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-card">
+                <h4>Welfare & Merry-Go-Round</h4>
+                <div class="stat-row">
+                  <div class="stat-item">
+                    <span class="stat-label">Welfare Contributed</span>
+                    <span class="stat-value">KES {{ memberSummary.totalWelfareContributed | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Welfare Received</span>
+                    <span class="stat-value stat-success">KES {{ memberSummary.totalWelfareReceived | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">MGR Contributed</span>
+                    <span class="stat-value">KES {{ memberSummary.totalMgrContributed | number }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">MGR Received</span>
+                    <span class="stat-value stat-success">KES {{ memberSummary.totalMgrReceived | number }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- PAYOUT HISTORY TAB -->
+          @if (detailTab === 'payouts') {
+            <div class="detail-content">
+              <div class="detail-card">
+                <h4>Payout History</h4>
+                @if (memberSummary.payoutHistory && memberSummary.payoutHistory.length > 0) {
+                  <table class="detail-table">
+                    <thead>
+                      <tr><th>Date</th><th class="text-right">Amount</th><th class="text-right">Share %</th><th>Reference</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (p of memberSummary.payoutHistory; track p.id) {
+                        <tr>
+                          <td>{{ p.paidAt | date:'d MMM y' }}</td>
+                          <td class="text-right">KES {{ p.payoutAmount | number }}</td>
+                          <td class="text-right">{{ p.sharePercentage | number:'1.2-2' }}%</td>
+                          <td>{{ p.paymentReference || '-' }}</td>
+                          <td><span class="badge badge-success">{{ p.status }}</span></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                } @else {
+                  <p class="empty-text">No payouts received yet.</p>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- TRANSACTIONS TAB -->
+          @if (detailTab === 'transactions') {
+            <div class="detail-content">
+              <div class="detail-card">
+                <h4>Recent Transactions</h4>
+                @if (memberSummary.recentTransactions && memberSummary.recentTransactions.length > 0) {
+                  <table class="detail-table">
+                    <thead>
+                      <tr><th>Date</th><th>Type</th><th>Description</th><th class="text-right">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (t of memberSummary.recentTransactions; track t.id) {
+                        <tr>
+                          <td>{{ t.date | date:'d MMM y' }}</td>
+                          <td><span class="badge badge-neutral">{{ t.type }}</span></td>
+                          <td>{{ t.description }}</td>
+                          <td class="text-right" [class.text-success]="t.direction === 'IN'" [class.text-danger]="t.direction === 'OUT'">
+                            {{ t.direction === 'IN' ? '+' : '-' }} KES {{ t.amount | number }}
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                } @else {
+                  <p class="empty-text">No transactions recorded.</p>
+                }
+              </div>
+            </div>
+          }
+
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}

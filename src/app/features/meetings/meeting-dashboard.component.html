@@ -1,0 +1,546 @@
+<!-- Back link -->
+<a class="back-link" (click)="goBack()">
+  <app-icon name="chevron-left"></app-icon> Back to meetings
+</a>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading meeting details...</p>
+  </div>
+} @else if (meeting) {
+  <!-- Meeting Header -->
+  <div class="meeting-header">
+    <div>
+      <h1 class="meeting-title">{{ meeting.date | date: 'd MMMM yyyy' }}</h1>
+      <p class="meeting-subtitle">{{ meeting.venue }} — {{ meeting.type | titlecase }} meeting</p>
+    </div>
+    <span class="quorum-status" [class.met]="meeting.quorumMet">
+      {{ meeting.quorumMet ? 'Quorum met' : 'No quorum' }}
+    </span>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="meeting-stats-grid">
+    <div class="meeting-stat-box">
+      <div class="meeting-stat-label">Invited</div>
+      <div class="meeting-stat-value">{{ meeting.totalMembers }}</div>
+    </div>
+    <div class="meeting-stat-box">
+      <div class="meeting-stat-label">RSVP yes</div>
+      <div class="meeting-stat-value text-success">{{ meeting.rsvpAttending || 0 }}</div>
+    </div>
+    <div class="meeting-stat-box">
+      <div class="meeting-stat-label">RSVP no</div>
+      <div class="meeting-stat-value">{{ meeting.rsvpNotAttending || 0 }}</div>
+    </div>
+    <div class="meeting-stat-box">
+      <div class="meeting-stat-label">Attended</div>
+      <div class="meeting-stat-value">{{ actualAttendanceCount }}</div>
+    </div>
+  </div>
+
+  <!-- Fines Summary Bar -->
+  <div class="meeting-fines-bar">
+    <span>Total fines <strong>KES {{ totalFinesAmount | number }}</strong></span>
+    <span>Paid <strong class="text-success">KES {{ totalFinesPaid | number }}</strong></span>
+    <span>Balance <strong class="text-danger">KES {{ totalFinesBalance | number }}</strong></span>
+  </div>
+
+  <!-- Your Response Section -->
+  @if (myRsvp) {
+    <div class="your-response-bar">
+      <div class="your-response-left">
+        <span class="your-response-label">Your response</span>
+        @if (myRsvp.rsvpStatus === 'ATTENDING') {
+          <span class="your-response-status attending">
+            <app-icon name="check"></app-icon> Attending
+          </span>
+        } @else if (myRsvp.rsvpStatus === 'NOT_ATTENDING') {
+          <span class="your-response-status not-attending">Not attending</span>
+        } @else {
+          <span class="your-response-status pending">Pending</span>
+        }
+      </div>
+      <div class="your-response-actions">
+        @if (myRsvp.rsvpStatus === 'PENDING') {
+          <button class="btn btn-primary btn-sm" (click)="confirmAttending()" [disabled]="submittingRsvp()">
+            I'll attend
+          </button>
+          <button class="btn btn-outline btn-sm" (click)="openDeclineModal()" [disabled]="submittingRsvp()">
+            Can't attend
+          </button>
+        } @else if (myRsvp.rsvpStatus === 'ATTENDING') {
+          <button class="btn btn-outline btn-sm" (click)="openDeclineModal()" [disabled]="submittingRsvp()">
+            Mark as not attending
+          </button>
+        } @else {
+          <button class="btn btn-outline btn-sm" (click)="confirmAttending()" [disabled]="submittingRsvp()">
+            Change to attending
+          </button>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Tabs -->
+  <div class="meeting-tabs">
+    <button class="meeting-tab" [class.active]="activeTab === 'attendees'" (click)="activeTab = 'attendees'">
+      Attendees ({{ attendees.length }})
+    </button>
+    <button class="meeting-tab" [class.active]="activeTab === 'fines'" (click)="activeTab = 'fines'">
+      Fines ({{ fines.length }})
+    </button>
+    <button class="meeting-tab" [class.active]="activeTab === 'minutes'" (click)="activeTab = 'minutes'">
+      Minutes
+      @if (meeting.hasMinutesFile) {
+        <span class="badge-dot"></span>
+      }
+    </button>
+  </div>
+
+  <!-- Attendees Tab -->
+  @if (activeTab === 'attendees') {
+    <div class="meeting-card">
+      <div class="meeting-card-header">
+        <h3>Invited members</h3>
+        @if (session.can('MANAGE_MEETING_ATTENDANCE')) {
+          <button class="btn btn-primary btn-sm" (click)="openAddMemberModal()">
+            <app-icon name="plus"></app-icon> Add member
+          </button>
+        }
+      </div>
+
+      @if (loadingAttendees()) {
+        <div class="loading-inline">
+          <div class="spinner-sm"></div>
+          <span>Loading...</span>
+        </div>
+      } @else if (attendees.length === 0) {
+        <div class="empty-state-small">
+          <p>No members invited yet.</p>
+        </div>
+      } @else {
+        <table class="meeting-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>RSVP</th>
+              <th>Attended</th>
+              <th>Fines</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of attendees; track a.id) {
+              <tr>
+                <td>
+                  <div class="member-cell">
+                    <span class="member-name">{{ a.memberName }}</span>
+                    <span class="member-no">{{ a.memberNo }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="rsvp-badge" [class]="'rsvp-' + a.rsvpStatus.toLowerCase()">
+                    {{ getRsvpStatusLabel(a.rsvpStatus) }}
+                  </span>
+                </td>
+                <td>
+                  @if (session.can('RECORD_MEETING_ATTENDANCE')) {
+                    @if (a.attended) {
+                      <button class="attendance-btn present" (click)="toggleAttendance(a)" title="Click to mark as absent">
+                        <app-icon name="check"></app-icon> Present
+                      </button>
+                    } @else {
+                      <button class="attendance-btn absent" (click)="toggleAttendance(a)" title="Click to mark as present">
+                        <app-icon name="close"></app-icon> Absent
+                      </button>
+                    }
+                  } @else {
+                    <span class="attendance-status" [class.present]="a.attended">
+                      {{ a.attended ? 'Present' : 'Absent' }}
+                    </span>
+                  }
+                </td>
+                <td>
+                  @if (getMemberFines(a.memberId).length > 0) {
+                    <span class="fines-badge" (click)="openImposeFineModal(a)">
+                      {{ getMemberFines(a.memberId).length }} · KES {{ getMemberFinesTotal(a.memberId) | number }}
+                    </span>
+                  } @else {
+                    <span class="no-fines">—</span>
+                  }
+                </td>
+                <td class="text-right">
+                  @if (session.can('MANAGE_MEETING_FINES')) {
+                    <button class="icon-btn-sm" (click)="openImposeFineModal(a)" title="Manage Fines">
+                      <app-icon name="eye"></app-icon>
+                    </button>
+                    <button class="icon-btn-sm" (click)="removeMember(a)" title="Remove">
+                      <app-icon name="trash"></app-icon>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+
+  <!-- Fines Tab -->
+  @if (activeTab === 'fines') {
+    <div class="meeting-card">
+      <div class="meeting-card-header">
+        <h3>Meeting Fines</h3>
+      </div>
+
+      @if (loadingFines()) {
+        <div class="loading-inline">
+          <div class="spinner-sm"></div>
+          <span>Loading...</span>
+        </div>
+      } @else if (fines.length === 0) {
+        <div class="empty-state-small">
+          <p>No fines imposed for this meeting.</p>
+        </div>
+      } @else {
+        <table class="meeting-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Fine Type</th>
+              <th class="text-right">Amount</th>
+              <th class="text-right">Paid</th>
+              <th class="text-right">Balance</th>
+              <th>Status</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of fines; track f.id) {
+              <tr>
+                <td>
+                  <div class="member-cell">
+                    <span class="member-name">{{ f.memberName }}</span>
+                    <span class="member-no">{{ f.memberNo }}</span>
+                  </div>
+                </td>
+                <td>{{ f.fineTypeName }}</td>
+                <td class="text-right">KES {{ f.amount | number }}</td>
+                <td class="text-right text-success">KES {{ f.paidAmount || 0 | number }}</td>
+                <td class="text-right text-danger">KES {{ f.amount - (f.paidAmount || 0) | number }}</td>
+                <td>
+                  <span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span>
+                </td>
+                <td class="text-right">
+                  @if (session.can('MANAGE_MEETING_FINES')) {
+                    @if (f.status !== 'PAID' && f.status !== 'WAIVED') {
+                      <button class="btn btn-primary btn-sm" (click)="openPaymentModal(f)">Pay</button>
+                    }
+                    <button class="icon-btn-sm" (click)="deleteFine(f)" title="Delete">
+                      <app-icon name="trash"></app-icon>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+
+  <!-- Minutes Tab -->
+  @if (activeTab === 'minutes') {
+    <div class="meeting-card">
+      <div class="meeting-card-header">
+        <h3>Meeting Minutes</h3>
+        @if (session.can('UPLOAD_MEETING_MINUTES')) {
+          <input type="file" #minutesFileInput (change)="onMinutesFileSelected($event)" 
+                 accept=".doc" style="display: none;" />
+        }
+      </div>
+
+      <div class="minutes-content">
+        @if (meeting.hasMinutesFile) {
+          <!-- Minutes File Card -->
+          <div class="minutes-file-card">
+            <div class="minutes-file-icon">
+              <app-icon [name]="getFileIcon(meeting.minutesFileName)"></app-icon>
+            </div>
+            <div class="minutes-file-info">
+              <span class="file-name">{{ meeting.minutesFileName }}</span>
+              <span class="file-meta">
+                Uploaded {{ meeting.minutesUploadedAt | date:'medium' }}
+              </span>
+            </div>
+            <div class="minutes-file-actions">
+              @if (session.can('DOWNLOAD_MEETING_MINUTES')) {
+                <button class="btn btn-outline btn-sm" (click)="downloadMinutes()" title="Download">
+                  <app-icon name="download"></app-icon> Download
+                </button>
+              }
+              @if (session.can('DELETE_MEETING_MINUTES')) {
+                <button class="btn btn-danger btn-sm" (click)="deleteMinutes()" [disabled]="deletingMinutes()" title="Delete">
+                  <app-icon name="trash"></app-icon>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Replace existing minutes -->
+          @if (session.can('UPLOAD_MEETING_MINUTES')) {
+            <div class="minutes-upload-replace">
+              <button class="btn btn-outline" (click)="triggerMinutesUpload()" [disabled]="uploadingMinutes()">
+                <app-icon name="upload"></app-icon>
+                {{ uploadingMinutes() ? 'Uploading...' : 'Replace Minutes' }}
+              </button>
+            </div>
+          }
+        } @else {
+          <!-- No minutes uploaded yet -->
+          <div class="minutes-empty-state">
+            <div class="empty-icon">
+              <app-icon name="file"></app-icon>
+            </div>
+            <h4>No minutes uploaded yet</h4>
+            <p>Generate a pre-filled minutes document with attendance data, fill in the discussion and resolutions, then upload it.</p>
+            
+            <div class="minutes-actions-row">
+              <button class="btn btn-outline" (click)="generateMinutes()" [disabled]="generatingMinutes()">
+                <app-icon name="download"></app-icon>
+                {{ generatingMinutes() ? 'Generating...' : 'Download Template' }}
+              </button>
+              
+              @if (session.can('UPLOAD_MEETING_MINUTES')) {
+                <button class="btn btn-primary" (click)="triggerMinutesUpload()" [disabled]="uploadingMinutes()">
+                  <app-icon name="upload"></app-icon>
+                  {{ uploadingMinutes() ? 'Uploading...' : 'Upload Minutes' }}
+                </button>
+              }
+            </div>
+            <p class="upload-hint">Upload DOC file (max 10MB).</p>
+          </div>
+        }
+
+        <!-- Minutes Status -->
+        <div class="minutes-status-section">
+          <div class="status-row">
+            <span class="status-label">Status:</span>
+            <span class="status-badge" [class]="meeting.minutesStatus === 'CONFIRMED' ? 'status-paid' : 'status-unpaid'">
+              {{ meeting.minutesStatus === 'CONFIRMED' ? 'Confirmed' : 'Draft' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+}
+
+<!-- Decline Reason Modal -->
+@if (showDeclineModal) {
+  <div class="modal-backdrop" (click)="closeDeclineModal()">
+    <div class="modal" style="max-width: 360px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Can't Attend?</h3>
+        <button class="icon-btn" (click)="closeDeclineModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Reason <span class="required">*</span></label>
+          <textarea [(ngModel)]="declineReason" rows="3" placeholder="e.g. Work commitment..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeDeclineModal()" [disabled]="submittingRsvp()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitDecline()" [disabled]="submittingRsvp()">Submit</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Add Member Modal -->
+@if (showAddMemberModal) {
+  <div class="modal-backdrop" (click)="closeAddMemberModal()">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add Member to Meeting</h3>
+        <button class="icon-btn" (click)="closeAddMemberModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <input 
+          type="text" 
+          class="search-input" 
+          style="width: 100%; margin-bottom: 10px;"
+          placeholder="Search members..." 
+          [(ngModel)]="memberSearch"
+        />
+        @if (loadingUninvited()) {
+          <div class="loading-inline">
+            <div class="spinner-sm"></div>
+            <span>Loading...</span>
+          </div>
+        } @else if (uninvitedMembers.length === 0) {
+          <div class="empty-state-small">
+            <p>All members are already invited.</p>
+          </div>
+        } @else {
+          <div class="member-list" style="max-height: 250px;">
+            @for (m of filteredUninvited; track m.id) {
+              <div class="member-item-row">
+                <div class="member-info">
+                  <span class="member-name">{{ m.name }}</span>
+                  <span class="member-no">{{ m.memberNo }}</span>
+                </div>
+                <button class="btn btn-primary btn-sm" (click)="addMember(m)" [disabled]="addingMember()">
+                  Add
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeAddMemberModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Manage Fines Modal -->
+@if (showImposeFineModal && selectedMemberForFine) {
+  <div class="modal-backdrop" (click)="closeImposeFineModal()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Manage Fines - {{ selectedMemberForFine.memberName }}</h3>
+          <p style="font-size: 11px; color: var(--color-text-muted);">{{ selectedMemberForFine.memberNo }}</p>
+        </div>
+        <button class="icon-btn" (click)="closeImposeFineModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Existing fines -->
+        @if (selectedMemberFines.length > 0) {
+          <div class="existing-fines-section">
+            <h4>Existing Fines</h4>
+            <table class="meeting-table compact">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th class="text-right">Amount</th>
+                  <th class="text-right">Paid</th>
+                  <th class="text-right">Balance</th>
+                  <th>Status</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (f of selectedMemberFines; track f.id) {
+                  <tr>
+                    <td>{{ f.fineTypeName }}</td>
+                    <td class="text-right">KES {{ f.amount | number }}</td>
+                    <td class="text-right text-success">KES {{ f.paidAmount || 0 | number }}</td>
+                    <td class="text-right text-danger">KES {{ f.amount - (f.paidAmount || 0) | number }}</td>
+                    <td><span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span></td>
+                    <td class="text-right" style="white-space: nowrap;">
+                      @if (f.status !== 'PAID' && f.status !== 'WAIVED') {
+                        <button class="btn btn-primary btn-sm" (click)="openPaymentModal(f)">Pay</button>
+                      }
+                      <button class="icon-btn-sm" (click)="deleteFine(f)">
+                        <app-icon name="trash"></app-icon>
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        <!-- Add new fine -->
+        <div class="add-fine-section">
+          <h4>Add New Fine</h4>
+          <div class="add-fine-row">
+            <div class="form-field" style="flex: 1;">
+              <label>Fine Type</label>
+              @if (fineTypes.length === 0) {
+                <p style="color: var(--color-text-muted); font-size: 11px;">
+                  No fine types configured. Go to Settings → Fine Types.
+                </p>
+              } @else {
+                <select [(ngModel)]="selectedFineTypeId">
+                  <option [ngValue]="null">Select fine type...</option>
+                  @for (ft of fineTypes; track ft.id) {
+                    <option [ngValue]="ft.id">{{ ft.name }} (KES {{ ft.amount | number }})</option>
+                  }
+                </select>
+              }
+            </div>
+            <button class="btn btn-primary" style="align-self: flex-end;" (click)="imposeFine()" [disabled]="imposingFine() || !selectedFineTypeId">
+              {{ imposingFine() ? 'Adding...' : 'Add Fine' }}
+            </button>
+          </div>
+          <div class="form-field" style="margin-top: 8px;">
+            <label>Notes (optional)</label>
+            <input type="text" [(ngModel)]="fineNotes" placeholder="Optional notes..." />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeImposeFineModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Record Payment Modal -->
+@if (showPaymentModal && selectedFineForPayment) {
+  <div class="modal-backdrop" (click)="closePaymentModal()">
+    <div class="modal" style="max-width: 360px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Record Payment</h3>
+        <button class="icon-btn" (click)="closePaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="payment-summary">
+          <div class="payment-row">
+            <span>Fine Amount:</span>
+            <span>KES {{ selectedFineForPayment.amount | number }}</span>
+          </div>
+          <div class="payment-row">
+            <span>Previously Paid:</span>
+            <span class="text-success">KES {{ selectedFineForPayment.paidAmount || 0 | number }}</span>
+          </div>
+          <div class="payment-row">
+            <span>Balance:</span>
+            <span class="text-danger">KES {{ selectedFineForPayment.amount - (selectedFineForPayment.paidAmount || 0) | number }}</span>
+          </div>
+        </div>
+        <div class="form-field" style="margin-top: 12px;">
+          <label>Amount to Pay <span class="required">*</span></label>
+          <input 
+            type="number" 
+            [(ngModel)]="paymentAmount" 
+            [max]="selectedFineForPayment.amount - (selectedFineForPayment.paidAmount || 0)"
+            min="1"
+            placeholder="Enter amount..."
+          />
+          <div style="margin-top: 4px;">
+            <button class="btn btn-ghost btn-sm" (click)="paymentAmount = selectedFineForPayment.amount - (selectedFineForPayment.paidAmount || 0)">
+              Pay Full Balance
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closePaymentModal()" [disabled]="recordingPayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="recordPayment()" [disabled]="recordingPayment() || !paymentAmount || paymentAmount <= 0">
+          {{ recordingPayment() ? 'Recording...' : 'Record Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
