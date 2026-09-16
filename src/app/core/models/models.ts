@@ -21,9 +21,11 @@ export interface TenantSettings {
   tenantId: number;
   name: string;
   registrationFee: number;
+  registrationFeeRequired: boolean;
   minMembers: number;
   maxMembers: number;
   signaturesRequired: number;
+  sessionTimeoutMinutes?: number;
 }
 
 export interface Permission {
@@ -200,6 +202,12 @@ export interface WelfareContribution {
   paid: boolean;
   paidDate?: string;
   paymentReference?: string;
+  // Contribution fund payment fields
+  paidFromContribution?: boolean;
+  sourceContributionTypeId?: number;
+  sourceContributionTypeName?: string;
+  sourceContributionId?: number;
+  paymentMethod?: 'CASH' | 'CONTRIBUTION_FUND';
 }
 
 export interface Investment {
@@ -272,10 +280,35 @@ export interface FinanceSummary {
 export interface Transaction {
   id: number;
   date: string;
-  type: 'CONTRIBUTION' | 'LOAN_DISBURSEMENT' | 'LOAN_REPAYMENT' | 'WELFARE' | 'FINE' | 'INVESTMENT' | 'EXPENSE';
+  type: 'CONTRIBUTION' | 'LOAN_DISBURSEMENT' | 'LOAN_REPAYMENT' | 'WELFARE' | 'FINE' | 'PENALTY' | 'INVESTMENT' | 'INVESTMENT_RETURN' | 'REGISTRATION_FEE' | 'EXPENSE' | 'LOAN_INTEREST' | 'PROCESSING_FEE';
   description: string;
   amount: number;
   direction: 'IN' | 'OUT';
+  memberName?: string;
+  memberId?: number;
+}
+
+// ==================== Registration Fee ====================
+
+export interface RegistrationFeePayment {
+  id?: number;
+  memberId: number;
+  memberName?: string;
+  memberNo?: string;
+  amount: number;
+  referenceNumber?: string;
+  status: 'PENDING' | 'AWAITING_VERIFICATION' | 'VERIFIED' | 'REJECTED';
+  paidAt?: string;
+  verifiedAt?: string;
+  verifiedByName?: string;
+  rejectionReason?: string;
+  rejectedAt?: string;
+  rejectedByName?: string;
+}
+
+export interface RegistrationFeeInfo {
+  amount: number;
+  required: boolean;
 }
 
 
@@ -386,6 +419,11 @@ export interface LoanProduct {
   approvalLevels: number;
   active: boolean;
   approvalLevelConfig?: LoanApprovalLevel[];  // Matches backend DTO field name
+  // Processing fee fields
+  processingFeeEnabled?: boolean;
+  processingFeeType?: 'FIXED' | 'PERCENTAGE';
+  processingFeeValue?: number;
+  processingFeeDeduction?: 'UPFRONT' | 'ON_REPAYMENT';
 }
 
 // ==================== Loan Penalties ====================
@@ -413,6 +451,74 @@ export interface LoanPenalty {
   waiveReason?: string;
 }
 
+// ==================== Loan Eligibility ====================
+
+export interface LoanEligibility {
+  applicantContributions: number;
+  guarantorContributions: number;
+  totalContributions: number;
+  loanAmount: number;
+  eligible: boolean;
+  shortfall: number;
+}
+
+// ==================== Loan Income ====================
+
+export interface LoanIncomeSummary {
+  totalInterestCollected: number;
+  totalProcessingFeesCollected: number;
+  totalLoanIncome: number;
+  periodInterest: number;
+  periodFees: number;
+  periodTotal: number;
+}
+
+export interface LoanIncomeTransaction {
+  id: number;
+  date: string;
+  type: 'LOAN_INTEREST' | 'PROCESSING_FEE';
+  description: string;
+  amount: number;
+  direction: 'IN' | 'OUT';
+  memberName?: string;
+  referenceId?: number;
+  referenceType?: string;
+}
+
+// ==================== Loan Payments ====================
+
+export interface LoanPayment {
+  id: number;
+  loanId: number;
+  memberId: number;
+  memberName: string;
+  memberNo?: string;
+  loanProductName?: string;
+  loanPrincipal: number;
+  loanBalance: number;
+  amount: number;
+  paymentDate: string;
+  paymentMethod?: string;
+  transactionReference?: string;
+  notes?: string;
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  recordedById?: number;
+  recordedByName?: string;
+  recordedAt?: string;
+  verifiedById?: number;
+  verifiedByName?: string;
+  verifiedAt?: string;
+  rejectionReason?: string;
+  rejectedAt?: string;
+}
+
+export interface RecordPaymentRequest {
+  amount: number;
+  paymentMethod?: string;
+  transactionReference?: string;
+  notes?: string;
+}
+
 // ==================== Extended Loan Interface ====================
 
 export interface LoanExtended {
@@ -431,10 +537,17 @@ export interface LoanExtended {
   balanceOutstanding: number;
   totalPaid?: number;
   totalPenalties?: number;
-  status: 'DRAFT' | 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'ACTIVE' | 'OVERDUE' | 'DEFAULTED' | 'CLEARED' | 'REJECTED';
+  status: 'DRAFT' | 'PENDING' | 'PENDING_GUARANTORS' | 'PENDING_APPROVAL' | 'APPROVED' | 'ACTIVE' | 'OVERDUE' | 'DEFAULTED' | 'CLEARED' | 'REJECTED';
+  // Guarantor tracking (Phase 1 - parallel)
+  requiredGuarantors?: number;
+  guarantorsApprovedCount?: number;
+  pendingGuarantorNames?: string[];
+  // Approver tracking (Phase 2 - sequential)
   currentApprovalLevel?: number;
   requiredApprovalLevels?: number;
   pendingApprovalRole?: string;
+  // Combined tracking
+  pendingApprovalType?: 'GUARANTOR' | 'APPROVER'; // What type of approval is next
   approvalHistory?: LoanApprovalHistory[];
   guarantorIds?: number[];
   guarantorNames?: string[];
@@ -452,13 +565,19 @@ export interface LoanExtended {
   rejectionReason?: string;
   rejectedByName?: string;
   rejectedAt?: string;
+  // Processing fee fields
+  processingFee?: number;
+  processingFeePaid?: number;
+  netDisbursementAmount?: number;
+  processingFeeDeductionType?: 'UPFRONT' | 'ON_REPAYMENT';
 }
 
 export interface LoanApprovalHistory {
-  level: number;
+  level?: number;
   levelName: string;
   approverName: string;
   approverRole?: string;
+  approvalType?: 'GUARANTOR' | 'APPROVER';
   action: 'APPROVED' | 'REJECTED' | 'RETURNED';
   comments?: string;
   actionDate: string;
@@ -474,6 +593,7 @@ export interface ShareSettings {
   includeLoanInterest: boolean;
   includeInvestmentReturns: boolean;
   includePenalties: boolean;
+  includeProcessingFees: boolean;
   lastCalculatedAt?: string;
 }
 
@@ -496,6 +616,7 @@ export interface ShareCalculation {
   poolLoanInterest: number;
   poolInvestmentReturns: number;
   poolPenalties: number;
+  poolProcessingFees: number;
   totalPaidOut?: number;
   totalPoolValue: number;
   memberShares: MemberShare[];
@@ -593,6 +714,18 @@ export interface ContributionSummary {
   monthsCount: number;
 }
 
+// ==================== PAGINATION ====================
+
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface MemberFinancialSummary {
   // Member Info
   memberId: number;
@@ -648,4 +781,79 @@ export interface MemberFinancialSummary {
 
   // Net Position
   netPosition: number;
+}
+
+
+// ==================== Resources ====================
+
+export interface Resource {
+  id: number;
+  name: string;
+  description?: string;
+  fileName: string;
+  originalFileName: string;
+  fileSize: number;
+  contentType: string;
+  fileExtension: string;
+  uploadedById?: number;
+  uploadedByName?: string;
+  downloadCount: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ==================== Audit Logs ====================
+
+export interface AuditLog {
+  id: number;
+  tenantId?: number;
+  tenantName?: string;
+  memberId?: number;
+  memberName?: string;
+  memberEmail?: string;
+  module: string;
+  action: string;
+  httpMethod?: string;
+  endpoint?: string;
+  entityType?: string;
+  entityId?: number;
+  description?: string;
+  oldValue?: string;
+  newValue?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  timestamp: string;
+  responseStatus?: number;
+  executionTimeMs?: number;
+  status: 'SUCCESS' | 'FAILURE';
+  errorMessage?: string;
+}
+
+// ==================== Contribution Top-Up ====================
+
+export interface ContributionTopUp {
+  id: number;
+  memberId: number;
+  memberName: string;
+  memberNo?: string;
+  contributionTypeId: number;
+  contributionTypeName: string;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestDate: string;
+  approvalDate?: string;
+  approvedById?: number;
+  approvedByName?: string;
+  rejectionReason?: string;
+  paymentReference?: string;
+  notes?: string;
+}
+
+// ==================== Contribution Balance (for welfare fund payment) ====================
+
+export interface ContributionBalance {
+  contributionTypeId: number;
+  contributionTypeName: string;
+  balance: number;
 }

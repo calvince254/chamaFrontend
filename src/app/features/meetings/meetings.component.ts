@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Meeting, MeetingAttendee, Member } from '../../core/models/models';
+import { Meeting, MeetingAttendee, Member, PageResponse } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
@@ -21,6 +21,16 @@ export class MeetingsComponent implements OnInit {
   saving = signal(false);
   showForm = false;
   editing: Partial<Meeting> & { inviteAll?: boolean; invitedMemberIds?: number[] } = {};
+  search = '';
+
+  // Pagination
+  currentPage = 0;
+  pageSize = 10;
+  totalElements = 0;
+  totalPages = 0;
+  isFirst = true;
+  isLast = true;
+  Math = Math;
 
   // Member selection for meeting creation
   allMembers: Member[] = [];
@@ -53,9 +63,15 @@ export class MeetingsComponent implements OnInit {
 
   loadMeetings() {
     this.loading.set(true);
-    this.api.getMeetings().subscribe({
-      next: (m) => {
-        this.meetings = m.sort((a, b) => b.date.localeCompare(a.date));
+    const searchTerm = this.search.trim() || undefined;
+    
+    this.api.getMeetingsPaginated(this.currentPage, this.pageSize, searchTerm).subscribe({
+      next: (response: PageResponse<Meeting>) => {
+        this.meetings = response.content;
+        this.totalElements = response.totalElements;
+        this.totalPages = response.totalPages;
+        this.isFirst = response.first;
+        this.isLast = response.last;
         this.loading.set(false);
       },
       error: (err) => {
@@ -66,6 +82,46 @@ export class MeetingsComponent implements OnInit {
         }
       }
     });
+  }
+
+  onFilterChange() {
+    this.currentPage = 0;
+    this.loadMeetings();
+  }
+
+  goToPage(page: number) {
+    if (page >= 0 && page < this.totalPages) {
+      this.currentPage = page;
+      this.loadMeetings();
+    }
+  }
+
+  nextPage() {
+    if (!this.isLast) {
+      this.currentPage++;
+      this.loadMeetings();
+    }
+  }
+
+  prevPage() {
+    if (!this.isFirst) {
+      this.currentPage--;
+      this.loadMeetings();
+    }
+  }
+
+  get pageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(0, this.currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(this.totalPages, start + maxVisible);
+    if (end - start < maxVisible) {
+      start = Math.max(0, end - maxVisible);
+    }
+    for (let i = start; i < end; i++) {
+      pages.push(i);
+    }
+    return pages;
   }
 
   loadMembers() {

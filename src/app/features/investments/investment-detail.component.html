@@ -18,6 +18,11 @@
     </div>
     <div class="header-actions">
       @if (investment.status === 'ACTIVE' && investment.approvalStatus === 'APPROVED') {
+        @if (session.can('TOPUP_INVESTMENT')) {
+          <button type="button" class="btn btn-secondary" onclick="console.log('topup')" (click)="openTopupModal()">
+            <app-icon name="plus-circle"></app-icon> Add Principal
+          </button>
+        }
         <button type="button" class="btn btn-secondary" onclick="console.log('update')" (click)="openUpdateValueModal()">
           <app-icon name="edit-2"></app-icon> Update Value
         </button>
@@ -132,6 +137,41 @@
           }
         </div>
       </div>
+
+      <!-- Principal Top-ups History -->
+      @if (topupHistory.length > 0) {
+        <div class="card">
+          <div class="card-header">
+            <h3>Principal Top-ups</h3>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Amount (KES)</th>
+                  <th>Previous Principal</th>
+                  <th>New Principal</th>
+                  <th>Recorded By</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (t of topupHistory; track t.id) {
+                  <tr>
+                    <td>{{ t.topupDate | date:'d MMM yyyy' }}</td>
+                    <td class="text-success"><strong>+{{ t.amount | number }}</strong></td>
+                    <td>{{ t.previousPrincipal | number }}</td>
+                    <td><strong>{{ t.newPrincipal | number }}</strong></td>
+                    <td>{{ t.recordedByName || '—' }}</td>
+                    <td>{{ t.notes || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
     </div>
 
     <!-- Right Column: Details + Activity -->
@@ -376,6 +416,45 @@
         {{ saving ? 'Deleting...' : 'Delete Permanently' }}
       </button>
     </div>
+  </div>
+</div>
+}
+
+<!-- ADD PRINCIPAL (TOPUP) MODAL -->
+@if (showTopupModal && investment) {
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add Principal</h3>
+      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeTopupModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <form (ngSubmit)="submitTopup()">
+      <div class="modal-body">
+        <p><strong>{{ investment.name }}</strong></p>
+        <p class="text-muted">Current Principal: KES {{ investment.amountInvested | number }}</p>
+        <div class="form-field">
+          <label>Amount to Add (KES)</label>
+          <input type="number" [(ngModel)]="topupForm.amount" name="amount" min="1" required>
+        </div>
+        <div class="form-field">
+          <label>Top-up Date</label>
+          <input type="date" [(ngModel)]="topupForm.topupDate" name="topupDate" required>
+        </div>
+        <div class="form-field">
+          <label>Notes</label>
+          <textarea [(ngModel)]="topupForm.notes" name="notes" rows="2" placeholder="Optional notes about this principal addition"></textarea>
+        </div>
+        @if (topupForm.amount > 0) {
+          <div class="alert alert-info" style="margin-top:16px;">
+            <strong>New Principal:</strong> KES {{ investment.amountInvested + topupForm.amount | number }}
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeTopupModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving || topupForm.amount <= 0">{{ saving ? 'Processing...' : 'Add Principal' }}</button>
+      </div>
+    </form>
   </div>
 </div>
 }

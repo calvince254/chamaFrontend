@@ -17,23 +17,80 @@
     <div class="stat-card"><div class="stat-label">Loans Outstanding</div><div class="stat-value">KES {{ (summary?.totalLoansOutstanding ?? 0) | number }}</div></div>
     <div class="stat-card"><div class="stat-label">Income (This Month)</div><div class="stat-value">KES {{ (summary?.incomeThisMonth ?? 0) | number }}</div></div>
     <div class="stat-card"><div class="stat-label">Expenditure (This Month)</div><div class="stat-value">KES {{ (summary?.expenditureThisMonth ?? 0) | number }}</div></div>
+    <div class="stat-card" style="border-left: 3px solid var(--color-primary);">
+      <div class="stat-label">Ledger Balance</div>
+      <div class="stat-value" [style.color]="ledgerBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'">
+        KES {{ ledgerBalance | number }}
+      </div>
+      <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px;">
+        Credits: KES {{ totalCredits | number }} · Debits: KES {{ totalDebits | number }}
+      </div>
+    </div>
   </div>
 
   <div class="card">
     <div class="card-header"><h3>Transaction Ledger</h3></div>
-    @if (transactions.length === 0) {
+    
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Type:</label>
+        <select [(ngModel)]="typeFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All</option>
+          <option value="CONTRIBUTION">Contribution</option>
+          <option value="LOAN_DISBURSEMENT">Loan Disbursement</option>
+          <option value="LOAN_REPAYMENT">Loan Repayment</option>
+          <option value="LOAN_INTEREST">Loan Interest</option>
+          <option value="PROCESSING_FEE">Processing Fee</option>
+          <option value="PENALTY">Penalty</option>
+          <option value="WELFARE">Welfare</option>
+          <option value="INVESTMENT">Investment</option>
+          <option value="SHARE_PAYOUT">Share Payout</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Direction:</label>
+        <select [(ngModel)]="directionFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All</option>
+          <option value="IN">Income</option>
+          <option value="OUT">Expense</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Member:</label>
+        <select [(ngModel)]="memberFilter" (ngModelChange)="onFilterChange()">
+          <option [ngValue]="null">All Members</option>
+          @for (m of members; track m.id) {
+            <option [ngValue]="m.id">{{ m.name }}</option>
+          }
+        </select>
+      </div>
+      @if (typeFilter || directionFilter || memberFilter) {
+        <button class="reset-filters" (click)="typeFilter = ''; directionFilter = ''; memberFilter = null; onFilterChange()">Reset filters</button>
+      }
+    </div>
+
+    @if (transactions.length === 0 && !hasFilters) {
       <div class="empty-state-card">
         <app-icon name="file-text"></app-icon>
         <h3>No transactions yet</h3>
         <p>Transactions will appear here as members make contributions, loan payments, and other financial activities.</p>
       </div>
+    } @else if (transactions.length === 0 && hasFilters) {
+      <div class="empty-filter-state">
+        <app-icon name="search"></app-icon>
+        <p>No transactions match your filters</p>
+        <button class="btn btn-outline btn-sm" (click)="resetFilters()">Reset filters</button>
+      </div>
     } @else {
       <table class="data-table">
-        <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr></thead>
+        <thead><tr><th>Date</th><th>Member</th><th>Type</th><th>Description</th><th>Amount</th></tr></thead>
         <tbody>
           @for (t of transactions; track t.id) {
             <tr>
               <td>{{ t.date | date:'d MMM y' }}</td>
+              <td>{{ t.memberName || '—' }}</td>
               <td><span class="badge badge-neutral">{{ t.type }}</span></td>
               <td>{{ t.description }}</td>
               <td [ngClass]="t.direction === 'IN' ? 'amount-in' : 'amount-out'">{{ t.direction === 'IN' ? '+' : '-' }} KES {{ t.amount | number }}</td>
@@ -41,6 +98,24 @@
           }
         </tbody>
       </table>
+
+      <!-- Pagination -->
+      @if (totalPages > 1) {
+        <div class="pagination">
+          <div class="pagination-info">
+            Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+              <app-icon name="chevron-left"></app-icon>
+            </button>
+            <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+            <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+              <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
     }
   </div>
 }

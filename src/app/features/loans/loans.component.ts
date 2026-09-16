@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { LoanExtended, LoanProduct, Member, LoanPenalty } from '../../core/models/models';
+import { LoanExtended, LoanProduct, Member, LoanPenalty, PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
@@ -24,15 +24,27 @@ export class LoansComponent implements OnInit {
   loanPenalties: LoanPenalty[] = [];
   
   // UI state
-  activeTab: 'my-loans' | 'pending' | 'all' | 'penalties' = 'my-loans';
+  activeTab: 'my-loans' | 'pending' | 'all' | 'penalties' | 'income' | 'pending-payments' = 'my-loans';
   statusFilter = 'ALL';
   loading = signal(false);
   loadingPenalties = signal(false);
   saving = signal(false);
+
+  // Pagination
+  currentPage = 0;
+  pageSize = 10;
+  totalElements = 0;
+  totalPages = 0;
+  isFirst = true;
+  isLast = true;
+  Math = Math;
   
   // Loan application form
   showForm = false;
   editing: any = {};
+  eligibility: LoanEligibility | null = null;
+  checkingEligibility = false;
+  guarantorSearch = '';  // For filtering guarantor list
   
   // Loan detail view
   showDetailModal = false;
@@ -50,6 +62,32 @@ export class LoansComponent implements OnInit {
   
   // Disbursement modal
   showDisbursementModal = false;
+  
+  // Loan income
+  loanIncomeSummary: LoanIncomeSummary | null = null;
+  loanIncomeTransactions: LoanIncomeTransaction[] = [];
+  loadingIncome = signal(false);
+  incomeCurrentPage = 0;
+  incomePageSize = 20;
+  incomeTotalElements = 0;
+  incomeTotalPages = 0;
+  
+  // Payment verification
+  pendingPayments: LoanPayment[] = [];
+  loadingPayments = signal(false);
+  showRecordPaymentModal = false;
+  showRejectPaymentModal = false;
+  selectedPayment: LoanPayment | null = null;
+  paymentForm = {
+    amount: 0,
+    paymentMethod: '',
+    transactionReference: '',
+    notes: ''
+  };
+  
+  // Loan payment history for details modal
+  loanPaymentHistory: LoanPayment[] = [];
+  loadingLoanPayments = signal(false);
 
   constructor(
     private api: ApiService, 
@@ -67,7 +105,7 @@ export class LoansComponent implements OnInit {
 
   determineDefaultTab() {
     // If user is admin, default to all loans
-    if (this.session.hasPermission('loans', 'approve')) {
+    if (this.session.can('VIEW_ALL_LOANS_ADMIN')) {
       this.activeTab = 'all';
     } else {
       this.activeTab = 'my-loans';
@@ -75,55 +113,68 @@ export class LoansComponent implements OnInit {
   }
   
   loadData() {
-    this.loading.set(true);
+    const status = this.statusFilter === 'ALL' ? undefined : this.statusFilter;
     
-    // Load data based on active tab
+    // Load data based on active tab using paginated APIs
     if (this.activeTab === 'my-loans') {
-      this.api.getMyLoans().subscribe({
-        next: (loans) => {
-          this.myLoans = loans;
+      this.loading.set(true);
+      this.api.getMyLoansPaginated(this.currentPage, this.pageSize, status).subscribe({
+        next: (response: PageResponse<LoanExtended>) => {
+          this.myLoans = response.content;
+          this.updatePaginationState(response);
           this.loading.set(false);
         },
         error: (err) => {
           this.loading.set(false);
-          // Silently handle - interceptor shows toast
         }
       });
     } else if (this.activeTab === 'pending') {
-      this.api.getPendingApprovals().subscribe({
-        next: (loans) => {
-          this.pendingApprovals = loans;
+      this.loading.set(true);
+      this.api.getLoansPaginated(this.currentPage, this.pageSize, 'PENDING_APPROVAL').subscribe({
+        next: (response: PageResponse<LoanExtended>) => {
+          this.pendingApprovals = response.content;
+          this.updatePaginationState(response);
           this.loading.set(false);
         },
         error: (err) => {
           this.loading.set(false);
-          // Silently handle - interceptor shows toast
         }
       });
     } else if (this.activeTab === 'all') {
-      this.api.getLoansExtended().subscribe({
-        next: (loans) => {
-          this.allLoans = loans;
+      this.loading.set(true);
+      this.api.getLoansPaginated(this.currentPage, this.pageSize, status).subscribe({
+        next: (response: PageResponse<LoanExtended>) => {
+          this.allLoans = response.content;
+          this.updatePaginationState(response);
           this.loading.set(false);
         },
         error: (err) => {
           this.loading.set(false);
-          // Silently handle - interceptor shows toast
         }
       });
     } else if (this.activeTab === 'penalties') {
       this.loadPenalties();
+    } else if (this.activeTab === 'income') {
+      this.loadLoanIncome();
+    } else if (this.activeTab === 'pending-payments') {
+      this.loadPendingPayments();
     }
   }
 
   loadPenalties() {
     this.loadingPenalties.set(true);
-    const isAdmin = this.session.hasPermission('loans', 'approve');
+    const isAdmin = this.session.can('VIEW_ALL_LOANS_ADMIN');
     
+    // Use non-paginated API for loan penalties (different from contribution penalties)
     const request = isAdmin ? this.api.getLoanPenalties() : this.api.getMyLoanPenalties();
     request.subscribe({
       next: (penalties) => {
         this.loanPenalties = penalties;
+        // Reset pagination state for penalties since not paginated
+        this.totalElements = penalties.length;
+        this.totalPages = 1;
+        this.isFirst = true;
+        this.isLast = true;
         this.loadingPenalties.set(false);
         this.loading.set(false);
       },
@@ -135,6 +186,203 @@ export class LoansComponent implements OnInit {
         }
       }
     });
+  }
+
+  loadLoanIncome() {
+    this.loadingIncome.set(true);
+    
+    // Load summary
+    this.api.getLoanIncomeSummary().subscribe({
+      next: (summary) => {
+        this.loanIncomeSummary = summary;
+      },
+      error: (err) => {
+        console.error('Failed to load income summary:', err);
+      }
+    });
+    
+    // Load transactions
+    this.api.getLoanIncomeTransactions(this.incomeCurrentPage, this.incomePageSize).subscribe({
+      next: (response) => {
+        this.loanIncomeTransactions = response.content;
+        this.incomeTotalElements = response.totalElements;
+        this.incomeTotalPages = response.totalPages;
+        this.loadingIncome.set(false);
+      },
+      error: (err) => {
+        this.loadingIncome.set(false);
+        console.error('Failed to load income transactions:', err);
+      }
+    });
+  }
+  
+  incomeNextPage() {
+    if (this.incomeCurrentPage < this.incomeTotalPages - 1) {
+      this.incomeCurrentPage++;
+      this.loadLoanIncome();
+    }
+  }
+  
+  incomePreviousPage() {
+    if (this.incomeCurrentPage > 0) {
+      this.incomeCurrentPage--;
+      this.loadLoanIncome();
+    }
+  }
+
+  // ==================== Payment Verification ====================
+  
+  loadPendingPayments() {
+    this.loadingPayments.set(true);
+    this.api.getPendingLoanPayments().subscribe({
+      next: (payments) => {
+        this.pendingPayments = payments;
+        // Reset pagination state
+        this.totalElements = payments.length;
+        this.totalPages = 1;
+        this.isFirst = true;
+        this.isLast = true;
+        this.loadingPayments.set(false);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loadingPayments.set(false);
+        this.loading.set(false);
+        console.error('Failed to load pending payments:', err);
+      }
+    });
+  }
+
+  openRecordPaymentModal(loan: LoanExtended) {
+    this.selectedLoan = loan;
+    this.paymentForm = {
+      amount: 0,
+      paymentMethod: '',
+      transactionReference: '',
+      notes: ''
+    };
+    this.showRecordPaymentModal = true;
+  }
+
+  closeRecordPaymentModal() {
+    this.showRecordPaymentModal = false;
+    this.selectedLoan = null;
+    this.paymentForm = {
+      amount: 0,
+      paymentMethod: '',
+      transactionReference: '',
+      notes: ''
+    };
+  }
+
+  submitPayment() {
+    if (!this.selectedLoan || !this.paymentForm.amount) {
+      this.toast.error('Invalid payment', 'Please enter a valid payment amount.');
+      return;
+    }
+
+    this.api.recordLoanPayment(this.selectedLoan.id, {
+      amount: this.paymentForm.amount,
+      paymentMethod: this.paymentForm.paymentMethod || undefined,
+      transactionReference: this.paymentForm.transactionReference || undefined,
+      notes: this.paymentForm.notes || undefined
+    }).subscribe({
+      next: () => {
+        this.toast.success('Payment submitted', 'Your payment has been submitted for verification.');
+        this.closeRecordPaymentModal();
+        this.loadData();
+      },
+      error: (err) => {
+        this.toast.error('Payment failed', err.error?.message || 'Failed to submit payment.');
+      }
+    });
+  }
+
+  verifyPayment(payment: LoanPayment) {
+    this.confirmDialog.confirm({
+      title: 'Verify Payment',
+      message: `Are you sure you want to verify the payment of KES ${payment.amount.toLocaleString()} from ${payment.memberName}? This will apply the payment to their loan balance.`,
+      confirmText: 'Verify',
+      cancelText: 'Cancel',
+      type: 'info'
+    }).then(confirmed => {
+      if (confirmed) {
+        this.api.verifyLoanPayment(payment.id).subscribe({
+          next: () => {
+            this.toast.success('Payment verified', 'The payment has been verified and applied to the loan balance.');
+            this.loadPendingPayments();
+          },
+          error: (err) => {
+            this.toast.error('Verification failed', err.error?.message || 'Failed to verify payment.');
+          }
+        });
+      }
+    });
+  }
+
+  openRejectPaymentModal(payment: LoanPayment) {
+    this.selectedPayment = payment;
+    this.rejectionReason = '';
+    this.showRejectPaymentModal = true;
+  }
+
+  closeRejectPaymentModal() {
+    this.showRejectPaymentModal = false;
+    this.selectedPayment = null;
+    this.rejectionReason = '';
+  }
+
+  confirmRejectPayment() {
+    if (!this.selectedPayment) return;
+
+    if (!this.rejectionReason.trim()) {
+      this.toast.error('Reason required', 'Please provide a reason for rejection.');
+      return;
+    }
+
+    this.api.rejectLoanPayment(this.selectedPayment.id, this.rejectionReason).subscribe({
+      next: () => {
+        this.toast.success('Payment rejected', 'The payment has been rejected.');
+        this.closeRejectPaymentModal();
+        this.loadPendingPayments();
+      },
+      error: (err) => {
+        this.toast.error('Rejection failed', err.error?.message || 'Failed to reject payment.');
+      }
+    });
+  }
+
+  updatePaginationState(response: PageResponse<any>) {
+    this.totalElements = response.totalElements;
+    this.totalPages = response.totalPages;
+    this.isFirst = response.first;
+    this.isLast = response.last;
+  }
+
+  onFilterChange() {
+    this.currentPage = 0;
+    this.loadData();
+  }
+
+  goToPage(page: number) {
+    if (page >= 0 && page < this.totalPages) {
+      this.currentPage = page;
+      this.loadData();
+    }
+  }
+
+  previousPage() {
+    if (!this.isFirst) {
+      this.currentPage--;
+      this.loadData();
+    }
+  }
+
+  nextPage() {
+    if (!this.isLast) {
+      this.currentPage++;
+      this.loadData();
+    }
   }
 
   loadMembers() {
@@ -153,9 +401,10 @@ export class LoansComponent implements OnInit {
     });
   }
 
-  onTabChange(tab: 'my-loans' | 'pending' | 'all' | 'penalties') {
+  onTabChange(tab: 'my-loans' | 'pending' | 'all' | 'penalties' | 'income' | 'pending-payments') {
     this.activeTab = tab;
     this.statusFilter = 'ALL';
+    this.currentPage = 0;
     this.loadData();
   }
   
@@ -166,12 +415,6 @@ export class LoansComponent implements OnInit {
       case 'all': return this.allLoans;
       default: return [];
     }
-  }
-
-  get filteredLoans(): LoanExtended[] {
-    const loans = this.currentLoans;
-    if (this.statusFilter === 'ALL') return loans;
-    return loans.filter(l => l.status === this.statusFilter);
   }
 
   // Stats
@@ -190,7 +433,7 @@ export class LoansComponent implements OnInit {
 
   // ==================== Loan Application ====================
   openNewApplication() {
-    const isAdmin = this.session.hasPermission('loans', 'approve');
+    const isAdmin = this.session.can('VIEW_ALL_LOANS_ADMIN');
     const currentUserId = this.session.currentUser()?.id;
     
     this.editing = {
@@ -206,11 +449,16 @@ export class LoansComponent implements OnInit {
   }
 
   onProductChange() {
+    // Reset eligibility when product changes
+    this.eligibility = null;
+    
     if (this.editing.loanProductId) {
       const product = this.loanProducts.find(p => p.id === +this.editing.loanProductId);
       if (product) {
         this.editing.interestRate = product.interestRate;
         this.editing.termMonths = product.repaymentPeriod;
+        // Check eligibility with new product
+        this.checkEligibility();
       }
     }
   }
@@ -220,23 +468,97 @@ export class LoansComponent implements OnInit {
     return this.loanProducts.find(p => p.id === +this.editing.loanProductId) || null;
   }
 
+  // Filtered guarantor members (excluding applicant, with search)
+  get filteredGuarantorMembers(): Member[] {
+    const memberId = this.editing.memberId;
+    let filtered = this.members.filter(m => m.id !== memberId);
+    
+    if (this.guarantorSearch && this.guarantorSearch.trim()) {
+      const search = this.guarantorSearch.toLowerCase().trim();
+      filtered = filtered.filter(m => m.name.toLowerCase().includes(search));
+    }
+    
+    return filtered;
+  }
+
+  // Check if a guarantor checkbox should be disabled (max reached and not selected)
+  isGuarantorDisabled(memberId: number): boolean {
+    const product = this.selectedProduct;
+    if (!product || product.requiredGuarantors <= 0) return false;
+    
+    const selected = this.editing.guarantorIds || [];
+    const isSelected = selected.includes(memberId);
+    
+    // Disable if we've reached the exact count and this one is not selected
+    return selected.length >= product.requiredGuarantors && !isSelected;
+  }
+
   toggleGuarantor(memberId: number, event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
     if (!this.editing.guarantorIds) {
       this.editing.guarantorIds = [];
     }
+    
+    const product = this.selectedProduct;
+    const maxGuarantors = product?.requiredGuarantors || 0;
+    
     if (checked) {
+      // Enforce exact count - prevent selecting more than required
+      if (maxGuarantors > 0 && this.editing.guarantorIds.length >= maxGuarantors) {
+        // Revert the checkbox
+        (event.target as HTMLInputElement).checked = false;
+        this.toast.warning('Maximum reached', `This loan requires exactly ${maxGuarantors} guarantor(s). Deselect one to select another.`);
+        return;
+      }
       if (!this.editing.guarantorIds.includes(memberId)) {
         this.editing.guarantorIds.push(memberId);
       }
     } else {
       this.editing.guarantorIds = this.editing.guarantorIds.filter((id: number) => id !== memberId);
     }
+    // Re-check eligibility when guarantors change
+    this.checkEligibility();
   }
 
   closeForm() {
     this.showForm = false;
     this.editing = {};
+    this.eligibility = null;
+    this.guarantorSearch = '';
+  }
+
+  // Check loan eligibility based on contributions
+  private eligibilityTimeout: any;
+  
+  checkEligibility() {
+    const memberId = this.editing.memberId;
+    const guarantorIds = this.editing.guarantorIds || [];
+    const loanAmount = this.editing.principal || 0;
+
+    // Only check eligibility when a loan product is selected
+    if (!memberId || loanAmount <= 0 || !this.selectedProduct) {
+      this.eligibility = null;
+      return;
+    }
+
+    // Debounce the API call
+    if (this.eligibilityTimeout) {
+      clearTimeout(this.eligibilityTimeout);
+    }
+    
+    this.eligibilityTimeout = setTimeout(() => {
+      this.checkingEligibility = true;
+      this.api.checkLoanEligibility(memberId, guarantorIds, loanAmount).subscribe({
+        next: (result) => {
+          this.eligibility = result;
+          this.checkingEligibility = false;
+        },
+        error: (err) => {
+          this.checkingEligibility = false;
+          console.error('Error checking eligibility:', err);
+        }
+      });
+    }, 500);
   }
 
   submitApplication() {
@@ -267,11 +589,11 @@ export class LoansComponent implements OnInit {
       }
     }
     
-    // Check guarantor requirements
+    // Check guarantor requirements - EXACT count required
     if (product && product.requiredGuarantors > 0) {
       const guarantorCount = this.editing.guarantorIds?.length || 0;
-      if (guarantorCount < product.requiredGuarantors) {
-        this.toast.warning('Guarantors required', `This loan product requires at least ${product.requiredGuarantors} guarantor(s). You selected ${guarantorCount}.`);
+      if (guarantorCount !== product.requiredGuarantors) {
+        this.toast.warning('Guarantors required', `This loan product requires exactly ${product.requiredGuarantors} guarantor(s). You selected ${guarantorCount}.`);
         return;
       }
     }
@@ -282,7 +604,7 @@ export class LoansComponent implements OnInit {
       return;
     }
 
-    const isAdmin = this.session.hasPermission('loans', 'approve');
+    const isAdmin = this.session.can('VIEW_ALL_LOANS_ADMIN');
     
     this.saving.set(true);
     this.api.applyForLoanExtended(this.editing, isAdmin).subscribe({
@@ -303,11 +625,32 @@ export class LoansComponent implements OnInit {
   viewLoanDetails(loan: LoanExtended) {
     this.selectedLoan = loan;
     this.showDetailModal = true;
+    this.loanPaymentHistory = [];
+    
+    // Load payment history for active/cleared/overdue loans
+    if (loan.status === 'ACTIVE' || loan.status === 'CLEARED' || loan.status === 'OVERDUE') {
+      this.loadLoanPaymentHistory(loan.id);
+    }
+  }
+
+  loadLoanPaymentHistory(loanId: number) {
+    this.loadingLoanPayments.set(true);
+    this.api.getLoanPayments(loanId).subscribe({
+      next: (payments) => {
+        this.loanPaymentHistory = payments;
+        this.loadingLoanPayments.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load payment history:', err);
+        this.loadingLoanPayments.set(false);
+      }
+    });
   }
 
   closeDetailModal() {
     this.showDetailModal = false;
     this.selectedLoan = null;
+    this.loanPaymentHistory = [];
   }
 
   // ==================== Approval Workflow ====================
@@ -337,13 +680,27 @@ export class LoansComponent implements OnInit {
     this.saving.set(true);
     
     if (this.approvalAction === 'approve') {
-      this.api.approveLoanExtended(this.selectedLoan.id, this.approvalComments).subscribe({
+      // Call different endpoint based on approval type
+      const approvalCall = this.selectedLoan.pendingApprovalType === 'GUARANTOR'
+        ? this.api.approveAsGuarantor(this.selectedLoan.id, this.approvalComments)
+        : this.api.approveLoanExtended(this.selectedLoan.id, this.approvalComments);
+      
+      approvalCall.subscribe({
         next: (loan) => {
           this.saving.set(false);
           this.closeApprovalModal();
-          const message = loan.status === 'APPROVED' 
-            ? 'Loan fully approved and ready for disbursement.'
-            : `Loan approved at level ${loan.currentApprovalLevel}. Awaiting further approval.`;
+          
+          let message: string;
+          if (loan.status === 'APPROVED') {
+            message = 'Loan fully approved and ready for disbursement.';
+          } else if (loan.status === 'PENDING_GUARANTORS') {
+            message = `Approved as guarantor. ${loan.guarantorsApprovedCount}/${loan.requiredGuarantors} guarantors have approved.`;
+          } else if (loan.status === 'PENDING' || loan.status === 'PENDING_APPROVAL') {
+            message = `Loan approved at level ${loan.currentApprovalLevel}. Awaiting further approval.`;
+          } else {
+            message = 'Loan approved successfully.';
+          }
+          
           this.toast.success('Loan approved', message);
           this.loadData();
         },
@@ -474,6 +831,7 @@ export class LoansComponent implements OnInit {
     switch (status) {
       case 'DRAFT':
       case 'PENDING':
+      case 'PENDING_GUARANTORS':
       case 'PENDING_APPROVAL':
         return 'badge-neutral';
       case 'APPROVED':
@@ -503,20 +861,30 @@ export class LoansComponent implements OnInit {
   }
 
   canApprove(loan: LoanExtended): boolean {
-    return (loan.status === 'PENDING' || loan.status === 'PENDING_APPROVAL') 
-           && this.session.hasPermission('loans', 'approve');
+    return (loan.status === 'PENDING' || loan.status === 'PENDING_GUARANTORS' || loan.status === 'PENDING_APPROVAL') 
+           && this.session.can('APPROVE_LOAN');
   }
 
   canDisburse(loan: LoanExtended): boolean {
-    return loan.status === 'APPROVED' && this.session.hasPermission('loans', 'approve');
+    return loan.status === 'APPROVED' && this.session.can('DISBURSE_LOAN');
   }
 
   canRecordPayment(loan: LoanExtended): boolean {
     return (loan.status === 'ACTIVE' || loan.status === 'OVERDUE') 
-           && this.session.hasPermission('loans', 'edit');
+           && this.session.can('RECORD_LOAN_REPAYMENT');
   }
 
   isAdmin(): boolean {
-    return this.session.hasPermission('loans', 'approve');
+    return this.session.can('VIEW_ALL_LOANS_ADMIN');
+  }
+
+  // Get selected guarantor names for the approval flow preview
+  getSelectedGuarantorNames(): string[] {
+    if (!this.editing.guarantorIds || this.editing.guarantorIds.length === 0) {
+      return [];
+    }
+    return this.editing.guarantorIds
+      .map((id: number) => this.members.find(m => m.id === id)?.name || 'Unknown')
+      .filter((name: string) => name !== 'Unknown');
   }
 }

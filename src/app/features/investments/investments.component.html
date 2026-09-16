@@ -19,7 +19,7 @@
 
 @if (loading) {
   <div class="loading-state"><div class="spinner"></div><p>Loading investments...</p></div>
-} @else if (investments.length === 0) {
+} @else if (investments.length === 0 && !hasFilters) {
   <div class="empty-state-card">
     <app-icon name="trending-up"></app-icon>
     <h3>No investments yet</h3>
@@ -54,55 +54,109 @@
     </div>
   </div>
 
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Status:</label>
+      <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+        <option value="">All</option>
+        <option value="ACTIVE">Active</option>
+        <option value="SOLD">Sold</option>
+        <option value="WRITTEN_OFF">Written Off</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Approval:</label>
+      <select [(ngModel)]="approvalStatusFilter" (ngModelChange)="onFilterChange()">
+        <option value="">All</option>
+        <option value="PENDING">Pending</option>
+        <option value="APPROVED">Approved</option>
+        <option value="REJECTED">Rejected</option>
+      </select>
+    </div>
+    @if (statusFilter || approvalStatusFilter) {
+      <button class="reset-filters" (click)="statusFilter = ''; approvalStatusFilter = ''; onFilterChange()">Reset filters</button>
+    }
+  </div>
+
   <div class="card">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Category</th>
-          <th>Invested</th>
-          <th>Current</th>
-          <th>Gain</th>
-          <th>Status</th>
-          <th>Approval</th>
-          <th style="width:40px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (inv of investments; track inv.id) {
-          <tr class="clickable-row" (click)="viewInvestment(inv)">
-            <td><strong>{{ inv.name }}</strong></td>
-            <td><span class="badge badge-neutral">{{ getCategoryLabel(inv.category) }}</span></td>
-            <td>KES {{ inv.amountInvested | number }}</td>
-            <td>KES {{ inv.currentValue | number }}</td>
-            <td [class.text-success]="(inv.netGain || 0) >= 0" [class.text-danger]="(inv.netGain || 0) < 0">
-              {{ (inv.netGain || 0) >= 0 ? '+' : '' }}KES {{ inv.netGain | number }}
-            </td>
-            <td><span class="badge" [ngClass]="getStatusClass(inv.status)">{{ inv.status }}</span></td>
-            <td><span class="badge" [ngClass]="getApprovalClass(inv.approvalStatus)">{{ inv.approvalStatus }}</span></td>
-            <td style="text-align:right;">
-              <app-icon name="chevron-right" style="color:var(--color-text-muted);"></app-icon>
-            </td>
+    @if (investments.length === 0 && hasFilters) {
+      <div class="empty-filter-state">
+        <app-icon name="search"></app-icon>
+        <p>No investments match your filters</p>
+        <button class="btn btn-outline btn-sm" (click)="resetFilters()">Reset filters</button>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Invested</th>
+            <th>Current</th>
+            <th>Gain</th>
+            <th>Status</th>
+            <th>Approval</th>
+            <th style="width:40px;"></th>
           </tr>
-        }
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          @for (inv of investments; track inv.id) {
+            <tr class="clickable-row" (click)="viewInvestment(inv)">
+              <td><strong>{{ inv.name }}</strong></td>
+              <td><span class="badge badge-neutral">{{ getCategoryLabel(inv.category) }}</span></td>
+              <td>KES {{ inv.amountInvested | number }}</td>
+              <td>KES {{ inv.currentValue | number }}</td>
+              <td [class.text-success]="(inv.netGain || 0) >= 0" [class.text-danger]="(inv.netGain || 0) < 0">
+                {{ (inv.netGain || 0) >= 0 ? '+' : '' }}KES {{ inv.netGain | number }}
+              </td>
+              <td><span class="badge" [ngClass]="getStatusClass(inv.status)">{{ inv.status }}</span></td>
+              <td><span class="badge" [ngClass]="getApprovalClass(inv.approvalStatus)">{{ inv.approvalStatus }}</span></td>
+              <td style="text-align:right;">
+                <app-icon name="chevron-right" style="color:var(--color-text-muted);"></app-icon>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      @if (totalPages > 1) {
+        <div class="pagination">
+          <div class="pagination-info">
+            Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+              <app-icon name="chevron-left"></app-icon>
+            </button>
+            <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+            <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+              <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
+    }
   </div>
 }
 
 <!-- CREATE MODAL -->
 @if (showCreateModal) {
 <div class="modal-backdrop">
-  <div class="modal modal-wide">
+  <div class="modal" style="max-width: 480px;">
     <div class="modal-header">
       <h3>Propose Investment</h3>
       <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeCreateModal()"><app-icon name="close"></app-icon></button>
     </div>
-    <form (ngSubmit)="submitCreate()">
+    <form #createInvestmentForm="ngForm" (ngSubmit)="createInvestmentForm.valid && submitCreate()">
       <div class="modal-body">
         <div class="form-field">
-          <label>Name</label>
-          <input type="text" [(ngModel)]="createForm.name" name="name" required placeholder="e.g., Money Market Fund">
+          <label>Name <span class="required">*</span></label>
+          <input type="text" [(ngModel)]="createForm.name" name="name" required #nameField="ngModel" placeholder="e.g., Money Market Fund">
+          @if (nameField.invalid && nameField.touched) {
+            <small class="form-error">Name is required</small>
+          }
         </div>
         <div class="form-field">
           <label>Category</label>
@@ -113,8 +167,11 @@
           </select>
         </div>
         <div class="form-field">
-          <label>Amount (KES)</label>
-          <input type="number" [(ngModel)]="createForm.amountInvested" name="amount" min="1" required>
+          <label>Amount (KES) <span class="required">*</span></label>
+          <input type="number" [(ngModel)]="createForm.amountInvested" name="amount" min="1" required #amountField="ngModel">
+          @if (amountField.invalid && amountField.touched) {
+            <small class="form-error">Amount is required and must be at least 1</small>
+          }
         </div>
         <div class="form-field">
           <label>Description</label>
@@ -138,7 +195,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeCreateModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" [disabled]="saving || !createForm.name || !createForm.amountInvested">
+        <button type="submit" class="btn btn-primary" [disabled]="saving || createInvestmentForm.invalid">
           {{ saving ? 'Saving...' : 'Create Investment' }}
         </button>
       </div>

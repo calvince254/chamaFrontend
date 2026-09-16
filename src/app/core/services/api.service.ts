@@ -8,6 +8,8 @@ import {
   ShareEntry, WelfareEvent, WelfareContribution, Investment, InvestmentValueHistory, InvestmentApproval, FinanceSummary, Transaction,
   ContributionType, Penalty, LoanProduct, LoanPenalty, LoanExtended, ShareSettings, ShareCalculation,
   Liquidity, Payout, PayoutPreview, CreatePayoutRequest, PayoutPreviewRequest, MemberFinancialSummary,
+  PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, RecordPaymentRequest,
+  RegistrationFeePayment, RegistrationFeeInfo, Resource, AuditLog, ContributionTopUp, ContributionBalance
 } from '../models/models';
 
 /**
@@ -28,6 +30,10 @@ export class ApiService {
   // ==================== AUTH ====================
   login(email: string, password: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/auth/login`, { email, password });
+  }
+
+  logout(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/logout`, {});
   }
 
   register(data: any): Observable<any> {
@@ -186,6 +192,35 @@ export class ApiService {
     );
   }
 
+  getMembersPaginated(page: number = 0, size: number = 10, search?: string, status?: string): Observable<PageResponse<Member>> {
+    if (!this.isBrowser) return of({ content: [], page: 0, size: 10, totalElements: 0, totalPages: 0, first: true, last: true });
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (search) params = params.set('search', search);
+    if (status) params = params.set('status', status);
+    
+    return this.http.get<any>(`${this.baseUrl}/members/paginated`, { params }).pipe(
+      map(response => ({
+        ...response,
+        content: response.content.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          phone: m.phone,
+          email: m.email,
+          memberNo: m.memberNo,
+          joinDate: m.joinDate,
+          status: m.status,
+          role: m.roleName || m.role?.name || 'Member',
+          totalSavings: m.totalSavings || 0,
+          totalShares: m.totalShares || 0,
+          outstandingLoan: m.outstandingLoan || 0,
+          arrearsMonths: m.arrearsMonths || 0
+        }))
+      }))
+    );
+  }
+
   getMember(id: number): Observable<Member> {
     return this.http.get<any>(`${this.baseUrl}/members/${id}`).pipe(
       map(m => ({
@@ -217,8 +252,21 @@ export class ApiService {
     return this.http.delete<void>(`${this.baseUrl}/members/${id}`);
   }
 
+  hardDeleteMember(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/members/${id}/hard`);
+  }
+
   getMemberFinancialSummary(id: number): Observable<MemberFinancialSummary> {
     return this.http.get<MemberFinancialSummary>(`${this.baseUrl}/members/${id}/financial-summary`);
+  }
+
+  getMemberTransactionsPaginated(memberId: number, page: number = 0, size: number = 10, type?: string): Observable<PageResponse<Transaction>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (type) params = params.set('type', type);
+    
+    return this.http.get<PageResponse<Transaction>>(`${this.baseUrl}/members/${memberId}/transactions/paginated`, { params });
   }
 
   // ==================== MEETINGS ====================
@@ -238,6 +286,33 @@ export class ApiService {
         rsvpNotAttending: m.rsvpNotAttending || 0,
         rsvpPending: m.rsvpPending || 0
       })))
+    );
+  }
+
+  getMeetingsPaginated(page: number = 0, size: number = 10, search?: string): Observable<PageResponse<Meeting>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (search) params = params.set('search', search);
+    
+    return this.http.get<any>(`${this.baseUrl}/meetings/paginated`, { params }).pipe(
+      map(response => ({
+        ...response,
+        content: response.content.map((m: any) => ({
+          id: m.id,
+          date: m.date,
+          venue: m.venue,
+          type: m.type,
+          attendeesCount: m.attendeesCount || 0,
+          totalMembers: m.totalMembers || 0,
+          quorumMet: m.quorumMet || false,
+          finesCollected: m.finesCollected || 0,
+          minutesStatus: m.minutesStatus || 'DRAFT',
+          rsvpAttending: m.rsvpAttending || 0,
+          rsvpNotAttending: m.rsvpNotAttending || 0,
+          rsvpPending: m.rsvpPending || 0
+        }))
+      }))
     );
   }
 
@@ -427,6 +502,37 @@ export class ApiService {
     );
   }
 
+  getContributionsPaginated(page: number = 0, size: number = 10, contributionTypeId?: number, month?: string, status?: string): Observable<PageResponse<Contribution>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
+    if (month) params = params.set('month', month);
+    if (status) params = params.set('status', status);
+    
+    return this.http.get<any>(`${this.baseUrl}/contributions/paginated`, { params }).pipe(
+      map(response => ({
+        ...response,
+        content: response.content.map((c: any) => ({
+          id: c.id,
+          memberId: c.memberId,
+          memberName: c.memberName || c.member?.name || '',
+          memberNo: c.memberNo || c.member?.memberNo || '',
+          month: c.month,
+          amountDue: c.amountDue || 0,
+          amountPaid: c.amountPaid || 0,
+          status: c.status,
+          penalty: c.penalty || 0,
+          paidOn: c.paidOn,
+          dueDate: c.dueDate,
+          penaltyApplied: c.penaltyApplied || false,
+          contributionTypeId: c.contributionTypeId,
+          contributionTypeName: c.contributionTypeName
+        }))
+      }))
+    );
+  }
+
   getContribution(id: number): Observable<Contribution> {
     return this.http.get<Contribution>(`${this.baseUrl}/contributions/${id}`);
   }
@@ -493,6 +599,24 @@ export class ApiService {
         nextDueDate: l.nextDueDate
       })))
     );
+  }
+
+  getLoansPaginated(page: number = 0, size: number = 10, status?: string): Observable<PageResponse<LoanExtended>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (status) params = params.set('status', status);
+    
+    return this.http.get<PageResponse<LoanExtended>>(`${this.baseUrl}/loans/paginated`, { params });
+  }
+
+  getMyLoansPaginated(page: number = 0, size: number = 10, status?: string): Observable<PageResponse<LoanExtended>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (status) params = params.set('status', status);
+    
+    return this.http.get<PageResponse<LoanExtended>>(`${this.baseUrl}/loans/my-loans/paginated`, { params });
   }
 
   getLoan(id: number): Observable<Loan> {
@@ -699,6 +823,15 @@ export class ApiService {
     return this.http.get<Payout[]>(`${this.baseUrl}/payouts`);
   }
 
+  getPayoutsPaginated(page: number = 0, size: number = 10, status?: string): Observable<PageResponse<Payout>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (status) params = params.set('status', status);
+    
+    return this.http.get<PageResponse<Payout>>(`${this.baseUrl}/payouts/paginated`, { params });
+  }
+
   getPayout(id: number): Observable<Payout> {
     return this.http.get<Payout>(`${this.baseUrl}/payouts/${id}`);
   }
@@ -747,6 +880,15 @@ export class ApiService {
         paidCount: e.paidCount || 0
       })))
     );
+  }
+
+  getWelfareEventsPaginated(page: number = 0, size: number = 10, status?: string): Observable<PageResponse<WelfareEvent>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (status) params = params.set('status', status);
+    
+    return this.http.get<PageResponse<WelfareEvent>>(`${this.baseUrl}/welfare/paginated`, { params });
   }
 
   getWelfareEvent(id: number): Observable<WelfareEvent> {
@@ -814,6 +956,17 @@ export class ApiService {
     );
   }
 
+  getInvestmentsPaginated(page: number = 0, size: number = 10, status?: string, approvalStatus?: string): Observable<PageResponse<Investment>> {
+    if (!this.isBrowser) return of({ content: [], totalElements: 0, totalPages: 0, size: size, page: page, first: true, last: true });
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (status) params = params.set('status', status);
+    if (approvalStatus) params = params.set('approvalStatus', approvalStatus);
+    
+    return this.http.get<PageResponse<Investment>>(`${this.baseUrl}/investments/paginated`, { params });
+  }
+
   getInvestment(id: number): Observable<Investment> {
     return this.http.get<Investment>(`${this.baseUrl}/investments/${id}`);
   }
@@ -870,6 +1023,15 @@ export class ApiService {
     return this.http.get<{ count: number }>(`${this.baseUrl}/investments/my-pending-approvals/count`);
   }
 
+  topupInvestment(id: number, amount: number, topupDate?: string, notes?: string): Observable<Investment> {
+    return this.http.post<Investment>(`${this.baseUrl}/investments/${id}/topup`, { amount, topupDate, notes });
+  }
+
+  getInvestmentTopupHistory(id: number): Observable<any[]> {
+    if (!this.isBrowser) return of([]);
+    return this.http.get<any[]>(`${this.baseUrl}/investments/${id}/topups`);
+  }
+
   // ==================== FINANCE ====================
   getFinanceSummary(): Observable<FinanceSummary> {
     return this.http.get<FinanceSummary>(`${this.baseUrl}/finance/summary`);
@@ -886,6 +1048,17 @@ export class ApiService {
         direction: t.direction
       })))
     );
+  }
+
+  getTransactionsPaginated(page: number = 0, size: number = 10, type?: string, direction?: string, memberId?: number): Observable<PageResponse<Transaction>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (type) params = params.set('type', type);
+    if (direction) params = params.set('direction', direction);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    
+    return this.http.get<PageResponse<Transaction>>(`${this.baseUrl}/finance/transactions/paginated`, { params });
   }
 
   getDashboardStats(): Observable<any> {
@@ -924,6 +1097,16 @@ export class ApiService {
       url += `?month=${month}`;
     }
     return this.http.get<Penalty[]>(url);
+  }
+
+  getPenaltiesPaginated(page: number = 0, size: number = 10, status?: string, memberId?: number): Observable<PageResponse<Penalty>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (status) params = params.set('status', status);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    
+    return this.http.get<PageResponse<Penalty>>(`${this.baseUrl}/penalties/paginated`, { params });
   }
 
   getUnpaidPenalties(): Observable<Penalty[]> {
@@ -996,8 +1179,20 @@ export class ApiService {
     return this.http.post<LoanExtended>(`${this.baseUrl}/loans/apply?isAdmin=${isAdmin}`, loan);
   }
 
+  checkLoanEligibility(memberId: number, guarantorIds: number[], loanAmount: number): Observable<LoanEligibility> {
+    return this.http.post<LoanEligibility>(`${this.baseUrl}/loans/check-eligibility`, {
+      memberId,
+      guarantorIds,
+      loanAmount
+    });
+  }
+
   approveLoanExtended(id: number, comments?: string): Observable<LoanExtended> {
     return this.http.post<LoanExtended>(`${this.baseUrl}/loans/${id}/approve`, { comments });
+  }
+
+  approveAsGuarantor(id: number, comments?: string): Observable<LoanExtended> {
+    return this.http.post<LoanExtended>(`${this.baseUrl}/loans/${id}/approve-guarantor`, { comments });
   }
 
   rejectLoanExtended(id: number, reason: string): Observable<LoanExtended> {
@@ -1010,6 +1205,52 @@ export class ApiService {
 
   recordLoanRepaymentExtended(id: number, amount: number): Observable<LoanExtended> {
     return this.http.post<LoanExtended>(`${this.baseUrl}/loans/${id}/repay?amount=${amount}`, {});
+  }
+
+  // ==================== LOAN INCOME ====================
+  getLoanIncomeSummary(startDate?: string, endDate?: string): Observable<LoanIncomeSummary> {
+    let url = `${this.baseUrl}/loans/income/summary`;
+    const params: string[] = [];
+    if (startDate) params.push(`startDate=${startDate}`);
+    if (endDate) params.push(`endDate=${endDate}`);
+    if (params.length > 0) url += '?' + params.join('&');
+    return this.http.get<LoanIncomeSummary>(url);
+  }
+
+  getLoanIncomeTransactions(page: number = 0, size: number = 20): Observable<PageResponse<LoanIncomeTransaction>> {
+    return this.http.get<PageResponse<LoanIncomeTransaction>>(
+      `${this.baseUrl}/loans/income/transactions?page=${page}&size=${size}`
+    );
+  }
+
+  // ==================== LOAN PAYMENT VERIFICATION ====================
+  
+  recordLoanPayment(loanId: number, request: RecordPaymentRequest): Observable<LoanPayment> {
+    return this.http.post<LoanPayment>(`${this.baseUrl}/loans/${loanId}/payments/record`, request);
+  }
+
+  verifyLoanPayment(paymentId: number): Observable<LoanPayment> {
+    return this.http.post<LoanPayment>(`${this.baseUrl}/loans/payments/${paymentId}/verify`, {});
+  }
+
+  rejectLoanPayment(paymentId: number, reason: string): Observable<LoanPayment> {
+    return this.http.post<LoanPayment>(`${this.baseUrl}/loans/payments/${paymentId}/reject`, { reason });
+  }
+
+  getPendingLoanPayments(): Observable<LoanPayment[]> {
+    return this.http.get<LoanPayment[]>(`${this.baseUrl}/loans/payments/pending`);
+  }
+
+  getLoanPayments(loanId: number): Observable<LoanPayment[]> {
+    return this.http.get<LoanPayment[]>(`${this.baseUrl}/loans/${loanId}/payments`);
+  }
+
+  getMyLoanPayments(): Observable<LoanPayment[]> {
+    return this.http.get<LoanPayment[]>(`${this.baseUrl}/loans/payments/my-payments`);
+  }
+
+  getPendingPaymentsCount(): Observable<{ count: number }> {
+    return this.http.get<{ count: number }>(`${this.baseUrl}/loans/payments/pending/count`);
   }
 
   // ==================== LOAN PENALTIES ====================
@@ -1053,4 +1294,383 @@ export class ApiService {
   updateSystemSettings(settings: any): Observable<any> {
     return this.http.put(`${this.baseUrl}/system-settings`, settings);
   }
+
+  // ==================== LICENSE MANAGEMENT (Super Admin) ====================
+  getLicenses(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses`);
+  }
+
+  getLicenseByTenant(tenantId: number): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/licenses/tenant/${tenantId}`);
+  }
+
+  createLicense(tenantId: number, license: any): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/tenant/${tenantId}`, license);
+  }
+
+  updateLicense(licenseId: number, license: any): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/licenses/${licenseId}`, license);
+  }
+
+  activateLicense(licenseId: number): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/${licenseId}/activate`, {});
+  }
+
+  suspendLicense(licenseId: number): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/${licenseId}/suspend`, {});
+  }
+
+  getLicenseTransactions(tenantId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses/transactions/tenant/${tenantId}`);
+  }
+
+  getUninvoicedTransactions(tenantId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses/transactions/tenant/${tenantId}/uninvoiced`);
+  }
+
+  // Invoice management
+  getOutstandingInvoices(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses/invoices/outstanding`);
+  }
+
+  getPaidInvoices(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses/invoices/paid`);
+  }
+
+  getBillableTransactions(year: number, month: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses/transactions/billable?year=${year}&month=${month}`);
+  }
+
+  getInvoicesByTenant(tenantId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses/invoices/tenant/${tenantId}`);
+  }
+
+  getInvoice(invoiceId: number): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/licenses/invoices/${invoiceId}`);
+  }
+
+  generateInvoice(request: { tenantId: number; periodStart: string; periodEnd: string; isAdhoc?: boolean; description?: string; amount?: number }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/generate`, request);
+  }
+
+  sendInvoice(invoiceId: number): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/${invoiceId}/send`, {});
+  }
+
+  recordInvoicePayment(invoiceId: number, amount: number, paymentReference?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/${invoiceId}/payment`, { amount, paymentReference });
+  }
+
+  markInvoicePaid(invoiceId: number, paymentReference?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/${invoiceId}/mark-paid`, { paymentReference });
+  }
+
+  cancelInvoice(invoiceId: number, reason?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/${invoiceId}/cancel`, reason || 'Cancelled');
+  }
+
+  checkOverdueInvoices(): Observable<string> {
+    return this.http.post(`${this.baseUrl}/licenses/check-overdue`, {}, { responseType: 'text' });
+  }
+
+  // For chama admins - get their own invoices
+  getMyInvoices(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/licenses/invoices/my`);
+  }
+
+  getMyInvoicesPaginated(page: number = 0, size: number = 10, status?: string): Observable<PageResponse<any>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (status) params = params.set('status', status);
+    
+    return this.http.get<PageResponse<any>>(`${this.baseUrl}/licenses/invoices/my/paginated`, { params });
+  }
+
+  // For chama admins - get their license status
+  getMyLicense(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/licenses/my-license`);
+  }
+
+  // For chama admins - download invoice PDF
+  downloadMyInvoicePdf(invoiceId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/licenses/invoices/my/${invoiceId}/pdf`, {
+      responseType: 'blob'
+    });
+  }
+
+  // For chama admins - confirm payment for invoice
+  confirmInvoicePayment(invoiceId: number, amount: number, paymentReference: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/my/${invoiceId}/confirm-payment`, {
+      amount,
+      paymentReference
+    });
+  }
+
+  // For super admin - confirm receipt of payment
+  confirmInvoiceReceipt(invoiceId: number, amount?: number, notes?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/${invoiceId}/confirm-receipt`, {
+      amount,
+      paymentReference: notes
+    });
+  }
+
+  // For super admin - reject payment confirmation
+  rejectPaymentConfirmation(invoiceId: number, reason?: string): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/licenses/invoices/${invoiceId}/reject-payment`, reason);
+  }
+
+  // For super admin - download any invoice PDF
+  downloadInvoicePdf(invoiceId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/licenses/invoices/${invoiceId}/pdf`, {
+      responseType: 'blob'
+    });
+  }
+
+  // ==================== DASHBOARD ANALYTICS ====================
+  getDashboardAnalytics(): Observable<DashboardAnalytics> {
+    return this.http.get<DashboardAnalytics>(`${this.baseUrl}/dashboard/analytics`);
+  }
+
+  // ==================== REGISTRATION FEE ====================
+  getRegistrationFeeInfo(): Observable<RegistrationFeeInfo> {
+    return this.http.get<RegistrationFeeInfo>(`${this.baseUrl}/registration-fee/info`);
+  }
+
+  getMemberRegistrationFeeStatus(memberId: number): Observable<RegistrationFeePayment | null> {
+    return this.http.get<RegistrationFeePayment | null>(`${this.baseUrl}/registration-fee/member/${memberId}`);
+  }
+
+  getAllRegistrationFeePayments(): Observable<RegistrationFeePayment[]> {
+    return this.http.get<RegistrationFeePayment[]>(`${this.baseUrl}/registration-fee`);
+  }
+
+  getAwaitingVerificationPayments(): Observable<RegistrationFeePayment[]> {
+    return this.http.get<RegistrationFeePayment[]>(`${this.baseUrl}/registration-fee/awaiting-verification`);
+  }
+
+  countAwaitingVerification(): Observable<{ count: number }> {
+    return this.http.get<{ count: number }>(`${this.baseUrl}/registration-fee/awaiting-verification/count`);
+  }
+
+  submitRegistrationFeePayment(memberId: number, referenceNumber: string): Observable<RegistrationFeePayment> {
+    return this.http.post<RegistrationFeePayment>(`${this.baseUrl}/registration-fee/pay`, { memberId, referenceNumber });
+  }
+
+  verifyRegistrationFeePayment(paymentId: number): Observable<RegistrationFeePayment> {
+    return this.http.post<RegistrationFeePayment>(`${this.baseUrl}/registration-fee/${paymentId}/verify`, {});
+  }
+
+  rejectRegistrationFeePayment(paymentId: number, reason: string): Observable<RegistrationFeePayment> {
+    return this.http.post<RegistrationFeePayment>(`${this.baseUrl}/registration-fee/${paymentId}/reject`, { reason });
+  }
+
+  // ==================== RESOURCES ====================
+
+  getResources(): Observable<Resource[]> {
+    return this.http.get<Resource[]>(`${this.baseUrl}/resources`);
+  }
+
+  getResourcesPaginated(page: number, size: number, search?: string): Observable<PageResponse<Resource>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (search) params = params.set('search', search);
+    return this.http.get<PageResponse<Resource>>(`${this.baseUrl}/resources/paginated`, { params });
+  }
+
+  getResource(id: number): Observable<Resource> {
+    return this.http.get<Resource>(`${this.baseUrl}/resources/${id}`);
+  }
+
+  uploadResource(name: string, description: string, file: File): Observable<Resource> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', name);
+    if (description) formData.append('description', description);
+    return this.http.post<Resource>(`${this.baseUrl}/resources`, formData);
+  }
+
+  updateResource(id: number, data: { name?: string; description?: string }): Observable<Resource> {
+    return this.http.put<Resource>(`${this.baseUrl}/resources/${id}`, data);
+  }
+
+  deleteResource(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/resources/${id}`);
+  }
+
+  hardDeleteResource(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/resources/${id}/hard`);
+  }
+
+  downloadResource(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/resources/${id}/download`, { responseType: 'blob' });
+  }
+
+  // ==================== AUDIT LOGS ====================
+
+  getAuditLogs(page: number, size: number, filters?: {
+    module?: string;
+    memberId?: number;
+    action?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Observable<PageResponse<AuditLog>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (filters?.module) params = params.set('module', filters.module);
+    if (filters?.memberId) params = params.set('memberId', filters.memberId);
+    if (filters?.action) params = params.set('action', filters.action);
+    if (filters?.startDate) params = params.set('startDate', filters.startDate);
+    if (filters?.endDate) params = params.set('endDate', filters.endDate);
+    return this.http.get<PageResponse<AuditLog>>(`${this.baseUrl}/audit-logs`, { params });
+  }
+
+  getAuditLog(id: number): Observable<AuditLog> {
+    return this.http.get<AuditLog>(`${this.baseUrl}/audit-logs/${id}`);
+  }
+
+  getAuditModules(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/audit-logs/modules`);
+  }
+
+  getAuditActions(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/audit-logs/actions`);
+  }
+
+  getAuditStatistics(days: number = 7): Observable<any> {
+    return this.http.get(`${this.baseUrl}/audit-logs/statistics`, { params: { days } });
+  }
+
+  // Super Admin: Get all audit logs across all tenants
+  getAllAuditLogs(page: number, size: number): Observable<PageResponse<AuditLog>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<PageResponse<AuditLog>>(`${this.baseUrl}/audit-logs/all`, { params });
+  }
+
+  // ==================== CONTRIBUTION TOP-UPS ====================
+
+  getContributionTopUps(page: number, size: number, filters?: {
+    status?: string;
+    memberId?: number;
+    contributionTypeId?: number;
+  }): Observable<PageResponse<any>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (filters?.status) params = params.set('status', filters.status);
+    if (filters?.memberId) params = params.set('memberId', filters.memberId);
+    if (filters?.contributionTypeId) params = params.set('contributionTypeId', filters.contributionTypeId);
+    return this.http.get<PageResponse<any>>(`${this.baseUrl}/contribution-topups`, { params });
+  }
+
+  getMyContributionTopUps(page: number, size: number): Observable<PageResponse<any>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    return this.http.get<PageResponse<any>>(`${this.baseUrl}/contribution-topups/my`, { params });
+  }
+
+  getContributionTopUp(id: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/contribution-topups/${id}`);
+  }
+
+  createContributionTopUp(data: { contributionTypeId: number; amount: number; paymentReference?: string; notes?: string }): Observable<any> {
+    return this.http.post(`${this.baseUrl}/contribution-topups`, data);
+  }
+
+  approveContributionTopUp(id: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/contribution-topups/${id}/approve`, {});
+  }
+
+  rejectContributionTopUp(id: number, reason?: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/contribution-topups/${id}/reject`, { reason });
+  }
+
+  getPendingTopUpsCount(): Observable<{ count: number }> {
+    return this.http.get<{ count: number }>(`${this.baseUrl}/contribution-topups/pending-count`);
+  }
+
+  // ==================== WELFARE CONTRIBUTION FUND PAYMENT ====================
+
+  payWelfareFromContributionFund(eventId: number, memberId: number, contributionTypeId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/welfare/${eventId}/contributions/${memberId}/pay-from-fund`, { contributionTypeId });
+  }
+
+  getMemberContributionBalances(memberId: number): Observable<{ contributionTypeId: number; contributionTypeName: string; balance: number }[]> {
+    return this.http.get<{ contributionTypeId: number; contributionTypeName: string; balance: number }[]>(
+      `${this.baseUrl}/welfare/member/${memberId}/contribution-balances`
+    );
+  }
+}
+
+// Dashboard Analytics Types
+export interface DashboardAnalytics {
+  totalSavings: number;
+  activeMembers: number;
+  loansOutstanding: number;
+  loansNeedingAttention: number;
+  welfareBalance: number;
+  investmentValue: number;
+  savingsPercent: number;
+  investmentsPercent: number;
+  welfarePercent: number;
+  loansPercent: number;
+  ledgerBalance: number;
+  totalCredits: number;
+  totalDebits: number;
+  fundGrowth: FundGrowthPoint[];
+  nextMeeting: MeetingInfo | null;
+  loanAlerts: LoanAlert[];
+  nextPayout: PayoutInfo | null;
+  recentTransactions: DashboardTransaction[];
+  pendingApprovals: ApprovalInfo[];
+}
+
+export interface FundGrowthPoint {
+  month: string;
+  amount: number;
+}
+
+export interface MeetingInfo {
+  id: number;
+  dateTime: string;
+  venue: string;
+  type: string;
+  status: string;
+  attended: number;
+  totalMembers: number;
+}
+
+export interface LoanAlert {
+  id: number;
+  memberName: string;
+  loanType: string;
+  amount: number;
+  overdue: number;
+  daysOverdue: number;
+}
+
+export interface PayoutInfo {
+  id: number;
+  memberName: string;
+  roundNumber: number;
+  dueDate: string;
+  paidCount: number;
+  totalCount: number;
+  paidAmount: number;
+  totalAmount: number;
+}
+
+export interface DashboardTransaction {
+  id: number;
+  date: string;
+  type: string;
+  description: string;
+  amount: number;
+  isCredit: boolean;
+  credit?: boolean;  // Alternative field name from backend
+}
+
+export interface ApprovalInfo {
+  id: number;
+  type: string;
+  title: string;
+  memberName: string;
+  amount: number;
+  status: string;
+  currentLevel: number;
 }

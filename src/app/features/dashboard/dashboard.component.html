@@ -10,145 +10,259 @@
     <div class="spinner"></div>
     <p>Loading dashboard...</p>
   </div>
-} @else {
-  <!-- Stats Grid - only show cards user has permission to view -->
-  <div class="stat-grid">
-    @if (session.can('VIEW_FINANCE_SUMMARY')) {
-      <div class="stat-card">
-        <div class="stat-label">Total Savings</div>
-        <div class="stat-value">KES {{ (summary?.totalSavings ?? 0) | number }}</div>
-        <div class="stat-sub">{{ memberCount }} active members</div>
+} @else if (analytics) {
+  <!-- Stats Strip -->
+  <div class="dash-stats">
+    <div class="dash-stat">
+      <div class="dash-stat-label">Total Savings</div>
+      <div class="dash-stat-value">KES {{ analytics.totalSavings | number:'1.0-0' }}</div>
+      <div class="dash-stat-sub">{{ analytics.activeMembers }} active members</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-label">Loans Outstanding</div>
+      <div class="dash-stat-value">KES {{ analytics.loansOutstanding | number:'1.0-0' }}</div>
+      <div class="dash-stat-sub">{{ analytics.loansNeedingAttention }} need attention</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-label">Welfare Fund</div>
+      <div class="dash-stat-value">KES {{ analytics.welfareBalance | number:'1.0-0' }}</div>
+      <div class="dash-stat-sub">Balance available</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-label">Investment Value</div>
+      <div class="dash-stat-value">KES {{ analytics.investmentValue | number:'1.0-0' }}</div>
+      <div class="dash-stat-sub">Across all investments</div>
+    </div>
+    <div class="dash-stat" style="border-left: 3px solid var(--color-primary);">
+      <div class="dash-stat-label">Ledger Balance</div>
+      <div class="dash-stat-value" [style.color]="analytics.ledgerBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'">
+        KES {{ analytics.ledgerBalance | number:'1.0-0' }}
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Loans Outstanding</div>
-        <div class="stat-value">KES {{ (summary?.totalLoansOutstanding ?? 0) | number }}</div>
-        <div class="stat-sub">{{ pendingLoans.length }} need attention</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Welfare Fund</div>
-        <div class="stat-value">KES {{ (summary?.welfareFundBalance ?? 0) | number }}</div>
-        <div class="stat-sub">Balance available</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Investment Value</div>
-        <div class="stat-value">KES {{ (summary?.investmentValue ?? 0) | number }}</div>
-        <div class="stat-sub">Across all vehicles</div>
-      </div>
-    }
+      <div class="dash-stat-sub">Credits: {{ analytics.totalCredits | number:'1.0-0' }} · Debits: {{ analytics.totalDebits | number:'1.0-0' }}</div>
+    </div>
   </div>
 
-  <div class="grid-2">
-    <!-- Next Meeting Card - only if user can view meetings -->
-    @if (session.can('VIEW_MEETINGS')) {
-      <div class="card">
-        <div class="card-header">
-          <h3>Next Meeting</h3>
-          <a routerLink="/app/meetings" class="btn btn-ghost btn-sm">View all</a>
-        </div>
-        @if (nextMeeting; as m) {
-          <div class="card-body">
-            <div class="meeting-row">
-              <app-icon name="calendar"></app-icon>
-              <div>
-                <div class="meeting-date">{{ m.date | date: 'EEEE, d MMMM y' }}</div>
-                <div class="meeting-venue">{{ m.venue }} · {{ m.type }}</div>
-              </div>
-            </div>
-            <div class="meeting-meta">
-              <span class="badge" [ngClass]="m.quorumMet ? 'badge-success' : 'badge-warning'">
-                {{ m.quorumMet ? 'Quorum met' : 'Awaiting quorum' }}
-              </span>
-              <span class="badge badge-neutral">{{ m.attendeesCount }}/{{ m.totalMembers }} attended</span>
-            </div>
+  <!-- Charts Row -->
+  <div class="dash-row">
+    <!-- Fund Growth Chart (Line Graph) -->
+    <div class="dash-card dash-chart-card">
+      <div class="dash-card-header">
+        <span class="dash-card-title">Fund Growth</span>
+        <span class="dash-card-subtitle">Last 6 months</span>
+      </div>
+      <div class="dash-line-chart">
+        @if (analytics.fundGrowth.length > 0) {
+          <svg viewBox="0 0 300 120" preserveAspectRatio="xMidYMid meet" class="line-chart-svg">
+            <!-- Grid lines -->
+            <line x1="30" y1="10" x2="30" y2="90" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="30" y1="90" x2="290" y2="90" stroke="#e5e7eb" stroke-width="1"/>
+            <line x1="30" y1="50" x2="290" y2="50" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4"/>
+            <line x1="30" y1="30" x2="290" y2="30" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4"/>
+            <line x1="30" y1="70" x2="290" y2="70" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4"/>
+            
+            <!-- Area fill under line -->
+            <path [attr.d]="getAreaPath()" fill="url(#areaGradient)" opacity="0.3"/>
+            
+            <!-- Line -->
+            <path [attr.d]="getLinePath()" fill="none" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            
+            <!-- Data points -->
+            @for (point of analytics.fundGrowth; track point.month; let i = $index) {
+              <circle [attr.cx]="getPointX(i)" [attr.cy]="getPointY(point.amount)" r="4" fill="#166534" stroke="white" stroke-width="2"/>
+            }
+            
+            <!-- Gradient definition -->
+            <defs>
+              <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#166534" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="#166534" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <!-- X-axis labels -->
+          <div class="line-chart-labels">
+            @for (point of analytics.fundGrowth; track point.month) {
+              <span class="line-chart-label">{{ point.month }}</span>
+            }
           </div>
         } @else {
-          <div class="card-body">
-            <div class="empty-state-inline">
-              <app-icon name="calendar"></app-icon>
-              <p>No upcoming meetings scheduled.</p>
-              @if (session.can('SCHEDULE_MEETING')) {
-                <a routerLink="/app/meetings" class="btn btn-sm btn-primary">Schedule Meeting</a>
-              }
-            </div>
-          </div>
+          <div class="dash-empty-sm">No data yet</div>
         }
       </div>
-    }
+    </div>
 
-    <!-- Loans Needing Attention - only if user can view loans -->
-    @if (session.canAny('VIEW_LOANS', 'VIEW_PENDING_LOAN_APPROVALS')) {
-      <div class="card">
-        <div class="card-header">
-          <h3>Loans Needing Attention</h3>
-          <a routerLink="/app/loans" class="btn btn-ghost btn-sm">View all</a>
+    <!-- Fund Allocation Donut -->
+    <div class="dash-card dash-chart-card">
+      <div class="dash-card-header">
+        <span class="dash-card-title">Fund Allocation</span>
+      </div>
+      <div class="dash-donut-wrap">
+        <div class="dash-donut" [style.background]="donutGradient">
+          <div class="dash-donut-hole"></div>
         </div>
-        <div class="card-body">
-          @if (pendingLoans.length === 0) {
-            <div class="empty-state-inline">
-              <app-icon name="check-circle"></app-icon>
-              <p>All loans in good standing.</p>
+        <div class="dash-donut-legend">
+          @for (item of allocationData; track item.label) {
+            <div class="dash-legend-item">
+              <span class="dash-legend-dot" [style.background]="item.color"></span>
+              <span class="dash-legend-label">{{ item.label }}</span>
+              <span class="dash-legend-pct">{{ item.percent | number:'1.0-0' }}%</span>
             </div>
-          } @else {
-            @for (l of pendingLoans; track l.id) {
-              <div class="loan-row">
-                <div>
-                  <div class="loan-member">{{ l.memberName }}</div>
-                  <div class="loan-sub">KES {{ l.balanceOutstanding | number }} outstanding</div>
-                </div>
-                <span class="badge" [ngClass]="l.status === 'DEFAULTED' ? 'badge-danger' : 'badge-info'">{{ l.status }}</span>
-              </div>
-            }
+          }
+          @if (allocationData.length === 0) {
+            <div class="dash-empty-sm">No data</div>
           }
         </div>
       </div>
-    }
+    </div>
   </div>
 
-  <!-- Recent Transactions - only if user can view transactions -->
-  @if (session.can('VIEW_TRANSACTIONS')) {
-    <div class="card" style="margin-top:20px">
-      <div class="card-header">
-        <h3>Recent Transactions</h3>
-        <a routerLink="/app/finance" class="btn btn-ghost btn-sm">View ledger</a>
+  <!-- Cards Row -->
+  <div class="dash-row dash-row-3">
+    <!-- Next Meeting -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <span class="dash-card-title">Next Meeting</span>
+        <a routerLink="/app/meetings" class="dash-link">View all</a>
       </div>
-      @if (recentTransactions.length === 0) {
-        <div class="card-body">
-          <div class="empty-state-inline">
-            <app-icon name="file-text"></app-icon>
-            <p>No transactions yet. Activity will appear here as your chama grows.</p>
+      @if (analytics.nextMeeting; as m) {
+        <div class="dash-meeting">
+          <div class="dash-meeting-icon">
+            <app-icon name="calendar"></app-icon>
+          </div>
+          <div class="dash-meeting-info">
+            <div class="dash-meeting-date">{{ m.dateTime | date:'EEEE, d MMMM' }}</div>
+            <div class="dash-meeting-venue">{{ m.venue }} · {{ m.type }}</div>
+            <div class="dash-meeting-attend">{{ m.attended }}/{{ m.totalMembers }} attended</div>
           </div>
         </div>
       } @else {
-        <table class="data-table">
-          <thead>
-            <tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr>
-          </thead>
-          <tbody>
-            @for (t of recentTransactions; track t.id) {
-              <tr>
-                <td>{{ t.date | date: 'd MMM y' }}</td>
-                <td><span class="badge badge-neutral">{{ t.type }}</span></td>
-                <td>{{ t.description }}</td>
-                <td [ngClass]="t.direction === 'IN' ? 'amount-in' : 'amount-out'">
-                  {{ t.direction === 'IN' ? '+' : '-' }} KES {{ t.amount | number }}
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+        <div class="dash-empty">
+          <app-icon name="calendar"></app-icon>
+          <span>No upcoming meetings</span>
+        </div>
       }
     </div>
-  }
 
-  <!-- Show a message if user has very limited permissions -->
-  @if (!session.can('VIEW_FINANCE_SUMMARY') && !session.can('VIEW_MEETINGS') && !session.canAny('VIEW_LOANS', 'VIEW_PENDING_LOAN_APPROVALS') && !session.can('VIEW_TRANSACTIONS')) {
-    <div class="card">
-      <div class="card-body">
-        <div class="empty-state-inline">
-          <app-icon name="info"></app-icon>
-          <p>Welcome! Use the navigation menu to access the modules you have permission to view.</p>
-        </div>
+    <!-- Loans Needing Attention -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <span class="dash-card-title">Loans Needing Attention</span>
+        <a routerLink="/app/loans" class="dash-link">View all</a>
       </div>
+      @if (analytics.loanAlerts.length > 0) {
+        <div class="dash-list">
+          @for (loan of analytics.loanAlerts; track loan.id) {
+            <div class="dash-list-item">
+              <div class="dash-list-main">
+                <div class="dash-list-name">{{ loan.memberName }}</div>
+                <div class="dash-list-sub">KES {{ loan.overdue | number:'1.0-0' }} overdue · {{ loan.daysOverdue }}d</div>
+              </div>
+              <span class="dash-badge dash-badge-danger">Overdue</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="dash-empty">
+          <app-icon name="check-circle"></app-icon>
+          <span>All loans in good standing</span>
+        </div>
+      }
     </div>
-  }
+
+    <!-- Next Payout -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <span class="dash-card-title">Next Payout</span>
+        <a routerLink="/app/merry-go-round" class="dash-link">View all</a>
+      </div>
+      @if (analytics.nextPayout; as p) {
+        <div class="dash-payout">
+          <div class="dash-payout-member">{{ p.memberName }}</div>
+          <div class="dash-payout-round">Round {{ p.roundNumber }}</div>
+          <div class="dash-payout-date">{{ p.dueDate | date:'d MMM yyyy' }}</div>
+          <div class="dash-payout-progress">
+            <div class="dash-progress-bar">
+              <div class="dash-progress-fill" [style.width.%]="p.totalAmount > 0 ? (p.paidAmount / p.totalAmount * 100) : 0"></div>
+            </div>
+            <div class="dash-payout-amounts">
+              <span>KES {{ p.paidAmount | number:'1.0-0' }}</span>
+              <span>/ KES {{ p.totalAmount | number:'1.0-0' }}</span>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="dash-empty">
+          <app-icon name="users"></app-icon>
+          <span>No upcoming payouts</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Bottom Row: Transactions & Approvals -->
+  <div class="dash-row dash-row-bottom">
+    <!-- Recent Transactions -->
+    <div class="dash-card dash-card-transactions">
+      <div class="dash-card-header">
+        <span class="dash-card-title">Recent Transactions</span>
+        <a routerLink="/app/finance" class="dash-link">View ledger</a>
+      </div>
+      @if (analytics.recentTransactions.length > 0) {
+        <div class="dash-table-scroll">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th class="text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of analytics.recentTransactions; track t.id) {
+                <tr>
+                  <td>{{ t.date | date:'d MMM' }}</td>
+                  <td><span class="dash-badge">{{ t.type }}</span></td>
+                  <td>{{ t.description }}</td>
+                  <td class="text-right" [class.text-green]="t.isCredit || t.credit" [class.text-red]="!t.isCredit && !t.credit">
+                    {{ (t.isCredit || t.credit) ? '+' : '-' }} KES {{ t.amount | number:'1.0-0' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="dash-empty">
+          <app-icon name="file-text"></app-icon>
+          <span>No recent transactions</span>
+        </div>
+      }
+    </div>
+
+    <!-- Pending Approvals -->
+    <div class="dash-card dash-card-approvals">
+      <div class="dash-card-header">
+        <span class="dash-card-title">Pending Approvals</span>
+      </div>
+      @if (analytics.pendingApprovals.length > 0) {
+        <div class="dash-list dash-list-scroll">
+          @for (a of analytics.pendingApprovals; track a.id) {
+            <div class="dash-list-item">
+              <div class="dash-list-main">
+                <div class="dash-list-name">{{ a.title }}</div>
+                <div class="dash-list-sub">{{ a.memberName }} · KES {{ a.amount | number:'1.0-0' }}</div>
+              </div>
+              <span class="dash-badge dash-badge-warning">{{ a.type }}</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="dash-empty">
+          <app-icon name="check-circle"></app-icon>
+          <span>No pending approvals</span>
+        </div>
+      }
+    </div>
+  </div>
 }

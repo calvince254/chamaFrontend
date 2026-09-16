@@ -20,6 +20,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/super-admin/tenants.component').then((m) => m.TenantsComponent),
       },
+      {
+        path: 'licenses',
+        loadComponent: () =>
+          import('./features/super-admin/licenses.component').then((m) => m.LicensesComponent),
+      },
+      {
+        path: 'audit-trail',
+        loadComponent: () =>
+          import('./features/super-admin/super-admin-audit.component').then((m) => m.SuperAdminAuditComponent),
+      },
     ],
   },
   {
@@ -106,6 +116,21 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+      },
+      {
+        path: 'billing',
+        loadComponent: () =>
+          import('./features/billing/billing.component').then((m) => m.BillingComponent),
+      },
+      {
+        path: 'resources',
+        loadComponent: () =>
+          import('./features/resources/resources.component').then((m) => m.ResourcesComponent),
+      },
+      {
+        path: 'audit-trail',
+        loadComponent: () =>
+          import('./features/audit-trail/audit-trail.component').then((m) => m.AuditTrailComponent),
       },
     ],
   },

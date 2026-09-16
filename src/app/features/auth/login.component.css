@@ -1,5 +1,33 @@
 /* Login specific styles */
 
+.brand-logo {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 32px auto;
+}
+
+.brand-logo img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: 16px;
+}
+
+.login-form-container {
+  max-width: 320px;
+  width: 100%;
+}
+
+.info-message {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  border-left: 3px solid #f59e0b;
+}
+
 .error-message {
   background-color: #fee2e2;
   border: 1px solid #ef4444;
@@ -10,25 +38,37 @@
   font-size: 14px;
 }
 
-.demo-credentials {
-  margin-top: 16px;
-  padding: 12px;
-  background-color: #f0f9ff;
-  border: 1px solid #0ea5e9;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #0369a1;
-}
-
-.demo-credentials code {
-  background-color: #e0f2fe;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 12px;
-}
-
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Side panel feature list */
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 32px 0 0 0;
+}
+
+.feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.feature-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f5a623;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
 }

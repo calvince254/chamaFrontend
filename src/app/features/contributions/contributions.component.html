@@ -16,6 +16,12 @@
       <span class="badge badge-danger" style="margin-left: 4px;">{{ unpaidPenaltiesCount }}</span>
     }
   </button>
+  <button class="tab" [class.active]="activeTab === 'topups'" (click)="activeTab = 'topups'; loadTopUps()">
+    Manual Top-Up
+    @if (pendingTopUpsCount > 0) {
+      <span class="badge badge-warning" style="margin-left: 4px;">{{ pendingTopUpsCount }}</span>
+    }
+  </button>
 </div>
 
 <!-- ==================== CONTRIBUTIONS TAB ==================== -->
@@ -33,14 +39,22 @@
 
     <div class="spacer"></div>
 
-    <!-- Month Picker -->
-    <div class="filter-input">
-      <app-icon name="calendar" style="font-size: 10px; color: var(--color-text-muted);"></app-icon>
-      <input type="month" class="month-input" [(ngModel)]="selectedMonth" (change)="onMonthChange()" />
+    <!-- Month/Year Picker -->
+    <div class="date-picker-group">
+      <select class="filter-select" [(ngModel)]="selectedYear" (ngModelChange)="onYearMonthChange()">
+        @for (year of yearOptions; track year) {
+          <option [value]="year">{{ year }}</option>
+        }
+      </select>
+      <select class="filter-select" [(ngModel)]="selectedMonthNum" (ngModelChange)="onYearMonthChange()">
+        @for (month of monthOptions; track month.value) {
+          <option [value]="month.value">{{ month.label }}</option>
+        }
+      </select>
     </div>
 
     <!-- Status Filter -->
-    <select class="filter-select" [(ngModel)]="statusFilter">
+    <select class="filter-select" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
       <option value="ALL">All members</option>
       <option value="PENDING">Pending</option>
       <option value="PAID">Paid</option>
@@ -60,7 +74,7 @@
   <div class="stat-grid">
     <div class="stat-card">
       <div class="stat-label">Members</div>
-      <div class="stat-value">{{ contributions.length }}</div>
+      <div class="stat-value">{{ totalElements }}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Expected</div>
@@ -150,9 +164,37 @@
               </td>
             </tr>
           }
+          @if (contributions.length === 0) {
+            <tr><td colspan="6" class="empty-state">No contributions found.</td></tr>
+          }
         </tbody>
       </table>
     </div>
+
+    <!-- Pagination -->
+    @if (totalPages > 1) {
+      <div class="pagination">
+        <div class="pagination-info">
+          Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
+            <app-icon name="chevron-left"></app-icon>
+          </button>
+          @for (page of pageNumbers; track page) {
+            <button class="pagination-btn" [class.active]="page === currentPage" (click)="goToPage(page)">
+              {{ page + 1 }}
+            </button>
+          }
+          <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+            <app-icon name="chevron-right"></app-icon>
+          </button>
+        </div>
+        <div class="pagination-page-info">
+          Page {{ currentPage + 1 }} of {{ totalPages }}
+        </div>
+      </div>
+    }
   }
 }
 
@@ -160,12 +202,7 @@
 @if (activeTab === 'penalties') {
   <!-- Toolbar -->
   <div class="toolbar">
-    <div class="filter-input">
-      <app-icon name="calendar" style="font-size: 10px; color: var(--color-text-muted);"></app-icon>
-      <input type="month" class="month-input" [(ngModel)]="selectedMonth" (change)="loadPenalties()" />
-    </div>
-    
-    <select class="filter-select" [(ngModel)]="penaltyStatusFilter">
+    <select class="filter-select" [(ngModel)]="penaltyStatusFilter" (ngModelChange)="onPenaltyFilterChange()">
       <option value="ALL">All penalties</option>
       <option value="UNPAID">Unpaid</option>
       <option value="PARTIAL">Partial</option>
@@ -174,6 +211,8 @@
     </select>
 
     <div class="spacer"></div>
+    
+    <span class="item-count">{{ penaltyTotalElements }} penalties</span>
 
     @if (session.can('CHECK_LATE_PAYMENTS')) {
       <button class="btn btn-outline" (click)="checkPenalties()" [disabled]="checkingPenalties()">
@@ -265,6 +304,155 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Penalty Pagination -->
+    @if (penaltyTotalPages > 1) {
+      <div class="pagination">
+        <div class="pagination-info">
+          Showing {{ penaltyPage * pageSize + 1 }} - {{ Math.min((penaltyPage + 1) * pageSize, penaltyTotalElements) }} of {{ penaltyTotalElements }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" (click)="prevPenaltyPage()" [disabled]="penaltyIsFirst">
+            <app-icon name="chevron-left"></app-icon>
+          </button>
+          @for (page of penaltyPageNumbers; track page) {
+            <button class="pagination-btn" [class.active]="page === penaltyPage" (click)="goToPenaltyPage(page)">
+              {{ page + 1 }}
+            </button>
+          }
+          <button class="pagination-btn" (click)="nextPenaltyPage()" [disabled]="penaltyIsLast">
+            <app-icon name="chevron-right"></app-icon>
+          </button>
+        </div>
+        <div class="pagination-page-info">
+          Page {{ penaltyPage + 1 }} of {{ penaltyTotalPages }}
+        </div>
+      </div>
+    }
+  }
+}
+
+<!-- ==================== MANUAL TOP-UP TAB ==================== -->
+@if (activeTab === 'topups') {
+  <div class="toolbar">
+    <select class="filter-select" [(ngModel)]="topUpStatusFilter" (ngModelChange)="onTopUpFilterChange()">
+      <option value="ALL">All Requests</option>
+      <option value="PENDING">Pending</option>
+      <option value="APPROVED">Approved</option>
+      <option value="REJECTED">Rejected</option>
+    </select>
+
+    <div class="spacer"></div>
+
+    @if (session.can('REQUEST_CONTRIBUTION_TOPUP')) {
+      <button class="btn btn-primary" (click)="openTopUpForm()">
+        <app-icon name="plus"></app-icon>
+        Request Top-Up
+      </button>
+    }
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Requests</div>
+      <div class="stat-value">{{ topUpTotalElements }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending</div>
+      <div class="stat-value" style="color: var(--color-warning);">{{ pendingTopUpsCount }}</div>
+    </div>
+  </div>
+
+  @if (loadingTopUps()) {
+    <div class="empty-state">
+      <div class="spinner"></div>
+      <p>Loading top-up requests...</p>
+    </div>
+  } @else if (topUps.length === 0) {
+    <div class="empty-state">
+      <app-icon name="wallet" style="font-size: 32px; opacity: 0.4; margin-bottom: 8px;"></app-icon>
+      <p>No top-up requests found.</p>
+      @if (session.can('REQUEST_CONTRIBUTION_TOPUP')) {
+        <button class="btn btn-primary btn-sm" style="margin-top: 8px;" (click)="openTopUpForm()">Request Top-Up</button>
+      }
+    </div>
+  } @else {
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Contribution Type</th>
+            <th style="text-align: right;">Amount</th>
+            <th>Request Date</th>
+            <th>Status</th>
+            <th>Approved By</th>
+            <th style="text-align: right; width: 140px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of topUps; track t.id) {
+            <tr>
+              <td>
+                <div class="member-name">{{ t.memberName }}</div>
+                <div class="member-no">{{ t.memberNo }}</div>
+              </td>
+              <td>{{ t.contributionTypeName }}</td>
+              <td style="text-align: right; font-weight: 600;">KES {{ t.amount | number }}</td>
+              <td>{{ formatDateTime(t.requestDate) }}</td>
+              <td><span class="badge" [ngClass]="getTopUpStatusClass(t.status)">{{ t.status }}</span></td>
+              <td>
+                @if (t.approvedByName) {
+                  {{ t.approvedByName }}
+                } @else {
+                  <span style="color: var(--color-text-muted);">—</span>
+                }
+              </td>
+              <td style="text-align: right;">
+                @if (t.status === 'PENDING' && session.can('APPROVE_CONTRIBUTION_TOPUP')) {
+                  <button class="btn btn-success btn-sm" (click)="approveTopUp(t)" title="Approve">
+                    <app-icon name="check"></app-icon>
+                  </button>
+                  <button class="btn btn-danger btn-sm" style="margin-left: 4px;" (click)="rejectTopUp(t)" title="Reject">
+                    <app-icon name="close"></app-icon>
+                  </button>
+                } @else if (t.status === 'REJECTED' && t.rejectionReason) {
+                  <span style="font-size: 9px; color: var(--color-danger);">{{ t.rejectionReason }}</span>
+                } @else {
+                  <span style="font-size: 9px; color: var(--color-text-muted);">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Top-Up Pagination -->
+    @if (topUpTotalPages > 1) {
+      <div class="pagination">
+        <div class="pagination-info">
+          Showing {{ topUpPage * pageSize + 1 }} - {{ Math.min((topUpPage + 1) * pageSize, topUpTotalElements) }} of {{ topUpTotalElements }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" (click)="prevTopUpPage()" [disabled]="topUpIsFirst">
+            <app-icon name="chevron-left"></app-icon>
+          </button>
+          @for (page of topUpPageNumbers; track page) {
+            <button class="pagination-btn" [class.active]="page === topUpPage" (click)="goToTopUpPage(page)">
+              {{ page + 1 }}
+            </button>
+          }
+          <button class="pagination-btn" (click)="nextTopUpPage()" [disabled]="topUpIsLast">
+            <app-icon name="chevron-right"></app-icon>
+          </button>
+        </div>
+        <div class="pagination-page-info">
+          Page {{ topUpPage + 1 }} of {{ topUpTotalPages }}
+        </div>
+      </div>
+    }
   }
 }
 
@@ -343,11 +531,17 @@
         <button class="btn btn-ghost btn-sm" (click)="closeGenerateModal()"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
-        <div class="payment-info">
+        <div class="form-field">
+          <label>Contribution Type</label>
           <div class="payment-member">{{ getSelectedContributionType()?.name }}</div>
-          <div class="payment-detail">
-            Period: {{ selectedMonth }} • Amount: KES {{ getSelectedContributionType()?.amount | number }}
+          <div class="payment-detail" style="margin-top: 4px;">
+            Amount per member: KES {{ getSelectedContributionType()?.amount | number }}
           </div>
+        </div>
+
+        <div class="form-field">
+          <label>Month to Generate For</label>
+          <input type="month" class="form-input" [(ngModel)]="generateMonth" (change)="onGenerateMonthChange()" />
         </div>
 
         @if (loadingAvailableMembers()) {
@@ -386,6 +580,53 @@
         <button class="btn btn-primary" (click)="generateContributions()" 
                 [disabled]="generating() || selectedMembersCount === 0">
           {{ generating() ? 'Generating...' : 'Generate ' + selectedMembersCount + ' Records' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Request Top-Up Modal -->
+@if (showTopUpForm) {
+  <div class="modal-backdrop" (click)="closeTopUpForm()">
+    <div class="modal" style="max-width: 380px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Request Contribution Top-Up</h3>
+        <button class="btn btn-ghost btn-sm" (click)="closeTopUpForm()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 10px; color: var(--color-text-muted); margin-bottom: 12px;">
+          Request to add extra funds to your contribution balance. This requires admin approval.
+        </p>
+        
+        <div class="form-field">
+          <label>Contribution Type</label>
+          <select class="form-input" [(ngModel)]="topUpFormData.contributionTypeId">
+            @for (ct of contributionTypes; track ct.id) {
+              <option [value]="ct.id">{{ ct.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label>Amount (KES)</label>
+          <input type="number" class="form-input" [(ngModel)]="topUpFormData.amount" min="1" placeholder="Enter amount" />
+        </div>
+
+        <div class="form-field">
+          <label>Payment Reference (Optional)</label>
+          <input type="text" class="form-input" [(ngModel)]="topUpFormData.paymentReference" placeholder="e.g., M-Pesa code" />
+        </div>
+
+        <div class="form-field">
+          <label>Notes (Optional)</label>
+          <textarea class="form-input" [(ngModel)]="topUpFormData.notes" rows="2" placeholder="Any additional notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost btn-sm" (click)="closeTopUpForm()" [disabled]="submittingTopUp()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitTopUp()" [disabled]="submittingTopUp() || !topUpFormData.contributionTypeId || topUpFormData.amount <= 0">
+          {{ submittingTopUp() ? 'Submitting...' : 'Submit Request' }}
         </button>
       </div>
     </div>

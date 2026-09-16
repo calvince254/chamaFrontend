@@ -29,6 +29,19 @@
   <button class="tab" [class.active]="activeTab === 'penalties'" (click)="onTabChange('penalties')">
     Loan Penalties
   </button>
+  @if (session.can('VIEW_ALL_LOANS')) {
+    <button class="tab" [class.active]="activeTab === 'income'" (click)="onTabChange('income')">
+      Loan Income
+    </button>
+  }
+  @if (session.can('VERIFY_LOAN_PAYMENT')) {
+    <button class="tab" [class.active]="activeTab === 'pending-payments'" (click)="onTabChange('pending-payments')">
+      Pending Payments
+      @if (pendingPayments.length > 0) {
+        <span class="badge">{{ pendingPayments.length }}</span>
+      }
+    </button>
+  }
 </div>
 
 @if (loading()) {
@@ -56,7 +69,7 @@
   }
 
   <!-- Loans Table -->
-  @if (activeTab !== 'penalties') {
+  @if (activeTab !== 'penalties' && activeTab !== 'income' && activeTab !== 'pending-payments') {
     @if (currentLoans.length === 0) {
       <div class="empty-state-card">
         <app-icon name="credit-card" class="empty-icon"></app-icon>
@@ -80,9 +93,10 @@
       <!-- Filter -->
       @if (activeTab === 'all') {
         <div class="toolbar">
-          <select [(ngModel)]="statusFilter">
+          <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
             <option value="ALL">All statuses</option>
             <option value="PENDING">Pending</option>
+            <option value="PENDING_GUARANTORS">Pending Guarantors</option>
             <option value="PENDING_APPROVAL">Pending Approval</option>
             <option value="APPROVED">Approved</option>
             <option value="ACTIVE">Active</option>
@@ -102,7 +116,8 @@
                 <th>Member</th>
               }
               <th>Product</th>
-              <th>Principal</th>
+              <th>Total Loan</th>
+              <th>Paid</th>
               <th>Balance</th>
               <th>Term</th>
               <th>Status</th>
@@ -114,7 +129,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (loan of filteredLoans; track loan.id) {
+            @for (loan of currentLoans; track loan.id) {
               <tr>
                 @if (activeTab !== 'my-loans') {
                   <td>
@@ -125,7 +140,10 @@
                   </td>
                 }
                 <td>{{ loan.loanProductName || 'Custom' }}</td>
-                <td>KES {{ loan.principal | number }}</td>
+                <td>KES {{ loan.totalAmount | number }}</td>
+                <td>
+                  <span class="text-success">KES {{ loan.totalPaid | number }}</span>
+                </td>
                 <td>
                   <span [style.color]="loan.balanceOutstanding > 0 ? 'var(--color-warning)' : 'var(--color-success)'">
                     KES {{ loan.balanceOutstanding | number }}
@@ -139,7 +157,21 @@
                 </td>
                 @if (activeTab === 'pending') {
                   <td>
-                    @if (loan.pendingApprovalRole) {
+                    @if (loan.pendingApprovalType === 'GUARANTOR') {
+                      <span class="badge badge-warning">Guarantor</span>
+                      @if (loan.pendingGuarantorNames && loan.pendingGuarantorNames.length > 0) {
+                        <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+                          {{ loan.guarantorsApprovedCount || 0 }}/{{ loan.requiredGuarantors }} approved
+                        </div>
+                      }
+                    } @else if (loan.pendingApprovalType === 'APPROVER') {
+                      <span class="badge badge-info">{{ loan.pendingApprovalRole || 'Approver' }}</span>
+                      @if (loan.requiredApprovalLevels && loan.requiredApprovalLevels > 1) {
+                        <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+                          Level {{ (loan.currentApprovalLevel || 0) + 1 }}/{{ loan.requiredApprovalLevels }}
+                        </div>
+                      }
+                    } @else if (loan.pendingApprovalRole) {
                       <span class="badge badge-info">{{ loan.pendingApprovalRole }}</span>
                     } @else {
                       <span style="color: var(--color-text-muted);">—</span>
@@ -166,7 +198,7 @@
                       </button>
                     }
                     @if (canRecordPayment(loan)) {
-                      <button class="btn btn-sm btn-outline" (click)="openRepaymentModal(loan)" title="Record Payment">
+                      <button class="btn btn-sm btn-outline" (click)="openRecordPaymentModal(loan)" title="Record Payment">
                         Pay
                       </button>
                     }
@@ -177,6 +209,24 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination -->
+      @if (totalPages > 0) {
+        <div class="pagination">
+          <div class="pagination-info">
+            Showing {{ currentLoans.length === 0 ? 0 : currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }} loans
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+              <app-icon name="chevron-left"></app-icon> Previous
+            </button>
+            <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+            <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+              Next <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
     }
   }
 
@@ -249,6 +299,197 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Penalties Pagination -->
+      @if (totalPages > 0) {
+        <div class="pagination">
+          <div class="pagination-info">
+            Showing {{ loanPenalties.length === 0 ? 0 : currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }} penalties
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+              <app-icon name="chevron-left"></app-icon> Previous
+            </button>
+            <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+            <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+              Next <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
+    }
+  }
+}
+
+<!-- Loan Income Tab -->
+@if (activeTab === 'income') {
+  @if (loadingIncome()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading loan income...</p>
+    </div>
+  } @else {
+    <!-- Income Summary Cards -->
+    @if (loanIncomeSummary) {
+      <div class="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div class="card summary-card">
+          <div class="summary-label">Interest Collected</div>
+          <div class="summary-value" style="color: var(--color-success);">KES {{ loanIncomeSummary.totalInterestCollected | number }}</div>
+          <div class="summary-subtitle">From loan repayments</div>
+        </div>
+        <div class="card summary-card">
+          <div class="summary-label">Processing Fees</div>
+          <div class="summary-value" style="color: var(--color-info);">KES {{ loanIncomeSummary.totalProcessingFeesCollected | number }}</div>
+          <div class="summary-subtitle">Application & disbursement fees</div>
+        </div>
+        <div class="card summary-card">
+          <div class="summary-label">Total Loan Income</div>
+          <div class="summary-value" style="color: var(--color-primary); font-size: 28px;">KES {{ loanIncomeSummary.totalLoanIncome | number }}</div>
+          <div class="summary-subtitle">Interest + fees combined</div>
+        </div>
+      </div>
+    }
+    
+    <!-- Income Transactions Table -->
+    @if (loanIncomeTransactions.length === 0) {
+      <div class="empty-state-card">
+        <app-icon name="dollar-sign" class="empty-icon"></app-icon>
+        <h3>No loan income yet</h3>
+        <p>Loan interest and processing fee income will appear here as loans are repaid.</p>
+      </div>
+    } @else {
+      <div class="card">
+        <div class="card-header">
+          <h3>Income Transactions</h3>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Member</th>
+              <th>Description</th>
+              <th class="text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tx of loanIncomeTransactions; track tx.id) {
+              <tr>
+                <td>{{ tx.date | date:'d MMM yyyy' }}</td>
+                <td>
+                  @if (tx.type === 'LOAN_INTEREST') {
+                    <span class="badge badge-success">Interest</span>
+                  } @else {
+                    <span class="badge badge-info">Processing Fee</span>
+                  }
+                </td>
+                <td>{{ tx.memberName || '-' }}</td>
+                <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ tx.description }}</td>
+                <td class="text-right" style="font-weight: 600; color: var(--color-success);">KES {{ tx.amount | number }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Income Pagination -->
+      @if (incomeTotalPages > 1) {
+        <div class="pagination">
+          <div class="pagination-info">
+            Showing {{ loanIncomeTransactions.length === 0 ? 0 : incomeCurrentPage * incomePageSize + 1 }} - {{ Math.min((incomeCurrentPage + 1) * incomePageSize, incomeTotalElements) }} of {{ incomeTotalElements }} transactions
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" (click)="incomePreviousPage()" [disabled]="incomeCurrentPage === 0">
+              <app-icon name="chevron-left"></app-icon> Previous
+            </button>
+            <span class="pagination-page-info">Page {{ incomeCurrentPage + 1 }} of {{ incomeTotalPages }}</span>
+            <button class="pagination-btn" (click)="incomeNextPage()" [disabled]="incomeCurrentPage >= incomeTotalPages - 1">
+              Next <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
+    }
+  }
+}
+
+<!-- Pending Payments Tab -->
+@if (activeTab === 'pending-payments') {
+  @if (loadingPayments()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading pending payments...</p>
+    </div>
+  } @else {
+    @if (pendingPayments.length === 0) {
+      <div class="empty-state-card">
+        <app-icon name="check-circle" style="font-size: 48px; color: var(--success);"></app-icon>
+        <h3>No Pending Payments</h3>
+        <p>All payments have been verified. There are no payments waiting for verification.</p>
+      </div>
+    } @else {
+      <div class="card">
+        <div class="card-header">
+          <h3>Payments Awaiting Verification</h3>
+          <span class="badge badge-warning">{{ pendingPayments.length }} pending</span>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Loan</th>
+                <th>Amount</th>
+                <th>Payment Method</th>
+                <th>Reference</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (payment of pendingPayments; track payment.id) {
+                <tr>
+                  <td>
+                    <div class="member-info">
+                      <strong>{{ payment.memberName }}</strong>
+                      @if (payment.memberNo) {
+                        <small class="text-muted">{{ payment.memberNo }}</small>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <div>
+                      <span>{{ payment.loanProductName || 'Loan' }}</span>
+                      <small class="text-muted">Balance: KES {{ payment.loanBalance | number }}</small>
+                    </div>
+                  </td>
+                  <td><strong class="text-success">KES {{ payment.amount | number }}</strong></td>
+                  <td>{{ payment.paymentMethod || '-' }}</td>
+                  <td>{{ payment.transactionReference || '-' }}</td>
+                  <td>
+                    <div>
+                      <span>{{ payment.recordedAt | date:'mediumDate' }}</span>
+                      @if (payment.recordedByName) {
+                        <small class="text-muted">by {{ payment.recordedByName }}</small>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <button class="btn btn-sm btn-success" (click)="verifyPayment(payment)" title="Verify payment">
+                        <app-icon name="check"></app-icon> Verify
+                      </button>
+                      <button class="btn btn-sm btn-danger" (click)="openRejectPaymentModal(payment)" title="Reject payment">
+                        <app-icon name="close"></app-icon> Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
     }
   }
 }
@@ -256,12 +497,12 @@
 <!-- Loan Application Modal -->
 @if (showForm) {
   <div class="modal-backdrop" (click)="closeForm()">
-    <div class="modal" style="max-width: 520px;" (click)="$event.stopPropagation()">
+    <div class="modal" style="max-width: 520px; max-height: 90vh; display: flex; flex-direction: column;" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>Loan Application</h3>
         <button class="icon-btn" (click)="closeForm()"><app-icon name="close"></app-icon></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="overflow-y: auto; flex: 1;">
         <div class="form-stack">
           @if (isAdmin()) {
             <div class="form-field">
@@ -291,7 +532,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-field">
               <label>Principal Amount (KES) <span class="required">*</span></label>
-              <input type="number" [(ngModel)]="editing.principal" min="0" />
+              <input type="number" [(ngModel)]="editing.principal" min="0" (ngModelChange)="checkEligibility()" />
               @if (selectedProduct) {
                 @if (selectedProduct.minAmount || selectedProduct.maxAmount) {
                   <small style="color: var(--color-text-muted); font-size: 10px;">
@@ -331,6 +572,27 @@
                 , requires {{ selectedProduct.requiredGuarantors }} guarantor(s)
               }
             </div>
+            @if (selectedProduct.processingFeeEnabled && selectedProduct.processingFeeValue) {
+              <div class="form-hint" style="margin-bottom: 12px; background: var(--color-info-subtle); padding: 10px; border-radius: 6px;">
+                <strong>Processing Fee:</strong> 
+                @if (selectedProduct.processingFeeType === 'FIXED') {
+                  KES {{ selectedProduct.processingFeeValue | number }}
+                } @else {
+                  {{ selectedProduct.processingFeeValue }}% of principal
+                  @if (editing.principal) {
+                    (≈ KES {{ (editing.principal * selectedProduct.processingFeeValue / 100) | number }})
+                  }
+                }
+                <br>
+                <span style="font-size: 11px; color: var(--color-text-muted);">
+                  @if (selectedProduct.processingFeeDeduction === 'UPFRONT') {
+                    Deducted from disbursement - you'll receive less than the principal.
+                  } @else {
+                    Added to total repayment amount.
+                  }
+                </span>
+              </div>
+            }
           }
           
           <div class="form-field">
@@ -338,31 +600,203 @@
             <textarea [(ngModel)]="editing.purpose" rows="2" placeholder="What is the loan for?"></textarea>
           </div>
           
-          <div class="form-field">
-            <label>Guarantors @if (selectedProduct && selectedProduct.requiredGuarantors) { <span class="required">*</span> (min {{ selectedProduct.requiredGuarantors }})} </label>
-            <div class="guarantor-checkboxes">
-              @for (m of members; track m.id) {
-                @if (m.id !== editing.memberId) {
-                  <label class="checkbox-item">
+          <!-- Guarantors section - only show when product requires guarantors -->
+          @if (selectedProduct && selectedProduct.requiredGuarantors > 0) {
+            <div class="form-field">
+              <label>Guarantors <span class="required">*</span> (exactly {{ selectedProduct.requiredGuarantors }})</label>
+              
+              <!-- Search input -->
+              <input type="text" 
+                     [(ngModel)]="guarantorSearch" 
+                     placeholder="Search members..." 
+                     style="margin-bottom: 8px; font-size: 12px;" />
+              
+              <!-- Scrollable guarantor list -->
+              <div class="guarantor-checkboxes" style="max-height: 140px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 6px; padding: 8px;">
+                @for (m of filteredGuarantorMembers; track m.id) {
+                  <label class="checkbox-item" style="padding: 6px 8px; margin: 0; border-radius: 4px;" 
+                         [style.opacity]="isGuarantorDisabled(m.id) ? '0.5' : '1'">
                     <input type="checkbox" 
                            [checked]="editing.guarantorIds?.includes(m.id)" 
+                           [disabled]="isGuarantorDisabled(m.id)"
                            (change)="toggleGuarantor(m.id, $event)" />
                     <span>{{ m.name }}</span>
                   </label>
                 }
+                @if (filteredGuarantorMembers.length === 0) {
+                  <div style="padding: 8px; color: var(--color-text-muted); font-size: 11px; text-align: center;">
+                    No members found
+                  </div>
+                }
+              </div>
+              
+              <!-- Selected count -->
+              <small style="color: var(--color-text-muted); font-size: 10px; margin-top: 4px; display: block;">
+                {{ editing.guarantorIds?.length || 0 }} of {{ selectedProduct.requiredGuarantors }} guarantor(s) selected
+              </small>
+              
+              @if ((editing.guarantorIds?.length || 0) !== selectedProduct.requiredGuarantors) {
+                <small style="color: var(--color-danger); font-size: 10px;">
+                  Please select exactly {{ selectedProduct.requiredGuarantors }} guarantor(s).
+                </small>
               }
             </div>
-            @if (selectedProduct && selectedProduct.requiredGuarantors && (editing.guarantorIds?.length || 0) < selectedProduct.requiredGuarantors) {
-              <small style="color: var(--color-danger); font-size: 10px;">
-                Please select at least {{ selectedProduct.requiredGuarantors }} guarantor(s).
-              </small>
-            }
-          </div>
+          }
+          
+          <!-- Loan Eligibility Check (when a loan product is selected) -->
+          @if (selectedProduct && editing.memberId && editing.principal > 0) {
+            <div class="eligibility-check" style="margin-top: 16px; padding: 16px; border-radius: 8px; border: 1px solid var(--color-border);"
+                 [style.background]="eligibility?.eligible ? 'var(--color-success-subtle)' : (eligibility ? 'var(--color-danger-subtle)' : 'var(--color-surface-raised)')">
+              <div style="font-weight: 600; margin-bottom: 12px; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                <app-icon [name]="eligibility?.eligible ? 'check-circle' : 'alert-circle'"></app-icon>
+                Loan Eligibility Check
+                @if (checkingEligibility) {
+                  <span style="font-size: 10px; color: var(--color-text-muted);">(checking...)</span>
+                }
+              </div>
+              
+              @if (eligibility) {
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+                  <div>
+                    <div style="color: var(--color-text-muted);">Your Contributions</div>
+                    <div style="font-weight: 600;">KES {{ eligibility.applicantContributions | number }}</div>
+                  </div>
+                  @if (selectedProduct.requiredGuarantors > 0) {
+                    <div>
+                      <div style="color: var(--color-text-muted);">Guarantors' Contributions</div>
+                      <div style="font-weight: 600;">KES {{ eligibility.guarantorContributions | number }}</div>
+                    </div>
+                  }
+                  <div>
+                    <div style="color: var(--color-text-muted);">Total Available</div>
+                    <div style="font-weight: 600;">KES {{ eligibility.totalContributions | number }}</div>
+                  </div>
+                  <div>
+                    <div style="color: var(--color-text-muted);">Loan Requested</div>
+                    <div style="font-weight: 600;">KES {{ eligibility.loanAmount | number }}</div>
+                  </div>
+                </div>
+                
+                @if (eligibility.eligible) {
+                  <div style="margin-top: 12px; padding: 8px; background: var(--color-success); color: white; border-radius: 4px; font-size: 11px; text-align: center;">
+                    ✓ Eligible - contributions cover the loan amount
+                  </div>
+                } @else {
+                  <div style="margin-top: 12px; padding: 8px; background: var(--color-danger); color: white; border-radius: 4px; font-size: 11px; text-align: center;">
+                    ✗ Not eligible - shortfall of KES {{ eligibility.shortfall | number }}
+                  </div>
+                  <div style="margin-top: 8px; font-size: 10px; color: var(--color-danger);">
+                    @if (selectedProduct.requiredGuarantors > 0) {
+                      Add more guarantors or reduce the loan amount.
+                    } @else {
+                      Please reduce the loan amount.
+                    }
+                  </div>
+                }
+              } @else {
+                <div style="font-size: 11px; color: var(--color-text-muted);">
+                  @if (selectedProduct.requiredGuarantors > 0) {
+                    Select guarantors to check eligibility based on combined contributions.
+                  } @else {
+                    Checking eligibility based on your contributions...
+                  }
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" style="margin-top: 8px;" (click)="checkEligibility()" [disabled]="checkingEligibility">
+                  Check Eligibility
+                </button>
+              }
+            </div>
+          }
+          
+          <!-- Approval Flow Preview -->
+          @if (selectedProduct && (selectedProduct.requiredGuarantors > 0 || selectedProduct.requiresApproval)) {
+            <div class="approval-flow-preview" style="margin-top: 16px; padding: 16px; background: var(--color-surface-raised); border-radius: 8px; border: 1px solid var(--color-border);">
+              <div style="font-weight: 600; margin-bottom: 12px; font-size: 13px;">
+                <app-icon name="workflow" style="margin-right: 6px;"></app-icon>
+                Approval Flow
+              </div>
+              <div class="approval-flow-steps" style="display: flex; flex-direction: column; gap: 8px;">
+                
+                <!-- Step 1: Guarantors (if required) -->
+                @if (selectedProduct.requiredGuarantors > 0) {
+                  <div class="approval-step" style="display: flex; align-items: flex-start; gap: 10px;">
+                    <div class="step-indicator" style="min-width: 24px; height: 24px; border-radius: 50%; background: var(--color-warning-subtle); color: var(--color-warning); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">1</div>
+                    <div style="flex: 1;">
+                      <div style="font-weight: 500; font-size: 12px;">Guarantors Approval</div>
+                      <div style="font-size: 11px; color: var(--color-text-muted);">
+                        {{ selectedProduct.requiredGuarantors }} guarantor(s) must approve (in any order)
+                      </div>
+                      @if (editing.guarantorIds && editing.guarantorIds.length > 0) {
+                        <div style="font-size: 10px; color: var(--color-primary); margin-top: 4px;">
+                          Selected: {{ getSelectedGuarantorNames().join(', ') }}
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+                
+                <!-- Step 2+: Approval Levels (if any) -->
+                @if (selectedProduct.requiresApproval && selectedProduct.approvalLevelConfig) {
+                  @for (level of selectedProduct.approvalLevelConfig; track level.level) {
+                    <div class="approval-step" style="display: flex; align-items: flex-start; gap: 10px;">
+                      <div class="step-indicator" style="min-width: 24px; height: 24px; border-radius: 50%; background: var(--color-info-subtle); color: var(--color-info); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">
+                        {{ selectedProduct.requiredGuarantors > 0 ? level.level + 1 : level.level }}
+                      </div>
+                      <div style="flex: 1;">
+                        <div style="font-weight: 500; font-size: 12px;">{{ level.levelName }}</div>
+                        <div style="font-size: 11px; color: var(--color-text-muted);">
+                          @if (level.memberName) {
+                            {{ level.memberName }}
+                          } @else if (level.roleName) {
+                            {{ level.roleName }}
+                          } @else {
+                            Approver Level {{ level.level }}
+                          }
+                          @if (!level.canReject) {
+                            <span style="color: var(--color-success);"> (can only approve)</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
+                
+                <!-- Final Step: Disbursement -->
+                <div class="approval-step" style="display: flex; align-items: flex-start; gap: 10px;">
+                  <div class="step-indicator" style="min-width: 24px; height: 24px; border-radius: 50%; background: var(--color-success-subtle); color: var(--color-success); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">
+                    @if (selectedProduct.requiresApproval && selectedProduct.approvalLevelConfig) {
+                      {{ (selectedProduct.requiredGuarantors > 0 ? 1 : 0) + selectedProduct.approvalLevelConfig.length + 1 }}
+                    } @else if (selectedProduct.requiredGuarantors > 0) {
+                      2
+                    } @else {
+                      1
+                    }
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-weight: 500; font-size: 12px;">Disbursement</div>
+                    <div style="font-size: 11px; color: var(--color-text-muted);">
+                      @if (selectedProduct.processingFeeEnabled && selectedProduct.processingFeeDeduction === 'UPFRONT') {
+                        You'll receive 
+                        @if (selectedProduct.processingFeeType === 'FIXED') {
+                          KES {{ (editing.principal || 0) - (selectedProduct.processingFeeValue || 0) | number }}
+                        } @else {
+                          KES {{ (editing.principal || 0) - ((editing.principal || 0) * (selectedProduct.processingFeeValue || 0) / 100) | number }}
+                        }
+                        (after fee deduction)
+                      } @else {
+                        You'll receive KES {{ editing.principal | number }}
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeForm()" [disabled]="saving()">Cancel</button>
-        <button class="btn btn-primary" (click)="submitApplication()" [disabled]="saving()">
+        <button class="btn btn-primary" (click)="submitApplication()" [disabled]="saving() || (selectedProduct && eligibility && !eligibility.eligible)">
           {{ saving() ? 'Submitting...' : 'Submit Application' }}
         </button>
       </div>
@@ -381,16 +815,29 @@
         </div>
         <button class="icon-btn" (click)="closeDetailModal()"><app-icon name="close"></app-icon></button>
       </div>
-      <div class="modal-body">
-        <!-- Basic Info -->
-        <div class="loan-detail-grid">
+      <div class="modal-body" style="display: flex; gap: 20px; max-height: 70vh;">
+        <!-- Left Column - Loan Details -->
+        <div style="flex: 1; overflow-y: auto; padding-right: 10px;">
+        <!-- Basic Info - 4 column layout -->
+        <div class="loan-detail-grid" style="grid-template-columns: repeat(4, 1fr);">
           <div class="loan-detail-item">
             <div class="loan-detail-label">Member</div>
             <div class="loan-detail-value">{{ selectedLoan.memberName }}</div>
           </div>
           <div class="loan-detail-item">
             <div class="loan-detail-label">Status</div>
-            <span class="badge" [ngClass]="getStatusBadgeClass(selectedLoan.status)">{{ selectedLoan.status | titlecase }}</span>
+            <div>
+              <span class="badge" [ngClass]="getStatusBadgeClass(selectedLoan.status)">{{ selectedLoan.status?.replace('_', ' ') | titlecase }}</span>
+              @if (selectedLoan.status === 'PENDING_GUARANTORS') {
+                <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 4px;">
+                  {{ selectedLoan.guarantorsApprovedCount || 0 }}/{{ selectedLoan.requiredGuarantors }} guarantors approved
+                </div>
+              } @else if (selectedLoan.status === 'PENDING_APPROVAL' && selectedLoan.requiredApprovalLevels) {
+                <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 4px;">
+                  Level {{ (selectedLoan.currentApprovalLevel || 0) + 1 }}/{{ selectedLoan.requiredApprovalLevels }}
+                </div>
+              }
+            </div>
           </div>
           <div class="loan-detail-item">
             <div class="loan-detail-label">Product</div>
@@ -401,6 +848,22 @@
             <div class="loan-detail-value">{{ selectedLoan.applicationDate | date:'d MMM yyyy' }}</div>
           </div>
         </div>
+        
+        <!-- Pending Approval Info (for loans awaiting approval) -->
+        @if (selectedLoan.status === 'PENDING_GUARANTORS' || selectedLoan.status === 'PENDING' || selectedLoan.status === 'PENDING_APPROVAL') {
+          <div style="margin: 12px 0; padding: 12px; background: var(--color-warning-subtle); border-radius: 8px; border-left: 3px solid var(--color-warning);">
+            <div style="font-weight: 600; font-size: 12px; margin-bottom: 6px;">Awaiting Approval</div>
+            @if (selectedLoan.status === 'PENDING_GUARANTORS' && selectedLoan.pendingGuarantorNames && selectedLoan.pendingGuarantorNames.length > 0) {
+              <div style="font-size: 11px; color: var(--color-text-muted);">
+                Pending guarantors: {{ selectedLoan.pendingGuarantorNames.join(', ') }}
+              </div>
+            } @else if (selectedLoan.pendingApprovalRole) {
+              <div style="font-size: 11px; color: var(--color-text-muted);">
+                Next approver: {{ selectedLoan.pendingApprovalRole }}
+              </div>
+            }
+          </div>
+        }
         
         <!-- Amounts Card -->
         <div class="loan-amounts-card">
@@ -413,10 +876,38 @@
               <div class="loan-amount-label">Interest</div>
               <div class="loan-amount-value">KES {{ selectedLoan.totalInterest | number }}</div>
             </div>
+            @if (selectedLoan.processingFee && selectedLoan.processingFee > 0) {
+              <div class="loan-amount-item">
+                <div class="loan-amount-label">Processing Fee</div>
+                <div class="loan-amount-value">KES {{ selectedLoan.processingFee | number }}</div>
+              </div>
+            }
+          </div>
+          <div class="loan-amounts-grid">
             <div class="loan-amount-item">
               <div class="loan-amount-label">Total amount</div>
               <div class="loan-amount-value">KES {{ selectedLoan.totalAmount | number }}</div>
             </div>
+            @if (selectedLoan.processingFee && selectedLoan.processingFee > 0 && selectedLoan.processingFeeDeductionType === 'UPFRONT') {
+              <div class="loan-amount-item">
+                <div class="loan-amount-label">Net Disbursement</div>
+                <div class="loan-amount-value">KES {{ selectedLoan.netDisbursementAmount | number }}</div>
+              </div>
+              <div class="loan-amount-item">
+                <div class="loan-amount-label">Fee Deduction</div>
+                <div class="loan-amount-value">Upfront</div>
+              </div>
+            }
+            @if (selectedLoan.processingFee && selectedLoan.processingFee > 0 && selectedLoan.processingFeeDeductionType === 'ON_REPAYMENT') {
+              <div class="loan-amount-item">
+                <div class="loan-amount-label">Fee Paid</div>
+                <div class="loan-amount-value">KES {{ selectedLoan.processingFeePaid | number }} of {{ selectedLoan.processingFee | number }}</div>
+              </div>
+              <div class="loan-amount-item">
+                <div class="loan-amount-label">Fee Deduction</div>
+                <div class="loan-amount-value">On repayment</div>
+              </div>
+            }
           </div>
           <div class="loan-amounts-grid secondary">
             <div class="loan-amount-item">
@@ -434,8 +925,8 @@
           </div>
         </div>
         
-        <!-- Terms -->
-        <div class="loan-detail-grid">
+        <!-- Terms, Purpose & Guarantors - 4 column layout -->
+        <div class="loan-detail-grid" style="grid-template-columns: repeat(4, 1fr);">
           <div class="loan-detail-item">
             <div class="loan-detail-label">Interest Rate</div>
             <div class="loan-detail-value">{{ selectedLoan.interestRate }}% per month</div>
@@ -444,10 +935,6 @@
             <div class="loan-detail-label">Term</div>
             <div class="loan-detail-value">{{ selectedLoan.termMonths }} months</div>
           </div>
-        </div>
-        
-        <!-- Purpose & Guarantors -->
-        <div class="loan-detail-grid" style="margin-top: 16px;">
           <div class="loan-detail-item">
             <div class="loan-detail-label">Purpose</div>
             <div class="loan-detail-value">{{ selectedLoan.purpose || 'N/A' }}</div>
@@ -458,19 +945,53 @@
           </div>
         </div>
         
+        <!-- Disbursement Info (for active/completed loans) -->
+        @if (selectedLoan.disbursedOn) {
+          <div class="loan-section" style="margin-top: 16px; padding: 12px; background: var(--color-success-subtle); border-radius: 8px; border-left: 3px solid var(--color-success);">
+            <div style="font-weight: 600; font-size: 12px; margin-bottom: 8px; color: var(--color-success);">
+              <app-icon name="check-circle" style="margin-right: 4px;"></app-icon> Disbursed
+            </div>
+            <div class="loan-detail-grid" style="margin: 0; grid-template-columns: repeat(3, 1fr);">
+              <div class="loan-detail-item">
+                <div class="loan-detail-label">Disbursement Date</div>
+                <div class="loan-detail-value">{{ selectedLoan.disbursedOn | date:'d MMM yyyy' }}</div>
+              </div>
+              <div class="loan-detail-item">
+                <div class="loan-detail-label">Amount Disbursed</div>
+                <div class="loan-detail-value" style="font-weight: 600; color: var(--color-success);">
+                  KES {{ (selectedLoan.netDisbursementAmount || selectedLoan.principal) | number }}
+                </div>
+              </div>
+              @if (selectedLoan.processingFee && selectedLoan.processingFee > 0 && selectedLoan.processingFeeDeductionType === 'UPFRONT') {
+                <div class="loan-detail-item">
+                  <div class="loan-detail-label">Processing Fee Collected</div>
+                  <div class="loan-detail-value">KES {{ selectedLoan.processingFee | number }}</div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+        
         <!-- Approval History -->
         @if (selectedLoan.approvalHistory && selectedLoan.approvalHistory.length > 0) {
           <div class="loan-section">
             <div class="loan-section-title">Approval history</div>
-            @for (approval of selectedLoan.approvalHistory; track approval.level) {
+            @for (approval of selectedLoan.approvalHistory; track $index) {
               <div class="approval-history-item">
                 <span class="badge" [ngClass]="approval.action === 'APPROVED' ? 'badge-success' : 'badge-danger'">
                   {{ approval.action | titlecase }}
                 </span>
                 <div class="approval-history-content">
-                  <div class="approval-history-title">{{ approval.levelName }}</div>
+                  <div class="approval-history-title" style="display: flex; align-items: center; gap: 6px;">
+                    {{ approval.levelName }}
+                    @if (approval.approvalType === 'GUARANTOR') {
+                      <span class="badge badge-warning" style="font-size: 9px; padding: 2px 6px;">Guarantor</span>
+                    } @else if (approval.approvalType === 'APPROVER' && approval.level) {
+                      <span class="badge badge-info" style="font-size: 9px; padding: 2px 6px;">Level {{ approval.level }}</span>
+                    }
+                  </div>
                   <div class="approval-history-meta">
-                    {{ approval.approverName }} ({{ approval.approverRole }}) · {{ approval.actionDate | date:'d MMM yyyy, HH:mm' }}
+                    {{ approval.approverName }}@if (approval.approverRole) { ({{ approval.approverRole }})} · {{ approval.actionDate | date:'d MMM yyyy, HH:mm' }}
                   </div>
                   @if (approval.comments) {
                     <div class="approval-history-comments">"{{ approval.comments }}"</div>
@@ -493,6 +1014,59 @@
             }
           </div>
         }
+        </div>
+        
+        <!-- Right Column - Payment History -->
+        @if (selectedLoan.status === 'ACTIVE' || selectedLoan.status === 'CLEARED' || selectedLoan.status === 'OVERDUE') {
+          <div style="width: 280px; flex-shrink: 0; border-left: 1px solid var(--color-border); padding-left: 20px; display: flex; flex-direction: column; max-height: 450px;">
+            <div class="loan-section-title" style="margin-bottom: 12px; flex-shrink: 0;">Payment History</div>
+            @if (loadingLoanPayments()) {
+              <div style="text-align: center; padding: 16px; color: var(--color-text-muted);">
+                <div class="spinner" style="margin: 0 auto 8px;"></div>
+                Loading payments...
+              </div>
+            } @else if (loanPaymentHistory.length === 0) {
+              <div style="text-align: center; padding: 16px; color: var(--color-text-muted);">
+                <app-icon name="receipt" style="font-size: 24px; margin-bottom: 8px; opacity: 0.5;"></app-icon>
+                <p style="margin: 0;">No payments recorded yet</p>
+              </div>
+            } @else {
+              <div class="payment-history-list" style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 8px;">
+                @for (payment of loanPaymentHistory; track payment.id) {
+                  <div class="payment-history-item" style="padding: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                      <strong class="text-success" style="font-size: 16px;">KES {{ payment.amount | number }}</strong>
+                      <span class="badge" [ngClass]="{
+                        'badge-warning': payment.status === 'PENDING',
+                        'badge-success': payment.status === 'VERIFIED',
+                        'badge-danger': payment.status === 'REJECTED'
+                      }" style="font-size: 10px;">{{ payment.status }}</span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--color-text-muted);">
+                      {{ payment.paymentDate | date:'d MMM yyyy' }}
+                      @if (payment.paymentMethod) {
+                        · {{ payment.paymentMethod }}
+                      }
+                      @if (payment.transactionReference) {
+                        · Ref: {{ payment.transactionReference }}
+                      }
+                    </div>
+                    @if (payment.status === 'VERIFIED' && payment.verifiedByName) {
+                      <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 4px;">
+                        Verified by {{ payment.verifiedByName }}
+                      </div>
+                    }
+                    @if (payment.status === 'REJECTED' && payment.rejectionReason) {
+                      <div style="font-size: 10px; color: var(--color-danger); margin-top: 4px;">
+                        Rejected: {{ payment.rejectionReason }}
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeDetailModal()">Close</button>
@@ -500,7 +1074,7 @@
           <button class="btn btn-primary" (click)="openDisbursementModal(selectedLoan)">Disburse</button>
         }
         @if (selectedLoan.status === 'ACTIVE') {
-          <button class="btn btn-primary" (click)="openRepaymentModal(selectedLoan)">Record Payment</button>
+          <button class="btn btn-primary" (click)="openRecordPaymentModal(selectedLoan)">Record Payment</button>
         }
       </div>
     </div>
@@ -512,14 +1086,26 @@
   <div class="modal-backdrop" (click)="closeApprovalModal()">
     <div class="modal" style="max-width: 420px;" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>{{ approvalAction === 'approve' ? 'Approve Loan' : 'Reject Loan' }}</h3>
+        <h3>
+          @if (selectedLoan.pendingApprovalType === 'GUARANTOR') {
+            {{ approvalAction === 'approve' ? 'Approve as Guarantor' : 'Reject as Guarantor' }}
+          } @else {
+            {{ approvalAction === 'approve' ? 'Approve Loan' : 'Reject Loan' }}
+          }
+        </h3>
         <button class="icon-btn" (click)="closeApprovalModal()"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
         <div style="margin-bottom: 16px;">
           <p><strong>Member:</strong> {{ selectedLoan.memberName }}</p>
           <p><strong>Amount:</strong> KES {{ selectedLoan.principal | number }}</p>
-          <p><strong>Current Level:</strong> {{ (selectedLoan.currentApprovalLevel || 0) + 1 }} of {{ selectedLoan.requiredApprovalLevels }}</p>
+          
+          @if (selectedLoan.pendingApprovalType === 'GUARANTOR') {
+            <p><strong>Your Role:</strong> <span class="badge badge-warning" style="margin-left: 4px;">Guarantor</span></p>
+            <p><strong>Progress:</strong> {{ selectedLoan.guarantorsApprovedCount || 0 }} of {{ selectedLoan.requiredGuarantors }} guarantors approved</p>
+          } @else if (selectedLoan.requiredApprovalLevels && selectedLoan.requiredApprovalLevels > 0) {
+            <p><strong>Approval Level:</strong> {{ (selectedLoan.currentApprovalLevel || 0) + 1 }} of {{ selectedLoan.requiredApprovalLevels }}</p>
+          }
         </div>
         
         @if (approvalAction === 'approve') {
@@ -563,9 +1149,29 @@
           <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 8px;">Disbursing to</div>
           <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">{{ selectedLoan.memberName }}</div>
           
-          <div style="font-size: 32px; font-weight: 700; color: var(--color-primary);">
-            KES {{ selectedLoan.principal | number }}
-          </div>
+          @if (selectedLoan.processingFee && selectedLoan.processingFee > 0 && selectedLoan.processingFeeDeductionType === 'UPFRONT') {
+            <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 4px;">Loan Principal</div>
+            <div style="font-size: 24px; font-weight: 600; text-decoration: line-through; color: var(--color-text-muted);">
+              KES {{ selectedLoan.principal | number }}
+            </div>
+            <div style="font-size: 12px; color: var(--color-danger); margin-bottom: 8px;">
+              Less Processing Fee: KES {{ selectedLoan.processingFee | number }}
+            </div>
+            <div style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 4px;">Net Amount to Disburse</div>
+            <div style="font-size: 32px; font-weight: 700; color: var(--color-primary);">
+              KES {{ selectedLoan.netDisbursementAmount | number }}
+            </div>
+          } @else {
+            <div style="font-size: 32px; font-weight: 700; color: var(--color-primary);">
+              KES {{ selectedLoan.principal | number }}
+            </div>
+          }
+          
+          @if (selectedLoan.processingFee && selectedLoan.processingFee > 0 && selectedLoan.processingFeeDeductionType === 'ON_REPAYMENT') {
+            <div style="margin-top: 12px; padding: 8px; background: var(--color-info-subtle); border-radius: 6px; font-size: 12px;">
+              <strong>Note:</strong> Processing fee of KES {{ selectedLoan.processingFee | number }} will be collected through repayments.
+            </div>
+          }
           
           <div style="margin-top: 16px; padding: 12px; background: var(--color-warning-subtle); border-radius: 6px; font-size: 12px;">
             <strong>Important:</strong> Disbursing this loan will mark it as active and record an outgoing transaction.
@@ -615,6 +1221,105 @@
         <button class="btn btn-ghost" (click)="closeRepaymentModal()" [disabled]="saving()">Cancel</button>
         <button class="btn btn-primary" (click)="submitRepayment()" [disabled]="saving()">
           {{ saving() ? 'Recording...' : 'Record Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Record Payment for Verification Modal -->
+@if (showRecordPaymentModal && selectedLoan) {
+  <div class="modal-backdrop" (click)="closeRecordPaymentModal()">
+    <div class="modal" style="max-width: 450px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Record Payment for Verification</h3>
+        <button class="icon-btn" (click)="closeRecordPaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 16px; padding: 12px; background: var(--color-surface-raised); border-radius: 6px;">
+          <p><strong>Member:</strong> {{ selectedLoan.memberName }}</p>
+          <p><strong>Outstanding Balance:</strong> KES {{ selectedLoan.balanceOutstanding | number }}</p>
+          <p><strong>Monthly Payment:</strong> KES {{ selectedLoan.monthlyPayment | number }}</p>
+        </div>
+        
+        <div class="form-field">
+          <label>Payment Amount (KES) <span class="required">*</span></label>
+          <input type="number" [(ngModel)]="paymentForm.amount" min="0" [max]="selectedLoan.balanceOutstanding" />
+        </div>
+        
+        <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 16px;">
+          <button class="btn btn-outline btn-sm" (click)="paymentForm.amount = selectedLoan.monthlyPayment || 0">
+            Monthly ({{ selectedLoan.monthlyPayment | number }})
+          </button>
+          <button class="btn btn-outline btn-sm" (click)="paymentForm.amount = selectedLoan.balanceOutstanding || 0">
+            Full Balance
+          </button>
+        </div>
+        
+        <div class="form-field">
+          <label>Payment Method</label>
+          <select [(ngModel)]="paymentForm.paymentMethod">
+            <option value="">Select method</option>
+            <option value="MPESA">M-PESA</option>
+            <option value="CASH">Cash</option>
+            <option value="BANK_TRANSFER">Bank Transfer</option>
+            <option value="CHEQUE">Cheque</option>
+          </select>
+        </div>
+        
+        <div class="form-field">
+          <label>Transaction Reference</label>
+          <input type="text" [(ngModel)]="paymentForm.transactionReference" placeholder="e.g., M-PESA code" />
+        </div>
+        
+        <div class="form-field">
+          <label>Notes</label>
+          <textarea [(ngModel)]="paymentForm.notes" rows="2" placeholder="Optional notes about this payment..."></textarea>
+        </div>
+        
+        <div style="margin-top: 12px; padding: 12px; background: var(--color-info-subtle); border-radius: 6px; font-size: 12px;">
+          <strong>Note:</strong> This payment will be submitted for verification. Once verified by an admin, it will be applied to your loan balance.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeRecordPaymentModal()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitPayment()" [disabled]="!paymentForm.amount">
+          Submit for Verification
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Reject Payment Modal -->
+@if (showRejectPaymentModal && selectedPayment) {
+  <div class="modal-backdrop" (click)="closeRejectPaymentModal()">
+    <div class="modal" style="max-width: 450px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Reject Payment</h3>
+        <button class="icon-btn" (click)="closeRejectPaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 16px; padding: 12px; background: var(--color-surface-raised); border-radius: 6px;">
+          <p><strong>Member:</strong> {{ selectedPayment.memberName }}</p>
+          <p><strong>Amount:</strong> KES {{ selectedPayment.amount | number }}</p>
+          @if (selectedPayment.paymentMethod) {
+            <p><strong>Method:</strong> {{ selectedPayment.paymentMethod }}</p>
+          }
+          @if (selectedPayment.transactionReference) {
+            <p><strong>Reference:</strong> {{ selectedPayment.transactionReference }}</p>
+          }
+        </div>
+        
+        <div class="form-field">
+          <label>Reason for Rejection <span class="required">*</span></label>
+          <textarea [(ngModel)]="rejectionReason" rows="3" placeholder="Please explain why this payment is being rejected..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeRejectPaymentModal()">Cancel</button>
+        <button class="btn btn-danger" (click)="confirmRejectPayment()" [disabled]="!rejectionReason.trim()">
+          Reject Payment
         </button>
       </div>
     </div>

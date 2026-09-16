@@ -9,8 +9,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const platformId = inject(PLATFORM_ID);
   const router = inject(Router);
   
-  // Skip adding token for login requests
-  if (req.url.includes('/auth/')) {
+  // Skip adding token for login requests only
+  if (req.url.includes('/auth/login') || req.url.includes('/auth/super-admin/login')) {
     return next(req);
   }
 

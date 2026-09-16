@@ -1,45 +1,64 @@
 <div class="login-screen">
   <div class="login-panel">
-    <div class="brand">
-      <div class="brand-mark">C</div>
-      <span>Calpex Chama Manager</span>
+    <div class="login-form-container">
+      <div class="brand-logo">
+        <img src="images/calpex-final-256px.png" alt="Calpex Technologies" />
+      </div>
+      
+      <h1>Welcome back</h1>
+      <p class="subtitle">Sign in to manage your group's savings, loans and welfare.</p>
+
+      @if (idleLogout()) {
+        <div class="info-message">
+          You were logged out due to inactivity. Please sign in again.
+        </div>
+      }
+
+      @if (error()) {
+        <div class="error-message">
+          {{ error() }}
+        </div>
+      }
+
+      <form (ngSubmit)="submit()">
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" [(ngModel)]="email" name="email" placeholder="your@email.com" required />
+        </div>
+        <div class="form-field">
+          <label>Password</label>
+          <input type="password" [(ngModel)]="password" name="password" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" [disabled]="loading()">
+          @if (loading()) {
+            Signing in...
+          } @else {
+            Sign in
+          }
+        </button>
+      </form>
     </div>
-    <h1>Welcome back</h1>
-    <p class="subtitle">Sign in to manage your group's savings, loans and welfare.</p>
-
-    @if (error()) {
-      <div class="error-message">
-        {{ error() }}
-      </div>
-    }
-
-    <form (ngSubmit)="submit()">
-      <div class="form-field">
-        <label>Email</label>
-        <input type="email" [(ngModel)]="email" name="email" placeholder="your@email.com" required />
-      </div>
-      <div class="form-field">
-        <label>Password</label>
-        <input type="password" [(ngModel)]="password" name="password" placeholder="••••••••" required />
-      </div>
-      <button type="submit" class="btn btn-primary btn-block" [disabled]="loading()">
-        @if (loading()) {
-          Signing in...
-        } @else {
-          Sign in
-        }
-      </button>
-    </form>
-    
-    <p class="demo-credentials">
-      <strong>Demo:</strong> Email: <code>calvince&#64;example.com</code>, Password: <code>password123</code>
-    </p>
   </div>
 
   <div class="login-side">
-    <div class="side-copy">
+    <div class="side-content">
       <h2>Run your chama the modern way</h2>
       <p>Members, meetings, contributions, loans, merry-go-round, shares, welfare and investments — all in one place, with role-based access for every member.</p>
+      
+      <ul class="feature-list">
+        <li>
+          <span class="feature-icon">✓</span>
+          Role-based access for every member
+        </li>
+        <li>
+          <span class="feature-icon">✓</span>
+          Contributions, loans & payouts tracked automatically
+        </li>
+        <li>
+          <span class="feature-icon">✓</span>
+          One dashboard for savings, welfare & investments
+        </li>
+      </ul>
     </div>
   </div>
 </div>

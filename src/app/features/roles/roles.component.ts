@@ -267,10 +267,18 @@ export class RolesComponent implements OnInit {
   }
 
   /**
-   * Toggle module expansion
+   * Toggle module expansion (accordion behavior - only one at a time)
    */
   toggleModule(module: ModulePermissions) {
-    module.expanded = !module.expanded;
+    // If clicking the currently expanded module, close it
+    if (module.expanded) {
+      module.expanded = false;
+    } else {
+      // Close all other modules first
+      this.availablePermissions.forEach(m => m.expanded = false);
+      // Then open the clicked one
+      module.expanded = true;
+    }
   }
 
   /**
@@ -278,5 +286,30 @@ export class RolesComponent implements OnInit {
    */
   getModuleSelectedCount(module: ModulePermissions): number {
     return module.permissions.filter(p => this.selectedPermissionCodes.has(p.code)).length;
+  }
+
+  /**
+   * Get icon name for a module
+   */
+  getModuleIcon(moduleName: string): string {
+    const iconMap: Record<string, string> = {
+      'Dashboard': 'layout',
+      'Members': 'users',
+      'Contributions': 'wallet',
+      'Loans': 'credit-card',
+      'Meetings': 'calendar',
+      'Welfare': 'heart',
+      'Finance': 'bar-chart',
+      'Shares': 'pie-chart',
+      'Payouts': 'dollar-sign',
+      'Investments': 'trending-up',
+      'Merry-Go-Round': 'refresh-cw',
+      'Fines': 'percent',
+      'Penalties': 'percent',
+      'Roles': 'shield',
+      'Settings': 'settings',
+      'Billing': 'file-text'
+    };
+    return iconMap[moduleName] || 'folder';
   }
 }

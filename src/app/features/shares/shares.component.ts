@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { 
   ShareCalculation, MemberShare, Liquidity, Payout, PayoutPreview, 
-  CreatePayoutRequest, PayoutPreviewRequest, Member 
+  CreatePayoutRequest, PayoutPreviewRequest, Member, PageResponse 
 } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
@@ -33,6 +33,16 @@ export class SharesComponent implements OnInit {
   payouts: Payout[] = [];
   loadingPayouts = signal(false);
   loadingLiquidity = signal(false);
+
+  // Payout pagination
+  currentPage = 0;
+  pageSize = 10;
+  totalElements = 0;
+  totalPages = 0;
+  isFirst = true;
+  isLast = true;
+  statusFilter = 'ALL';
+  Math = Math;
 
   // Payout modals
   showNewPayoutModal = false;
@@ -137,9 +147,14 @@ export class SharesComponent implements OnInit {
 
   loadPayouts() {
     this.loadingPayouts.set(true);
-    this.api.getPayouts().subscribe({
-      next: (payouts) => {
-        this.payouts = payouts;
+    const status = this.statusFilter === 'ALL' ? undefined : this.statusFilter;
+    this.api.getPayoutsPaginated(this.currentPage, this.pageSize, status).subscribe({
+      next: (response: PageResponse<Payout>) => {
+        this.payouts = response.content;
+        this.totalElements = response.totalElements;
+        this.totalPages = response.totalPages;
+        this.isFirst = response.first;
+        this.isLast = response.last;
         this.loadingPayouts.set(false);
       },
       error: (err) => {
@@ -147,6 +162,32 @@ export class SharesComponent implements OnInit {
         console.error('Failed to load payouts:', err);
       }
     });
+  }
+
+  onFilterChange() {
+    this.currentPage = 0;
+    this.loadPayouts();
+  }
+
+  goToPage(page: number) {
+    if (page >= 0 && page < this.totalPages) {
+      this.currentPage = page;
+      this.loadPayouts();
+    }
+  }
+
+  previousPage() {
+    if (!this.isFirst) {
+      this.currentPage--;
+      this.loadPayouts();
+    }
+  }
+
+  nextPage() {
+    if (!this.isLast) {
+      this.currentPage++;
+      this.loadPayouts();
+    }
   }
 
   loadMembers() {

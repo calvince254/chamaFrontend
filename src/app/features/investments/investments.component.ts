@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Investment, InvestmentApproval, Member } from '../../core/models/models';
+import { Investment, InvestmentApproval, Member, PageResponse } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 
@@ -19,6 +19,29 @@ export class InvestmentsComponent implements OnInit {
   pendingApprovals: InvestmentApproval[] = [];
   loading = true;
   saving = false;
+
+  // Pagination
+  currentPage = 0;
+  pageSize = 10;
+  totalElements = 0;
+  totalPages = 0;
+  isFirst = true;
+  isLast = true;
+  Math = Math;
+
+  // Filters
+  statusFilter = '';
+  approvalStatusFilter = '';
+
+  get hasFilters(): boolean {
+    return !!(this.statusFilter || this.approvalStatusFilter);
+  }
+
+  resetFilters() {
+    this.statusFilter = '';
+    this.approvalStatusFilter = '';
+    this.onFilterChange();
+  }
 
   // Modal states
   showCreateModal = false;
@@ -65,9 +88,15 @@ export class InvestmentsComponent implements OnInit {
   // Data loading
   loadInvestments() {
     this.loading = true;
-    this.api.getInvestments().subscribe({
-      next: (data) => {
-        this.investments = data;
+    const status = this.statusFilter || undefined;
+    const approvalStatus = this.approvalStatusFilter || undefined;
+    this.api.getInvestmentsPaginated(this.currentPage, this.pageSize, status, approvalStatus).subscribe({
+      next: (response: PageResponse<Investment>) => {
+        this.investments = response.content;
+        this.totalElements = response.totalElements;
+        this.totalPages = response.totalPages;
+        this.isFirst = response.first;
+        this.isLast = response.last;
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -77,6 +106,32 @@ export class InvestmentsComponent implements OnInit {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  onFilterChange() {
+    this.currentPage = 0;
+    this.loadInvestments();
+  }
+
+  goToPage(page: number) {
+    if (page >= 0 && page < this.totalPages) {
+      this.currentPage = page;
+      this.loadInvestments();
+    }
+  }
+
+  previousPage() {
+    if (!this.isFirst) {
+      this.currentPage--;
+      this.loadInvestments();
+    }
+  }
+
+  nextPage() {
+    if (!this.isLast) {
+      this.currentPage++;
+      this.loadInvestments();
+    }
   }
 
   loadMembers() {

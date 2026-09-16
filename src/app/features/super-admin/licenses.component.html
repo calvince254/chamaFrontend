@@ -1,0 +1,771 @@
+<div class="page-header">
+  <div>
+    <h1>License Management</h1>
+    <p>Manage chama licenses, fees, and billing</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary" (click)="openLicenseForm()">
+      <app-icon name="plus"></app-icon> Create License
+    </button>
+    <button class="btn btn-outline" (click)="openInvoiceForm()">
+      <app-icon name="file-text"></app-icon> Generate Invoice
+    </button>
+  </div>
+</div>
+
+<!-- Stats Strip -->
+<div class="stats-strip" style="margin-bottom:14px;">
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Total Licenses</div>
+    <div class="stats-strip-value">{{ licenses.length }}</div>
+  </div>
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Active</div>
+    <div class="stats-strip-value" style="color:var(--color-success);">{{ activeLicenses }}</div>
+  </div>
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Suspended</div>
+    <div class="stats-strip-value" style="color:var(--color-danger);">{{ suspendedLicenses }}</div>
+  </div>
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Outstanding</div>
+    <div class="stats-strip-value" style="color:var(--color-warning);">KES {{ totalOutstanding | number:'1.0-0' }}</div>
+  </div>
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Revenue Collected</div>
+    <div class="stats-strip-value" style="color:var(--color-success);">KES {{ totalRevenue | number:'1.0-0' }}</div>
+  </div>
+  <div class="stats-strip-item" style="display:flex;align-items:center;">
+    <button class="btn btn-outline btn-sm" (click)="refreshAllData()" [disabled]="refreshing()" title="Refresh all data">
+      @if (refreshing()) {
+        <span class="spinner spinner-sm"></span>
+      } @else {
+        <app-icon name="refresh-cw"></app-icon>
+      }
+      Refresh
+    </button>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="filter-tabs" style="margin-bottom:14px;">
+  <button class="filter-tab" [class.active]="activeTab === 'licenses'" (click)="activeTab = 'licenses'">
+    Licenses
+  </button>
+  <button class="filter-tab" [class.active]="activeTab === 'invoices'" (click)="activeTab = 'invoices'">
+    Outstanding Invoices
+    @if (outstandingInvoices.length > 0) {
+      <span class="tab-count">{{ outstandingInvoices.length }}</span>
+    }
+  </button>
+  <button class="filter-tab" [class.active]="activeTab === 'billable'" (click)="activeTab = 'billable'; loadBillableTransactions()">
+    Billable Transactions
+    @if (totalBillableAmount > 0) {
+      <span class="tab-count">KES {{ totalBillableAmount | number:'1.0-0' }}</span>
+    }
+  </button>
+  <button class="filter-tab" [class.active]="activeTab === 'paid'" (click)="activeTab = 'paid'; loadPaidInvoices()">
+    Paid Invoices
+    @if (paidInvoices.length > 0) {
+      <span class="tab-count">{{ paidInvoices.length }}</span>
+    }
+  </button>
+</div>
+
+<!-- Licenses Tab -->
+@if (activeTab === 'licenses') {
+  <div class="toolbar" style="margin-bottom:10px;">
+    <div class="search-box">
+      <app-icon name="search"></app-icon>
+      <input type="text" [(ngModel)]="searchQuery" placeholder="Search chamas...">
+    </div>
+  </div>
+
+  @if (loading) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading licenses...</p>
+    </div>
+  } @else if (filteredLicenses.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="file-text"></app-icon>
+      <h3>No licenses found</h3>
+      <p>Get started by creating a license for a chama</p>
+      <button class="btn btn-primary" (click)="openLicenseForm()">
+        <app-icon name="plus"></app-icon> Create License
+      </button>
+    </div>
+  } @else {
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Chama</th>
+            <th>Fee Percentages</th>
+            <th>Fixed Fee</th>
+            <th>Billing Day</th>
+            <th style="text-align:right;">Uninvoiced</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (license of filteredLicenses; track license.id) {
+            <tr>
+              <td style="font-weight:600;">{{ license.tenantName }}</td>
+              <td>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                  <span class="badge badge-info">Contrib: {{ license.contributionFeePercent }}%</span>
+                  <span class="badge badge-warning">Fine: {{ license.fineFeePercent }}%</span>
+                  <span class="badge" style="background:#f3e8ff;color:#7c3aed;">Loan: {{ license.loanFeePercent }}%</span>
+                  <span class="badge badge-danger">Penalty: {{ license.penaltyFeePercent }}%</span>
+                </div>
+              </td>
+              <td style="font-weight:500;">KES {{ license.monthlyFixedFee | number:'1.2-2' }}</td>
+              <td>{{ license.billingDayOfMonth | ordinal }} of month</td>
+              <td style="text-align:right;font-weight:600;" [style.color]="license.uninvoicedAmount > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)'">
+                KES {{ license.uninvoicedAmount | number:'1.2-2' }}
+              </td>
+              <td>
+                <span class="badge" [ngClass]="{
+                  'badge-success': license.status === 'ACTIVE',
+                  'badge-danger': license.status === 'SUSPENDED',
+                  'badge-neutral': license.status === 'PENDING' || license.status === 'TERMINATED'
+                }">{{ license.status }}</span>
+              </td>
+              <td>
+                <button class="btn btn-ghost btn-sm" (click)="viewTenantDetails(license)" title="View Details">
+                  <app-icon name="eye"></app-icon>
+                </button>
+                <button class="btn btn-ghost btn-sm" (click)="openLicenseForm(license)" title="Edit">
+                  <app-icon name="edit"></app-icon>
+                </button>
+                <button class="btn btn-ghost btn-sm" (click)="toggleLicenseStatus(license)" [title]="license.status === 'ACTIVE' ? 'Suspend' : 'Activate'">
+                  @if (license.status === 'ACTIVE') {
+                    <app-icon name="pause"></app-icon>
+                  } @else {
+                    <app-icon name="play"></app-icon>
+                  }
+                </button>
+                <button class="btn btn-ghost btn-sm" (click)="openInvoiceForm(license.tenantId)" title="Generate Invoice">
+                  <app-icon name="file-plus"></app-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- Outstanding Invoices Tab -->
+@if (activeTab === 'invoices') {
+  <!-- Pending Confirmation Alert -->
+  @if (pendingConfirmationInvoices.length > 0) {
+    <div class="success-banner" style="background:var(--color-info-bg);border-color:var(--color-info);color:var(--color-info);display:flex;align-items:flex-start;gap:10px;padding:12px 16px;margin-bottom:14px;">
+      <app-icon name="clock" style="flex-shrink:0;margin-top:2px;"></app-icon>
+      <div>
+        <strong style="display:block;margin-bottom:4px;">{{ pendingConfirmationInvoices.length }} Payment(s) Awaiting Verification</strong>
+        <span>Chama admins have confirmed payment for these invoices. Please verify the payments.</span>
+      </div>
+    </div>
+  }
+
+  @if (loadingInvoices) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading invoices...</p>
+    </div>
+  } @else if (outstandingInvoices.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="check-circle"></app-icon>
+      <h3>All caught up!</h3>
+      <p>No outstanding invoices at the moment</p>
+    </div>
+  } @else {
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Chama</th>
+            <th>Period</th>
+            <th>Due Date</th>
+            <th style="text-align:right;">Total</th>
+            <th style="text-align:right;">Balance</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (invoice of outstandingInvoices; track invoice.id) {
+            <tr [style.background]="invoice.status === 'PENDING_CONFIRMATION' ? 'var(--color-info-bg)' : 'inherit'">
+              <td style="font-weight:600;">{{ invoice.invoiceNumber }}</td>
+              <td>{{ invoice.tenantName }}</td>
+              <td style="font-size:10px;">{{ invoice.periodStart | date:'MMM d' }} - {{ invoice.periodEnd | date:'MMM d, yyyy' }}</td>
+              <td [style.color]="isOverdue(invoice.dueDate) && invoice.status !== 'PENDING_CONFIRMATION' ? 'var(--color-danger)' : 'inherit'" [style.font-weight]="isOverdue(invoice.dueDate) ? '600' : 'normal'">
+                {{ invoice.dueDate | date:'MMM d, yyyy' }}
+              </td>
+              <td style="text-align:right;font-weight:500;">KES {{ invoice.totalAmount | number:'1.2-2' }}</td>
+              <td style="text-align:right;font-weight:700;color:var(--color-danger);">
+                @if (invoice.status === 'PENDING_CONFIRMATION' && invoice.claimedAmount) {
+                  <span style="text-decoration:line-through;color:var(--color-text-muted);font-weight:400;">KES {{ invoice.balance | number:'1.2-2' }}</span>
+                  <br><span style="color:var(--color-info);">Claimed: KES {{ invoice.claimedAmount | number:'1.2-2' }}</span>
+                } @else {
+                  KES {{ invoice.balance | number:'1.2-2' }}
+                }
+              </td>
+              <td>
+                <span class="badge" [ngClass]="{
+                  'badge-warning': invoice.status === 'SENT' || invoice.status === 'PARTIAL',
+                  'badge-danger': invoice.status === 'OVERDUE',
+                  'badge-info': invoice.status === 'PENDING_CONFIRMATION',
+                  'badge-neutral': invoice.status === 'DRAFT'
+                }">{{ getStatusLabel(invoice.status) }}</span>
+                @if (invoice.status === 'PENDING_CONFIRMATION' && invoice.paymentReference) {
+                  <div style="font-size:9px;color:var(--color-text-muted);margin-top:2px;">
+                    Ref: {{ invoice.paymentReference }}
+                  </div>
+                }
+              </td>
+              <td>
+                @if (invoice.status === 'PENDING_CONFIRMATION') {
+                  <!-- Confirm/Reject buttons for pending confirmation -->
+                  <button class="btn btn-success btn-sm" (click)="confirmReceipt(invoice)" title="Confirm Payment Received">
+                    <app-icon name="check"></app-icon> Confirm
+                  </button>
+                  <button class="btn btn-outline btn-sm" style="color:var(--color-danger);border-color:var(--color-danger);" (click)="rejectPayment(invoice)" title="Reject - Payment Not Received">
+                    <app-icon name="x"></app-icon> Reject
+                  </button>
+                } @else {
+                  @if (invoice.status === 'DRAFT') {
+                    <button class="btn btn-ghost btn-sm" (click)="sendInvoice(invoice)" title="Send Invoice">
+                      <app-icon name="send"></app-icon>
+                    </button>
+                  }
+                  <button class="btn btn-ghost btn-sm" (click)="openPaymentForm(invoice)" title="Record Payment">
+                    <app-icon name="dollar-sign"></app-icon>
+                  </button>
+                  <button class="btn btn-ghost btn-sm" (click)="downloadInvoicePdf(invoice)" title="Download PDF">
+                    <app-icon name="download"></app-icon>
+                  </button>
+                  <button class="btn btn-ghost btn-sm" (click)="markPaid(invoice)" title="Mark as Paid">
+                    <app-icon name="check"></app-icon>
+                  </button>
+                  <button class="btn btn-ghost btn-sm" style="color:var(--color-danger);" (click)="cancelInvoice(invoice)" title="Cancel">
+                    <app-icon name="x"></app-icon>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- Billable Transactions Tab -->
+@if (activeTab === 'billable') {
+  <div class="toolbar" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div class="form-field" style="margin:0;">
+      <label style="font-size:10px;margin-bottom:4px;">Month</label>
+      <select [(ngModel)]="selectedBillingMonth" (change)="loadBillableTransactions()" style="min-width:150px;">
+        @for (month of billingMonths; track month.value) {
+          <option [value]="month.value">{{ month.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="form-field" style="margin:0;">
+      <label style="font-size:10px;margin-bottom:4px;">Chama</label>
+      <select [(ngModel)]="selectedBillingTenant" (change)="filterBillableTransactions()" style="min-width:150px;">
+        <option value="all">All Chamas</option>
+        @for (license of licenses; track license.id) {
+          <option [value]="license.tenantId">{{ license.tenantName }}</option>
+        }
+      </select>
+    </div>
+    <button class="btn btn-outline btn-sm" (click)="loadBillableTransactions()" [disabled]="loadingBillable">
+      @if (loadingBillable) {
+        <span class="spinner spinner-sm"></span>
+      } @else {
+        <app-icon name="refresh-cw"></app-icon>
+      }
+      Refresh
+    </button>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="stats-strip" style="margin-bottom:14px;">
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Total Transactions</div>
+      <div class="stats-strip-value">{{ filteredBillableTransactions.length }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Contribution Fees</div>
+      <div class="stats-strip-value" style="color:var(--color-info);">KES {{ billableSummary.contributions | number:'1.2-2' }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Fine Fees</div>
+      <div class="stats-strip-value" style="color:var(--color-warning);">KES {{ billableSummary.fines | number:'1.2-2' }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Loan Fees</div>
+      <div class="stats-strip-value" style="color:#7c3aed;">KES {{ billableSummary.loans | number:'1.2-2' }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Penalty Fees</div>
+      <div class="stats-strip-value" style="color:var(--color-danger);">KES {{ billableSummary.penalties | number:'1.2-2' }}</div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Total Billable</div>
+      <div class="stats-strip-value" style="color:var(--color-primary);font-weight:700;">KES {{ billableSummary.total | number:'1.2-2' }}</div>
+    </div>
+  </div>
+
+  @if (loadingBillable) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading transactions...</p>
+    </div>
+  } @else if (filteredBillableTransactions.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="check-circle"></app-icon>
+      <h3>No uninvoiced transactions</h3>
+      <p>All transactions for this period have been invoiced</p>
+    </div>
+  } @else {
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Chama</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th style="text-align:right;">Original Amount</th>
+            <th style="text-align:right;">Fee %</th>
+            <th style="text-align:right;">Fee Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tx of filteredBillableTransactions; track tx.id) {
+            <tr>
+              <td>{{ tx.transactionDate | date:'MMM d, yyyy' }}</td>
+              <td style="font-weight:500;">{{ tx.tenantName }}</td>
+              <td>
+                <span class="badge" [ngClass]="{
+                  'badge-info': tx.transactionType === 'CONTRIBUTION',
+                  'badge-warning': tx.transactionType === 'FINE',
+                  'badge-danger': tx.transactionType === 'PENALTY',
+                  'badge-neutral': tx.transactionType === 'LOAN_DISBURSEMENT' || tx.transactionType === 'LOAN_INTEREST'
+                }" style="font-size:9px;">{{ getTransactionTypeLabel(tx.transactionType) }}</span>
+              </td>
+              <td style="font-size:10px;color:var(--color-text-muted);">{{ tx.description || '—' }}</td>
+              <td style="text-align:right;">KES {{ tx.originalAmount | number:'1.2-2' }}</td>
+              <td style="text-align:right;color:var(--color-text-muted);">{{ tx.feePercent }}%</td>
+              <td style="text-align:right;font-weight:600;color:var(--color-primary);">KES {{ tx.feeAmount | number:'1.2-2' }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--color-bg);font-weight:600;">
+            <td colspan="6" style="text-align:right;">Total Billable:</td>
+            <td style="text-align:right;color:var(--color-primary);">KES {{ billableSummary.total | number:'1.2-2' }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  }
+}
+
+<!-- Paid Invoices Tab -->
+@if (activeTab === 'paid') {
+  @if (loadingPaidInvoices) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading paid invoices...</p>
+    </div>
+  } @else if (paidInvoices.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="file-text"></app-icon>
+      <h3>No paid invoices yet</h3>
+      <p>Paid invoices will appear here once payments are confirmed</p>
+    </div>
+  } @else {
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Invoice</th>
+            <th>Chama</th>
+            <th>Period</th>
+            <th>Paid Date</th>
+            <th style="text-align:right;">Invoice Total</th>
+            <th style="text-align:right;">Amount Paid</th>
+            <th>Reference</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (invoice of paidInvoices; track invoice.id) {
+            <tr>
+              <td style="font-weight:600;">{{ invoice.invoiceNumber }}</td>
+              <td>{{ invoice.tenantName }}</td>
+              <td style="font-size:10px;">{{ invoice.periodStart | date:'MMM d' }} - {{ invoice.periodEnd | date:'MMM d, yyyy' }}</td>
+              <td>{{ invoice.paidDate | date:'MMM d, yyyy' }}</td>
+              <td style="text-align:right;">KES {{ invoice.totalAmount | number:'1.2-2' }}</td>
+              <td style="text-align:right;font-weight:600;color:var(--color-success);">KES {{ invoice.amountPaid | number:'1.2-2' }}</td>
+              <td style="font-size:10px;color:var(--color-text-muted);">{{ invoice.paymentReference || '—' }}</td>
+              <td>
+                <button class="btn btn-ghost btn-sm" (click)="downloadInvoicePdf(invoice)" title="Download PDF">
+                  <app-icon name="download"></app-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}
+
+<!-- Create/Edit License Modal -->
+@if (showLicenseForm) {
+  <div class="modal-backdrop" (click)="showLicenseForm = false">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>{{ editingLicense ? 'Edit License' : 'Create License' }}</h3>
+          <p style="font-size:10px;color:var(--color-text-muted);margin-top:2px;">
+            {{ editingLicense ? 'Update license settings' : 'Assign a license to a chama' }}
+          </p>
+        </div>
+        <button class="icon-btn" (click)="showLicenseForm = false"><app-icon name="close"></app-icon></button>
+      </div>
+
+      <div class="modal-body">
+        @if (!editingLicense) {
+          <div class="form-field">
+            <label>Select Chama <span class="required">*</span></label>
+            @if (loadingTenants) {
+              <div class="loading-inline">
+                <div class="spinner-sm"></div>
+                <span>Loading chamas...</span>
+              </div>
+            } @else if (availableTenants.length === 0) {
+              <div class="success-banner" style="background:var(--color-warning-bg);border-color:var(--color-warning);color:#92400e;">
+                All chamas already have licenses assigned.
+              </div>
+            } @else {
+              <select [(ngModel)]="licenseDraft.tenantId">
+                <option [value]="0">Select a chama...</option>
+                @for (tenant of availableTenants; track tenant.id) {
+                  <option [value]="tenant.id">{{ tenant.name }}</option>
+                }
+              </select>
+            }
+          </div>
+        } @else {
+          <div style="background:#f8faf9;border-radius:var(--radius-sm);padding:10px;margin-bottom:12px;">
+            <div style="font-size:9px;color:var(--color-text-muted);">Editing license for</div>
+            <div style="font-weight:600;">{{ editingLicense.tenantName }}</div>
+          </div>
+        }
+
+        <h4 style="margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--color-border);">Fee Percentages</h4>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Contribution %</label>
+            <input type="number" [(ngModel)]="licenseDraft.contributionFeePercent" step="0.01" min="0" max="100">
+          </div>
+          <div class="form-field">
+            <label>Fine %</label>
+            <input type="number" [(ngModel)]="licenseDraft.fineFeePercent" step="0.01" min="0" max="100">
+          </div>
+          <div class="form-field">
+            <label>Loan %</label>
+            <input type="number" [(ngModel)]="licenseDraft.loanFeePercent" step="0.01" min="0" max="100">
+          </div>
+          <div class="form-field">
+            <label>Penalty %</label>
+            <input type="number" [(ngModel)]="licenseDraft.penaltyFeePercent" step="0.01" min="0" max="100">
+          </div>
+        </div>
+
+        <h4 style="margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--color-border);">Billing Settings</h4>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Monthly Fixed Fee (KES)</label>
+            <input type="number" [(ngModel)]="licenseDraft.monthlyFixedFee" step="0.01" min="0">
+          </div>
+          <div class="form-field">
+            <label>Grace Period (days)</label>
+            <input type="number" [(ngModel)]="licenseDraft.gracePeriodDays" min="0" max="30">
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Billing Day of Month</label>
+          <select [(ngModel)]="licenseDraft.billingDayOfMonth">
+            @for (day of billingDays; track day) {
+              <option [value]="day">{{ day | ordinal }}</option>
+            }
+          </select>
+          <p style="font-size:9px;color:var(--color-text-muted);margin-top:2px;">Day of month when invoice is automatically generated</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showLicenseForm = false">Cancel</button>
+        <button class="btn btn-primary" (click)="saveLicense()" [disabled]="savingLicense() || (!editingLicense && !licenseDraft.tenantId)">
+          @if (savingLicense()) {
+            <div class="spinner-sm"></div>
+          }
+          {{ editingLicense ? 'Update License' : 'Create License' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Generate Invoice Modal -->
+@if (showInvoiceForm) {
+  <div class="modal-backdrop" (click)="showInvoiceForm = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Generate Invoice</h3>
+          <p style="font-size:10px;color:var(--color-text-muted);margin-top:2px;">Create an invoice for a chama</p>
+        </div>
+        <button class="icon-btn" (click)="showInvoiceForm = false"><app-icon name="close"></app-icon></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Select Chama <span class="required">*</span></label>
+          <select [(ngModel)]="invoiceDraft.tenantId">
+            <option [value]="0">Select a chama...</option>
+            @for (license of licenses; track license.id) {
+              <option [value]="license.tenantId">{{ license.tenantName }}</option>
+            }
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#f8faf9;border-radius:var(--radius-sm);margin-bottom:12px;">
+          <input type="checkbox" [(ngModel)]="invoiceDraft.isAdhoc" id="isAdhoc" style="width:16px;height:16px;">
+          <label for="isAdhoc" style="font-size:11px;">
+            <strong>Ad-hoc Invoice</strong>
+            <span style="display:block;font-size:10px;color:var(--color-text-muted);">One-time charge outside regular billing</span>
+          </label>
+        </div>
+
+        @if (invoiceDraft.isAdhoc) {
+          <div class="form-field">
+            <label>Description <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="invoiceDraft.description" placeholder="Reason for ad-hoc invoice">
+          </div>
+          <div class="form-field">
+            <label>Amount (KES) <span class="required">*</span></label>
+            <input type="number" [(ngModel)]="invoiceDraft.amount" step="0.01" min="0">
+          </div>
+        } @else {
+          <div class="form-grid">
+            <div class="form-field">
+              <label>Period Start <span class="required">*</span></label>
+              <input type="date" [(ngModel)]="invoiceDraft.periodStart">
+            </div>
+            <div class="form-field">
+              <label>Period End <span class="required">*</span></label>
+              <input type="date" [(ngModel)]="invoiceDraft.periodEnd">
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showInvoiceForm = false">Cancel</button>
+        <button class="btn btn-primary" (click)="generateInvoice()" [disabled]="generatingInvoice() || !invoiceDraft.tenantId">
+          @if (generatingInvoice()) {
+            <div class="spinner-sm"></div>
+          }
+          Generate Invoice
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Tenant Details Modal -->
+@if (selectedTenantId) {
+  <div class="modal-backdrop" (click)="closeTenantDetails()">
+    <div class="modal modal-large" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>{{ selectedTenantName }}</h3>
+          <p style="font-size:10px;color:var(--color-text-muted);margin-top:2px;">License details, invoices, and transactions</p>
+        </div>
+        <button class="icon-btn" (click)="closeTenantDetails()"><app-icon name="close"></app-icon></button>
+      </div>
+
+      <div class="modal-body">
+        @if (loadingTenantDetails) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading details...</p>
+          </div>
+        } @else {
+          <!-- Invoices Section -->
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <h4>Invoices</h4>
+              <button class="btn btn-primary btn-sm" (click)="openInvoiceForm(selectedTenantId!)">
+                <app-icon name="plus"></app-icon> Generate Invoice
+              </button>
+            </div>
+            @if (tenantInvoices.length === 0) {
+              <div class="empty-state-inline">
+                <p>No invoices yet</p>
+              </div>
+            } @else {
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Period</th>
+                    <th style="text-align:right;">Total</th>
+                    <th style="text-align:right;">Balance</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (inv of tenantInvoices; track inv.id) {
+                    <tr>
+                      <td style="font-weight:600;">{{ inv.invoiceNumber }}</td>
+                      <td style="font-size:10px;">{{ inv.periodStart | date:'MMM d' }} - {{ inv.periodEnd | date:'MMM d' }}</td>
+                      <td style="text-align:right;">KES {{ inv.totalAmount | number:'1.2-2' }}</td>
+                      <td style="text-align:right;" [style.color]="inv.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'" [style.font-weight]="inv.balance > 0 ? '600' : 'normal'">
+                        KES {{ inv.balance | number:'1.2-2' }}
+                      </td>
+                      <td>
+                        <span class="badge" [ngClass]="{
+                          'badge-success': inv.status === 'PAID',
+                          'badge-warning': inv.status === 'PARTIAL' || inv.status === 'SENT',
+                          'badge-danger': inv.status === 'OVERDUE',
+                          'badge-neutral': inv.status === 'DRAFT' || inv.status === 'CANCELLED'
+                        }">{{ inv.status }}</span>
+                      </td>
+                      <td>
+                        <button class="btn btn-ghost btn-sm" (click)="downloadInvoicePdf(inv)" title="Download PDF">
+                          <app-icon name="download"></app-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+
+          <!-- Transactions Section -->
+          <div>
+            <h4 style="margin-bottom:10px;">Recent Transactions</h4>
+            @if (tenantTransactions.length === 0) {
+              <div class="empty-state-inline">
+                <p>No transactions yet</p>
+              </div>
+            } @else {
+              <table class="data-table compact">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th style="text-align:right;">Amount</th>
+                    <th style="text-align:right;">Fee %</th>
+                    <th style="text-align:right;">Fee Amount</th>
+                    <th style="text-align:center;">Invoiced</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (tx of tenantTransactions.slice(0, 20); track tx.id) {
+                    <tr>
+                      <td>{{ tx.transactionDate | date:'MMM d, yyyy' }}</td>
+                      <td>
+                        <span class="badge" [ngClass]="getTransactionTypeClass(tx.transactionType)">
+                          {{ getTransactionTypeLabel(tx.transactionType) }}
+                        </span>
+                      </td>
+                      <td style="text-align:right;">KES {{ tx.originalAmount | number:'1.2-2' }}</td>
+                      <td style="text-align:right;color:var(--color-text-muted);">{{ tx.feePercent }}%</td>
+                      <td style="text-align:right;font-weight:500;">KES {{ tx.feeAmount | number:'1.2-2' }}</td>
+                      <td style="text-align:center;">
+                        @if (tx.invoiced) {
+                          <app-icon name="check" style="color:var(--color-success);"></app-icon>
+                        } @else {
+                          <span style="color:var(--color-text-muted);">—</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Record Payment Modal -->
+@if (showPaymentForm && selectedInvoice) {
+  <div class="modal-backdrop z-60" (click)="showPaymentForm = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Record Payment</h3>
+          <p style="font-size:10px;color:var(--color-text-muted);margin-top:2px;">Invoice: {{ selectedInvoice.invoiceNumber }}</p>
+        </div>
+        <button class="icon-btn" (click)="showPaymentForm = false"><app-icon name="close"></app-icon></button>
+      </div>
+
+      <div class="modal-body">
+        <div style="background:#f8faf9;border-radius:var(--radius-sm);padding:12px;margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
+            <span style="color:var(--color-text-muted);">Total Amount:</span>
+            <span style="font-weight:500;">KES {{ selectedInvoice.totalAmount | number:'1.2-2' }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
+            <span style="color:var(--color-text-muted);">Amount Paid:</span>
+            <span style="font-weight:500;color:var(--color-success);">KES {{ selectedInvoice.amountPaid | number:'1.2-2' }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding-top:8px;border-top:1px solid var(--color-border);">
+            <span style="font-weight:600;">Balance Due:</span>
+            <span style="font-weight:700;color:var(--color-danger);">KES {{ selectedInvoice.balance | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>Payment Amount (KES) <span class="required">*</span></label>
+          <input type="number" [(ngModel)]="paymentDraft.amount" step="0.01" min="0" [max]="selectedInvoice.balance">
+        </div>
+
+        <div class="form-field">
+          <label>Payment Reference</label>
+          <input type="text" [(ngModel)]="paymentDraft.paymentReference" placeholder="e.g., M-PESA transaction code">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showPaymentForm = false">Cancel</button>
+        <button class="btn btn-primary" (click)="recordPayment()" [disabled]="recordingPayment() || paymentDraft.amount <= 0">
+          @if (recordingPayment()) {
+            <div class="spinner-sm"></div>
+          }
+          Record Payment
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,436 @@
+<div class="page-header">
+  <div>
+    <h1>Billing & Invoices</h1>
+    <p>View your license status and invoices</p>
+  </div>
+</div>
+
+<!-- License Suspended Alert -->
+@if (isLicenseSuspended) {
+  <div class="error-banner" style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;margin-bottom:14px;">
+    <app-icon name="alert-triangle" style="flex-shrink:0;margin-top:2px;"></app-icon>
+    <div>
+      <strong style="display:block;margin-bottom:4px;">License Suspended</strong>
+      <span>Your license has been suspended due to overdue invoices. Please pay your outstanding balance to restore access.</span>
+      @if (totalOutstanding > 0) {
+        <div style="margin-top:8px;font-weight:700;">Outstanding: KES {{ totalOutstanding | number:'1.2-2' }}</div>
+      }
+    </div>
+  </div>
+}
+
+<!-- Pending Confirmation Alert -->
+@if (pendingConfirmation.length > 0) {
+  <div class="success-banner" style="background:var(--color-info-bg);border-color:var(--color-info);color:var(--color-info);display:flex;align-items:flex-start;gap:10px;padding:12px 16px;margin-bottom:14px;">
+    <app-icon name="clock" style="flex-shrink:0;margin-top:2px;"></app-icon>
+    <div>
+      <strong style="display:block;margin-bottom:4px;">Payment Pending Verification</strong>
+      <span>You have {{ pendingConfirmation.length }} invoice(s) pending payment verification by the administrator.</span>
+    </div>
+  </div>
+}
+
+<!-- Stats Strip -->
+<div class="stats-strip" style="margin-bottom:14px;">
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">License Status</div>
+    @if (loadingLicense) {
+      <div class="stats-strip-value">Loading...</div>
+    } @else if (license) {
+      <span class="badge" [ngClass]="{
+        'badge-success': license.status === 'ACTIVE',
+        'badge-warning': license.status === 'SUSPENDED',
+        'badge-danger': license.status === 'TERMINATED',
+        'badge-neutral': license.status === 'PENDING'
+      }">{{ license.status }}</span>
+    } @else {
+      <span class="badge badge-neutral">No license</span>
+    }
+  </div>
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Current Month Fees</div>
+    <div class="stats-strip-value" style="color: var(--color-primary);">
+      @if (loadingLicense) {
+        Loading...
+      } @else {
+        KES {{ (license?.uninvoicedAmount || 0) | number:'1.2-2' }}
+      }
+    </div>
+  </div>
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Outstanding Balance</div>
+    <div class="stats-strip-value" [style.color]="hasOutstanding ? 'var(--color-danger)' : 'var(--color-success)'">
+      KES {{ totalOutstanding | number:'1.2-2' }}
+    </div>
+  </div>
+  <div class="stats-strip-item">
+    <div class="stats-strip-label">Total Invoices</div>
+    <div class="stats-strip-value">{{ totalElements }}</div>
+  </div>
+</div>
+
+<!-- Invoices Table -->
+<div class="card">
+  <div class="card-header">
+    <h3>Invoices</h3>
+  </div>
+
+  @if (loading) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading invoices...</p>
+    </div>
+  } @else if (invoices.length === 0 && !hasFilters && totalElements === 0) {
+    <div class="empty-state-card" style="border:none;border-radius:0;">
+      <app-icon name="file-text"></app-icon>
+      <h3>No invoices yet</h3>
+      <p>Invoices will appear here once your billing cycle begins</p>
+    </div>
+  } @else {
+    <!-- Filter - only show when there are invoices -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Status:</label>
+        <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All</option>
+          <option value="DRAFT">Draft</option>
+          <option value="SENT">Sent</option>
+          <option value="PARTIAL">Partial</option>
+          <option value="OVERDUE">Overdue</option>
+          <option value="PAID">Paid</option>
+          <option value="PENDING_CONFIRMATION">Pending Verification</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+      @if (statusFilter) {
+        <button class="reset-filters" (click)="statusFilter = ''; onFilterChange()">Reset filters</button>
+      }
+    </div>
+
+    @if (invoices.length === 0 && hasFilters) {
+      <div class="empty-filter-state">
+        <app-icon name="search"></app-icon>
+        <p>No invoices match your filters</p>
+        <button class="btn btn-outline btn-sm" (click)="resetFilters()">Reset filters</button>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Period</th>
+            <th>Due Date</th>
+            <th style="text-align:right;">Amount</th>
+            <th style="text-align:right;">Balance</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (invoice of invoices; track invoice.id) {
+            <tr>
+              <td>
+                <span style="font-weight:600;">{{ invoice.invoiceNumber }}</span>
+                @if (invoice.isAdhoc) {
+                  <span class="badge badge-neutral" style="margin-left:6px;">Ad-hoc</span>
+                }
+              </td>
+              <td>{{ formatPeriod(invoice.periodStart, invoice.periodEnd) }}</td>
+              <td [style.color]="isOverdue(invoice.dueDate) && invoice.status !== 'PAID' ? 'var(--color-danger)' : 'inherit'">
+                {{ invoice.dueDate | date:'MMM d, yyyy' }}
+              </td>
+              <td style="text-align:right;font-weight:600;">KES {{ invoice.totalAmount | number:'1.2-2' }}</td>
+              <td style="text-align:right;">
+                <span [style.color]="invoice.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'" style="font-weight:600;">
+                  KES {{ invoice.balance | number:'1.2-2' }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" [ngClass]="{
+                  'badge-success': invoice.status === 'PAID',
+                  'badge-warning': invoice.status === 'PARTIAL' || invoice.status === 'SENT',
+                  'badge-danger': invoice.status === 'OVERDUE',
+                  'badge-info': invoice.status === 'PENDING_CONFIRMATION',
+                  'badge-neutral': invoice.status === 'DRAFT' || invoice.status === 'CANCELLED'
+                }">{{ getStatusLabel(invoice.status) }}</span>
+              </td>
+              <td>
+                <button class="btn btn-ghost btn-sm" (click)="viewInvoice(invoice)" title="View Details">
+                  <app-icon name="eye"></app-icon>
+                </button>
+                <button class="btn btn-ghost btn-sm" (click)="downloadInvoice(invoice)" title="Download PDF">
+                  <app-icon name="download"></app-icon>
+                </button>
+                @if (canConfirmPayment(invoice)) {
+                  <button class="btn btn-primary btn-sm" (click)="openPaymentModal(invoice)" title="Confirm Payment">
+                    <app-icon name="check-circle"></app-icon> Confirm Payment
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      @if (totalPages > 1) {
+        <div class="pagination">
+          <div class="pagination-info">
+            Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+              <app-icon name="chevron-left"></app-icon>
+            </button>
+            <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+            <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+              <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
+    }
+  }
+</div>
+
+<!-- Payment Instructions -->
+@if (hasOutstanding) {
+  <div class="success-banner" style="background:var(--color-info-bg);border-color:var(--color-info);color:var(--color-info);margin-top:14px;">
+    <app-icon name="info"></app-icon>
+    <div>
+      <strong>Payment Instructions:</strong> Make your payment via M-PESA or bank transfer as instructed in your invoice, then click "Confirm Payment" to notify us. We will verify and update your account.
+    </div>
+  </div>
+}
+
+<!-- Invoice Details Modal -->
+@if (selectedInvoice) {
+  <div class="modal-backdrop" (click)="closeInvoiceDetails()">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Invoice {{ selectedInvoice.invoiceNumber }}</h3>
+          <p style="font-size:10px;color:var(--color-text-muted);margin-top:2px;">
+            {{ formatPeriod(selectedInvoice.periodStart, selectedInvoice.periodEnd) }}
+          </p>
+        </div>
+        <button class="icon-btn" (click)="closeInvoiceDetails()"><app-icon name="close"></app-icon></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Status & Issue Date -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <span class="badge" [ngClass]="{
+            'badge-success': selectedInvoice.status === 'PAID',
+            'badge-warning': selectedInvoice.status === 'PARTIAL' || selectedInvoice.status === 'SENT',
+            'badge-danger': selectedInvoice.status === 'OVERDUE',
+            'badge-info': selectedInvoice.status === 'PENDING_CONFIRMATION',
+            'badge-neutral': selectedInvoice.status === 'DRAFT' || selectedInvoice.status === 'CANCELLED'
+          }">{{ getStatusLabel(selectedInvoice.status) }}</span>
+          <div style="text-align:right;">
+            <div style="font-size:9px;color:var(--color-text-muted);">Issue Date</div>
+            <div style="font-weight:600;">{{ selectedInvoice.issueDate | date:'MMM d, yyyy' }}</div>
+          </div>
+        </div>
+
+        <!-- Pending Confirmation Info -->
+        @if (selectedInvoice.status === 'PENDING_CONFIRMATION') {
+          <div class="success-banner" style="background:var(--color-info-bg);border-color:var(--color-info);color:var(--color-info);margin-bottom:14px;">
+            <app-icon name="clock"></app-icon>
+            <div>
+              <strong>Payment submitted for verification</strong>
+              @if (selectedInvoice.paymentConfirmedDate) {
+                <div style="font-size:10px;margin-top:4px;">Submitted on {{ selectedInvoice.paymentConfirmedDate | date:'MMM d, yyyy' }}</div>
+              }
+              @if (selectedInvoice.claimedAmount) {
+                <div style="font-size:10px;">Amount: KES {{ selectedInvoice.claimedAmount | number:'1.2-2' }}</div>
+              }
+              @if (selectedInvoice.paymentReference) {
+                <div style="font-size:10px;">Reference: {{ selectedInvoice.paymentReference }}</div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Fee Breakdown -->
+        <div style="background:#f8faf9;border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+          <h4 style="margin-bottom:10px;">Fee Breakdown</h4>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;">
+            @if (selectedInvoice.contributionFees > 0) {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Contribution Fees</span>
+                <span style="font-weight:500;">KES {{ selectedInvoice.contributionFees | number:'1.2-2' }}</span>
+              </div>
+            }
+            @if (selectedInvoice.fineFees > 0) {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Fine Fees</span>
+                <span style="font-weight:500;">KES {{ selectedInvoice.fineFees | number:'1.2-2' }}</span>
+              </div>
+            }
+            @if (selectedInvoice.loanFees > 0) {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Loan Fees</span>
+                <span style="font-weight:500;">KES {{ selectedInvoice.loanFees | number:'1.2-2' }}</span>
+              </div>
+            }
+            @if (selectedInvoice.penaltyFees > 0) {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Penalty Fees</span>
+                <span style="font-weight:500;">KES {{ selectedInvoice.penaltyFees | number:'1.2-2' }}</span>
+              </div>
+            }
+            @if (selectedInvoice.fixedFee > 0) {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Monthly Fixed Fee</span>
+                <span style="font-weight:500;">KES {{ selectedInvoice.fixedFee | number:'1.2-2' }}</span>
+              </div>
+            }
+            <div style="border-top:1px solid var(--color-border);padding-top:8px;margin-top:4px;">
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Subtotal</span>
+                <span style="font-weight:500;">KES {{ selectedInvoice.subtotal | number:'1.2-2' }}</span>
+              </div>
+            </div>
+            @if (selectedInvoice.adjustments !== 0) {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Adjustments</span>
+                <span [style.color]="selectedInvoice.adjustments > 0 ? 'var(--color-danger)' : 'var(--color-success)'" style="font-weight:500;">
+                  KES {{ selectedInvoice.adjustments | number:'1.2-2' }}
+                </span>
+              </div>
+            }
+            <div style="border-top:1px solid var(--color-border);padding-top:8px;margin-top:4px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="font-weight:600;">Total Amount</span>
+                <span style="font-weight:700;">KES {{ selectedInvoice.totalAmount | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Status -->
+        <div style="background:#f8faf9;border-radius:var(--radius-md);padding:12px;margin-bottom:14px;">
+          <h4 style="margin-bottom:10px;">Payment Status</h4>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:11px;">
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:var(--color-text-muted);">Amount Paid</span>
+              <span style="font-weight:500;color:var(--color-success);">KES {{ selectedInvoice.amountPaid | number:'1.2-2' }}</span>
+            </div>
+            <div style="border-top:1px solid var(--color-border);padding-top:8px;margin-top:4px;display:flex;justify-content:space-between;font-size:12px;">
+              <span style="font-weight:600;">Balance Due</span>
+              <span style="font-weight:700;" [style.color]="selectedInvoice.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'">
+                KES {{ selectedInvoice.balance | number:'1.2-2' }}
+              </span>
+            </div>
+            @if (selectedInvoice.paidDate) {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Paid Date</span>
+                <span style="font-weight:500;">{{ selectedInvoice.paidDate | date:'MMM d, yyyy' }}</span>
+              </div>
+            }
+            @if (selectedInvoice.paymentReference && selectedInvoice.status === 'PAID') {
+              <div style="display:flex;justify-content:space-between;">
+                <span style="color:var(--color-text-muted);">Payment Reference</span>
+                <span style="font-weight:500;">{{ selectedInvoice.paymentReference }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Due Date Warning -->
+        @if (selectedInvoice.balance > 0 && selectedInvoice.status !== 'PENDING_CONFIRMATION') {
+          @if (isOverdue(selectedInvoice.dueDate)) {
+            <div class="error-banner" style="display:flex;align-items:center;gap:8px;">
+              <app-icon name="alert-circle"></app-icon>
+              <span>This invoice is overdue. Please make payment immediately to avoid service suspension.</span>
+            </div>
+          } @else {
+            <div class="success-banner" style="background:var(--color-warning-bg);border-color:var(--color-warning);color:#92400e;">
+              <app-icon name="clock"></app-icon>
+              <span>Payment due by {{ selectedInvoice.dueDate | date:'MMMM d, yyyy' }}</span>
+            </div>
+          }
+        }
+
+        <!-- Notes -->
+        @if (selectedInvoice.notes) {
+          <div style="margin-top:14px;">
+            <h4 style="margin-bottom:6px;">Notes</h4>
+            <p style="background:#f8faf9;padding:10px;border-radius:var(--radius-sm);font-size:10px;color:var(--color-text-muted);">
+              {{ selectedInvoice.notes }}
+            </p>
+          </div>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="downloadInvoice(selectedInvoice)">
+          <app-icon name="download"></app-icon> Download PDF
+        </button>
+        @if (canConfirmPayment(selectedInvoice)) {
+          <button class="btn btn-primary" (click)="closeInvoiceDetails(); openPaymentModal(selectedInvoice)">
+            <app-icon name="check-circle"></app-icon> Confirm Payment
+          </button>
+        } @else {
+          <button class="btn btn-primary" (click)="closeInvoiceDetails()">Close</button>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Payment Confirmation Modal -->
+@if (showPaymentModal && paymentInvoice) {
+  <div class="modal-backdrop" (click)="closePaymentModal()">
+    <div class="modal payment-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Confirm Payment</h3>
+        <button class="icon-btn" (click)="closePaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="payment-description">
+          Enter your payment details for invoice <strong>{{ paymentInvoice.invoiceNumber }}</strong>
+        </p>
+
+        <div class="payment-amount-bar">
+          <span>Amount due: <strong>KES {{ paymentInvoice.balance | number:'1.0-0' }}</strong></span>
+          <button type="button" class="link-btn" (click)="paymentForm.amount = paymentInvoice.balance">Pay full amount</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Payment Amount</label>
+          <div class="input-with-prefix">
+            <span class="input-prefix">KES</span>
+            <input type="number" class="input" [(ngModel)]="paymentForm.amount" min="0" step="0.01">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Payment Reference <span class="required">*</span></label>
+          <input type="text" class="input" [(ngModel)]="paymentForm.paymentReference" 
+                 placeholder="e.g., QKE7X9F3M2">
+          <small class="form-hint">M-PESA code or bank transfer reference</small>
+        </div>
+
+        <div class="info-card">
+          <app-icon name="info"></app-icon>
+          <span>Payment will be verified within 1-2 business days.</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closePaymentModal()">Cancel</button>
+        <button class="btn btn-primary" (click)="confirmPayment()" 
+                [disabled]="confirmingPayment() || !paymentForm.paymentReference.trim() || paymentForm.amount <= 0">
+          @if (confirmingPayment()) {
+            <span class="spinner spinner-sm"></span> Submitting...
+          } @else {
+            <app-icon name="check"></app-icon> Submit
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Contribution, Member, ContributionType, Penalty } from '../../core/models/models';
+import { Contribution, Member, ContributionType, Penalty, PageResponse, ContributionTopUp } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
@@ -45,6 +45,12 @@ interface AvailableMember {
     .chip-freq { font-size: 9px; opacity: 0.7; }
 
     /* Month Picker & Select Styling */
+    .date-picker-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
     .filter-input {
       display: inline-flex;
       align-items: center;
@@ -195,11 +201,30 @@ export class ContributionsComponent implements OnInit {
   penalties: Penalty[] = [];
   
   // Filters and state
-  activeTab: 'contributions' | 'penalties' = 'contributions';
+  activeTab: 'contributions' | 'penalties' | 'topups' = 'contributions';
   selectedContributionTypeId: number | null = null;
   selectedMonth: string = '';
+  selectedYear: number = new Date().getFullYear();
+  selectedMonthNum: number = new Date().getMonth() + 1;
+  generateMonth: string = ''; // Separate month for generation modal
   statusFilter = 'ALL';
   penaltyStatusFilter = 'ALL';
+
+  // Pagination for contributions
+  currentPage = 0;
+  pageSize = 10;
+  totalElements = 0;
+  totalPages = 0;
+  isFirst = true;
+  isLast = true;
+  Math = Math;
+
+  // Pagination for penalties
+  penaltyPage = 0;
+  penaltyTotalElements = 0;
+  penaltyTotalPages = 0;
+  penaltyIsFirst = true;
+  penaltyIsLast = true;
   
   // Loading states
   loading = signal(false);
@@ -226,6 +251,27 @@ export class ContributionsComponent implements OnInit {
   // Check penalties
   checkingPenalties = signal(false);
 
+  // Top-up state
+  topUps: ContributionTopUp[] = [];
+  loadingTopUps = signal(false);
+  topUpPage = 0;
+  topUpTotalElements = 0;
+  topUpTotalPages = 0;
+  topUpIsFirst = true;
+  topUpIsLast = true;
+  topUpStatusFilter = 'ALL';
+  pendingTopUpsCount = 0;
+
+  // Create top-up form
+  showTopUpForm = false;
+  topUpFormData = {
+    contributionTypeId: null as number | null,
+    amount: 0,
+    paymentReference: '',
+    notes: ''
+  };
+  submittingTopUp = signal(false);
+
   constructor(
     private api: ApiService,
     public session: SessionService,
@@ -238,11 +284,49 @@ export class ContributionsComponent implements OnInit {
     this.loadContributionTypes();
     this.loadMembers();
     this.loadPenalties();
+    this.loadTopUps();
+    this.loadPendingTopUpsCount();
   }
 
   setDefaultMonth() {
     const now = new Date();
-    this.selectedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    this.selectedYear = now.getFullYear();
+    this.selectedMonthNum = now.getMonth() + 1;
+    this.selectedMonth = `${this.selectedYear}-${String(this.selectedMonthNum).padStart(2, '0')}`;
+  }
+
+  // Year options (5 years back to 2 years ahead)
+  get yearOptions(): number[] {
+    const currentYear = new Date().getFullYear();
+    const years: number[] = [];
+    for (let y = currentYear - 5; y <= currentYear + 2; y++) {
+      years.push(y);
+    }
+    return years;
+  }
+
+  // Month options (all 12 months)
+  get monthOptions(): { value: number; label: string }[] {
+    return [
+      { value: 1, label: 'January' },
+      { value: 2, label: 'February' },
+      { value: 3, label: 'March' },
+      { value: 4, label: 'April' },
+      { value: 5, label: 'May' },
+      { value: 6, label: 'June' },
+      { value: 7, label: 'July' },
+      { value: 8, label: 'August' },
+      { value: 9, label: 'September' },
+      { value: 10, label: 'October' },
+      { value: 11, label: 'November' },
+      { value: 12, label: 'December' }
+    ];
+  }
+
+  onYearMonthChange() {
+    this.selectedMonth = `${this.selectedYear}-${String(this.selectedMonthNum).padStart(2, '0')}`;
+    this.currentPage = 0;
+    this.loadContributions();
   }
 
   loadContributionTypes() {
@@ -266,9 +350,15 @@ export class ContributionsComponent implements OnInit {
     if (!this.selectedContributionTypeId) return;
     
     this.loading.set(true);
-    this.api.getContributions(this.selectedMonth, this.selectedContributionTypeId).subscribe({
-      next: (c) => {
-        this.contributions = c;
+    const status = this.statusFilter === 'ALL' ? undefined : this.statusFilter;
+    
+    this.api.getContributionsPaginated(this.currentPage, this.pageSize, this.selectedContributionTypeId, this.selectedMonth, status).subscribe({
+      next: (response: PageResponse<Contribution>) => {
+        this.contributions = response.content;
+        this.totalElements = response.totalElements;
+        this.totalPages = response.totalPages;
+        this.isFirst = response.first;
+        this.isLast = response.last;
         this.loading.set(false);
       },
       error: (err) => {
@@ -280,6 +370,82 @@ export class ContributionsComponent implements OnInit {
     });
   }
 
+  onFilterChange() {
+    this.currentPage = 0;
+    this.loadContributions();
+  }
+
+  goToPage(page: number) {
+    if (page >= 0 && page < this.totalPages) {
+      this.currentPage = page;
+      this.loadContributions();
+    }
+  }
+
+  nextPage() {
+    if (!this.isLast) {
+      this.currentPage++;
+      this.loadContributions();
+    }
+  }
+
+  prevPage() {
+    if (!this.isFirst) {
+      this.currentPage--;
+      this.loadContributions();
+    }
+  }
+
+  get pageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(0, this.currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(this.totalPages, start + maxVisible);
+    if (end - start < maxVisible) {
+      start = Math.max(0, end - maxVisible);
+    }
+    for (let i = start; i < end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  // Penalty pagination
+  goToPenaltyPage(page: number) {
+    if (page >= 0 && page < this.penaltyTotalPages) {
+      this.penaltyPage = page;
+      this.loadPenalties();
+    }
+  }
+
+  nextPenaltyPage() {
+    if (!this.penaltyIsLast) {
+      this.penaltyPage++;
+      this.loadPenalties();
+    }
+  }
+
+  prevPenaltyPage() {
+    if (!this.penaltyIsFirst) {
+      this.penaltyPage--;
+      this.loadPenalties();
+    }
+  }
+
+  get penaltyPageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(0, this.penaltyPage - Math.floor(maxVisible / 2));
+    let end = Math.min(this.penaltyTotalPages, start + maxVisible);
+    if (end - start < maxVisible) {
+      start = Math.max(0, end - maxVisible);
+    }
+    for (let i = start; i < end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
   loadMembers() {
     this.api.getMembers().subscribe({
       next: (m) => this.members = m.filter(member => member.status === 'ACTIVE'),
@@ -289,9 +455,15 @@ export class ContributionsComponent implements OnInit {
 
   loadPenalties() {
     this.loadingPenalties.set(true);
-    this.api.getPenalties(this.selectedMonth).subscribe({
-      next: (p) => {
-        this.penalties = p;
+    const status = this.penaltyStatusFilter === 'ALL' ? undefined : this.penaltyStatusFilter;
+    
+    this.api.getPenaltiesPaginated(this.penaltyPage, this.pageSize, status).subscribe({
+      next: (response: PageResponse<Penalty>) => {
+        this.penalties = response.content;
+        this.penaltyTotalElements = response.totalElements;
+        this.penaltyTotalPages = response.totalPages;
+        this.penaltyIsFirst = response.first;
+        this.penaltyIsLast = response.last;
         this.loadingPenalties.set(false);
       },
       error: (err) => {
@@ -303,19 +475,19 @@ export class ContributionsComponent implements OnInit {
     });
   }
 
+  onPenaltyFilterChange() {
+    this.penaltyPage = 0;
+    this.loadPenalties();
+  }
+
   // ==================== Filtered Data ====================
+  // Note: Filtering is now done server-side via pagination API
   get filteredContributions() {
-    if (this.statusFilter === 'ALL') {
-      return this.contributions;
-    }
-    return this.contributions.filter(c => c.status === this.statusFilter);
+    return this.contributions;
   }
 
   get filteredPenalties() {
-    if (this.penaltyStatusFilter === 'ALL') {
-      return this.penalties;
-    }
-    return this.penalties.filter(p => p.status === this.penaltyStatusFilter);
+    return this.penalties;
   }
 
   // ==================== Summary Stats ====================
@@ -361,10 +533,12 @@ export class ContributionsComponent implements OnInit {
   // ==================== Tab & Filter Actions ====================
   selectContributionType(typeId: number) {
     this.selectedContributionTypeId = typeId;
+    this.currentPage = 0;
     this.loadContributions();
   }
 
   onMonthChange() {
+    this.currentPage = 0;
     this.loadContributions();
   }
 
@@ -379,6 +553,7 @@ export class ContributionsComponent implements OnInit {
       return;
     }
 
+    this.generateMonth = this.selectedMonth; // Initialize with current filter month
     this.showGenerateModal = true;
     this.selectAllMembers = true;
     this.loadAvailableMembers();
@@ -389,11 +564,15 @@ export class ContributionsComponent implements OnInit {
     this.availableMembers = [];
   }
 
+  onGenerateMonthChange() {
+    this.loadAvailableMembers();
+  }
+
   loadAvailableMembers() {
     if (!this.selectedContributionTypeId) return;
     
     this.loadingAvailableMembers.set(true);
-    this.api.getAvailableMembersForContribution(this.selectedContributionTypeId, this.selectedMonth).subscribe({
+    this.api.getAvailableMembersForContribution(this.selectedContributionTypeId, this.generateMonth).subscribe({
       next: (members) => {
         this.availableMembers = members.map(m => ({ ...m, selected: true }));
         this.loadingAvailableMembers.set(false);
@@ -436,11 +615,13 @@ export class ContributionsComponent implements OnInit {
     // If all members are selected, pass empty array to generate for all
     const memberIds = selectedIds.length === this.availableMembers.length ? [] : selectedIds;
     
-    this.api.generateContributions(this.selectedContributionTypeId, this.selectedMonth, memberIds).subscribe({
+    this.api.generateContributions(this.selectedContributionTypeId, this.generateMonth, memberIds).subscribe({
       next: (res) => {
         this.generating.set(false);
         this.closeGenerateModal();
-        this.toast.success('Generated', `${res.created} contribution records created`);
+        this.toast.success('Generated', `${res.created} contribution records created for ${this.generateMonth}`);
+        // Update the filter to show the generated month
+        this.selectedMonth = this.generateMonth;
         this.loadContributions();
       },
       error: (err) => {
@@ -591,5 +772,183 @@ export class ContributionsComponent implements OnInit {
         this.toast.error('Failed', err.error?.message || 'Could not check penalties');
       }
     });
+  }
+
+  // ==================== Manual Top-Up ====================
+  loadTopUps() {
+    this.loadingTopUps.set(true);
+    const status = this.topUpStatusFilter === 'ALL' ? undefined : this.topUpStatusFilter;
+    
+    this.api.getContributionTopUps(this.topUpPage, this.pageSize, { status }).subscribe({
+      next: (response: PageResponse<ContributionTopUp>) => {
+        this.topUps = response.content;
+        this.topUpTotalElements = response.totalElements;
+        this.topUpTotalPages = response.totalPages;
+        this.topUpIsFirst = response.first;
+        this.topUpIsLast = response.last;
+        this.loadingTopUps.set(false);
+      },
+      error: (err) => {
+        this.loadingTopUps.set(false);
+        if (err.status !== 403) {
+          console.error('Failed to load top-ups:', err);
+        }
+      }
+    });
+  }
+
+  loadPendingTopUpsCount() {
+    this.api.getPendingTopUpsCount().subscribe({
+      next: (res) => this.pendingTopUpsCount = res.count,
+      error: () => this.pendingTopUpsCount = 0
+    });
+  }
+
+  onTopUpFilterChange() {
+    this.topUpPage = 0;
+    this.loadTopUps();
+  }
+
+  goToTopUpPage(page: number) {
+    if (page >= 0 && page < this.topUpTotalPages) {
+      this.topUpPage = page;
+      this.loadTopUps();
+    }
+  }
+
+  nextTopUpPage() {
+    if (!this.topUpIsLast) {
+      this.topUpPage++;
+      this.loadTopUps();
+    }
+  }
+
+  prevTopUpPage() {
+    if (!this.topUpIsFirst) {
+      this.topUpPage--;
+      this.loadTopUps();
+    }
+  }
+
+  get topUpPageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(0, this.topUpPage - Math.floor(maxVisible / 2));
+    let end = Math.min(this.topUpTotalPages, start + maxVisible);
+    if (end - start < maxVisible) {
+      start = Math.max(0, end - maxVisible);
+    }
+    for (let i = start; i < end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  // Create top-up request
+  openTopUpForm() {
+    this.topUpFormData = {
+      contributionTypeId: this.contributionTypes.length > 0 ? this.contributionTypes[0].id : null,
+      amount: 0,
+      paymentReference: '',
+      notes: ''
+    };
+    this.showTopUpForm = true;
+  }
+
+  closeTopUpForm() {
+    this.showTopUpForm = false;
+  }
+
+  submitTopUp() {
+    if (!this.topUpFormData.contributionTypeId || this.topUpFormData.amount <= 0) {
+      this.toast.warning('Invalid input', 'Please select a contribution type and enter a valid amount');
+      return;
+    }
+
+    this.submittingTopUp.set(true);
+    this.api.createContributionTopUp({
+      contributionTypeId: this.topUpFormData.contributionTypeId,
+      amount: this.topUpFormData.amount,
+      paymentReference: this.topUpFormData.paymentReference || undefined,
+      notes: this.topUpFormData.notes || undefined
+    }).subscribe({
+      next: () => {
+        this.submittingTopUp.set(false);
+        this.closeTopUpForm();
+        this.toast.success('Top-up requested', 'Your top-up request has been submitted for approval');
+        this.loadTopUps();
+        this.loadPendingTopUpsCount();
+      },
+      error: (err) => {
+        this.submittingTopUp.set(false);
+        this.toast.error('Failed', err.error?.message || 'Could not submit top-up request');
+      }
+    });
+  }
+
+  // Approve/Reject top-up (admin actions)
+  async approveTopUp(topUp: ContributionTopUp) {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Approve Top-Up?',
+      message: `Approve top-up of KES ${topUp.amount.toLocaleString()} for ${topUp.memberName} to ${topUp.contributionTypeName}?`,
+      confirmText: 'Approve',
+      type: 'info'
+    });
+
+    if (confirmed) {
+      this.api.approveContributionTopUp(topUp.id).subscribe({
+        next: () => {
+          this.toast.success('Approved', 'Top-up has been approved and applied to contribution');
+          this.loadTopUps();
+          this.loadPendingTopUpsCount();
+          this.loadContributions();
+        },
+        error: (err) => {
+          this.toast.error('Failed', err.error?.message || 'Could not approve top-up');
+        }
+      });
+    }
+  }
+
+  async rejectTopUp(topUp: ContributionTopUp) {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Reject Top-Up?',
+      message: `Reject top-up request from ${topUp.memberName}?`,
+      confirmText: 'Reject',
+      type: 'warning'
+    });
+
+    if (confirmed) {
+      this.api.rejectContributionTopUp(topUp.id, 'Rejected by admin').subscribe({
+        next: () => {
+          this.toast.success('Rejected', 'Top-up request has been rejected');
+          this.loadTopUps();
+          this.loadPendingTopUpsCount();
+        },
+        error: (err) => {
+          this.toast.error('Failed', err.error?.message || 'Could not reject top-up');
+        }
+      });
+    }
+  }
+
+  getTopUpStatusClass(status: string): string {
+    switch (status) {
+      case 'APPROVED': return 'badge-success';
+      case 'PENDING': return 'badge-warning';
+      case 'REJECTED': return 'badge-danger';
+      default: return 'badge-neutral';
+    }
+  }
+
+  formatDateTime(dateStr: string): string {
+    if (!dateStr) return '—';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) +
+        ', ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateStr;
+    }
   }
 }

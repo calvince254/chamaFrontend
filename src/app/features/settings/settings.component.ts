@@ -20,9 +20,11 @@ export class SettingsComponent implements OnInit {
     tenantId: 0,
     name: '',
     registrationFee: 0,
+    registrationFeeRequired: false,
     minMembers: 3,
     maxMembers: 50,
-    signaturesRequired: 2
+    signaturesRequired: 2,
+    sessionTimeoutMinutes: 30
   };
   loadingSettings = signal(false);
   savingSettings = signal(false);
@@ -60,7 +62,8 @@ export class SettingsComponent implements OnInit {
     includeFines: false,
     includeLoanInterest: false,
     includeInvestmentReturns: false,
-    includePenalties: false
+    includePenalties: false,
+    includeProcessingFees: false
   };
   loadingShareSettings = signal(false);
   savingShareSettings = signal(false);
@@ -501,7 +504,11 @@ export class SettingsComponent implements OnInit {
       requiresApproval: true,
       approvalLevels: 1,
       active: true,
-      approvalLevelConfig: []
+      approvalLevelConfig: [],
+      processingFeeEnabled: false,
+      processingFeeType: 'FIXED',
+      processingFeeValue: 0,
+      processingFeeDeduction: 'UPFRONT'
     };
     // Initialize approval level configs
     this.onApprovalLevelsChange();
@@ -577,6 +584,13 @@ export class SettingsComponent implements OnInit {
     if (this.editingLoanProduct.penaltyEnabled && 
         (!this.editingLoanProduct.penaltyRate || this.editingLoanProduct.penaltyRate <= 0)) {
       this.toast.warning('Invalid penalty rate', 'Please provide a valid penalty rate');
+      return;
+    }
+
+    // Validate processing fee settings
+    if (this.editingLoanProduct.processingFeeEnabled && 
+        (!this.editingLoanProduct.processingFeeValue || this.editingLoanProduct.processingFeeValue <= 0)) {
+      this.toast.warning('Invalid processing fee', 'Please provide a valid processing fee amount');
       return;
     }
 

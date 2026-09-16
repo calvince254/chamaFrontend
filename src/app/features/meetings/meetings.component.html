@@ -25,6 +25,15 @@
     }
   </div>
 } @else {
+  <div class="toolbar">
+    <div class="search-box">
+      <app-icon name="search"></app-icon>
+      <input type="text" placeholder="Search meetings..." [(ngModel)]="search" (ngModelChange)="onFilterChange()" />
+    </div>
+    <div class="spacer"></div>
+    <span class="item-count">{{ totalElements }} meetings</span>
+  </div>
+
   <div class="card">
     <table class="data-table">
       <thead>
@@ -72,9 +81,37 @@
             </td>
           </tr>
         }
+        @if (meetings.length === 0) {
+          <tr><td colspan="9" class="empty-state">No meetings found.</td></tr>
+        }
       </tbody>
     </table>
   </div>
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <div class="pagination-info">
+        Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+      </div>
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
+          <app-icon name="chevron-left"></app-icon>
+        </button>
+        @for (page of pageNumbers; track page) {
+          <button class="pagination-btn" [class.active]="page === currentPage" (click)="goToPage(page)">
+            {{ page + 1 }}
+          </button>
+        }
+        <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+          <app-icon name="chevron-right"></app-icon>
+        </button>
+      </div>
+      <div class="pagination-page-info">
+        Page {{ currentPage + 1 }} of {{ totalPages }}
+      </div>
+    </div>
+  }
 }
 
 <!-- Schedule Meeting Modal -->

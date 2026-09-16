@@ -303,7 +303,7 @@
       <div class="card">
         <div class="card-header">
           <h3>Contributions</h3>
-          @if (getPendingContributionsCount() > 0) {
+          @if (getPendingContributionsCount() > 0 && (session.can('RECORD_MGR_CONTRIBUTION') || session.can('FULL_ACCESS'))) {
             <button class="btn btn-sm btn-primary" (click)="markSelectedContributionsPaid()">
               Record all payments
             </button>
@@ -354,9 +354,11 @@
                         </td>
                         <td class="action-cell">
                           @if (contrib.status === 'PENDING' || contrib.status === 'LATE') {
-                            <button class="btn btn-sm btn-primary" (click)="markContributionPaid(contrib)">
-                              Record payment
-                            </button>
+                            @if (session.can('RECORD_MGR_CONTRIBUTION') || session.can('FULL_ACCESS')) {
+                              <button class="btn btn-sm btn-primary" (click)="markContributionPaid(contrib)">
+                                Record payment
+                              </button>
+                            }
                             @if (!contrib.hasFine && (session.can('IMPOSE_MGR_FINE') || session.can('FULL_ACCESS'))) {
                               <button class="btn btn-sm btn-outline" (click)="imposeFineForContribution(contrib)">
                                 Fine

@@ -1,24 +1,19 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/services/api.service';
+import { ApiService, DashboardAnalytics, FundGrowthPoint, MeetingInfo, LoanAlert, PayoutInfo, DashboardTransaction, ApprovalInfo } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
-import { FinanceSummary, Meeting, Loan, Transaction } from '../../core/models/models';
 import { IconComponent } from '../../shared/icon.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, IconComponent],
+  imports: [CommonModule, RouterLink, IconComponent, DecimalPipe],
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent implements OnInit {
-  summary?: FinanceSummary;
-  nextMeeting?: Meeting;
-  pendingLoans: Loan[] = [];
-  recentTransactions: Transaction[] = [];
-  memberCount = 0;
   loading = true;
+  analytics: DashboardAnalytics | null = null;
 
   constructor(
     private api: ApiService,
@@ -31,113 +26,113 @@ export class DashboardComponent implements OnInit {
 
   loadData() {
     this.loading = true;
-    let loadCount = 0;
-    let totalCalls = 0;
-
-    // Count how many API calls we'll make based on permissions
-    if (this.session.can('VIEW_FINANCE_SUMMARY')) totalCalls++;
-    if (this.session.can('VIEW_MEETINGS')) totalCalls++;
-    if (this.session.canAny('VIEW_LOANS', 'VIEW_PENDING_LOAN_APPROVALS')) totalCalls++;
-    if (this.session.can('VIEW_TRANSACTIONS')) totalCalls++;
-    if (this.session.can('VIEW_MEMBERS')) totalCalls++;
-
-    // If no permissions at all, just stop loading
-    if (totalCalls === 0) {
-      this.loading = false;
-      return;
-    }
-
-    const checkDone = () => {
-      loadCount++;
-      if (loadCount >= totalCalls) {
+    this.api.getDashboardAnalytics().subscribe({
+      next: (data) => {
+        this.analytics = data;
+        this.loading = false;
+      },
+      error: () => {
+        // Fallback to empty data on error
+        this.analytics = {
+          totalSavings: 0,
+          activeMembers: 0,
+          loansOutstanding: 0,
+          loansNeedingAttention: 0,
+          welfareBalance: 0,
+          investmentValue: 0,
+          savingsPercent: 0,
+          investmentsPercent: 0,
+          welfarePercent: 0,
+          loansPercent: 0,
+          ledgerBalance: 0,
+          totalCredits: 0,
+          totalDebits: 0,
+          fundGrowth: [],
+          nextMeeting: null,
+          loanAlerts: [],
+          nextPayout: null,
+          recentTransactions: [],
+          pendingApprovals: []
+        };
         this.loading = false;
       }
-    };
+    });
+  }
 
-    // Only call finance summary if user has permission
-    if (this.session.can('VIEW_FINANCE_SUMMARY')) {
-      this.api.getFinanceSummary().subscribe({
-        next: (s) => {
-          this.summary = s;
-          checkDone();
-        },
-        error: () => {
-          this.summary = {
-            totalSavings: 0,
-            totalLoansOutstanding: 0,
-            incomeThisMonth: 0,
-            expenditureThisMonth: 0,
-            welfareFundBalance: 0,
-            investmentValue: 0
-          };
-          checkDone();
-        }
-      });
-    } else {
-      this.summary = {
-        totalSavings: 0,
-        totalLoansOutstanding: 0,
-        incomeThisMonth: 0,
-        expenditureThisMonth: 0,
-        welfareFundBalance: 0,
-        investmentValue: 0
-      };
-    }
+  // Helper for chart bar heights
+  getBarHeight(amount: number): number {
+    if (!this.analytics?.fundGrowth || this.analytics.fundGrowth.length === 0) return 0;
+    const max = Math.max(...this.analytics.fundGrowth.map(p => p.amount || 0));
+    if (max === 0) return 0;
+    return Math.round((amount / max) * 100);
+  }
 
-    // Only call meetings if user has permission
-    if (this.session.can('VIEW_MEETINGS')) {
-      this.api.getMeetings().subscribe({
-        next: (meetings) => {
-          this.nextMeeting = meetings.find((m) => m.minutesStatus === 'DRAFT') ?? meetings[0];
-          checkDone();
-        },
-        error: () => {
-          this.nextMeeting = undefined;
-          checkDone();
-        }
-      });
-    }
+  // Helper for fund allocation
+  get allocationData() {
+    if (!this.analytics) return [];
+    return [
+      { label: 'Savings', percent: this.analytics.savingsPercent || 0, color: '#10b981' },
+      { label: 'Investments', percent: this.analytics.investmentsPercent || 0, color: '#3b82f6' },
+      { label: 'Welfare', percent: this.analytics.welfarePercent || 0, color: '#f59e0b' },
+      { label: 'Loans Out', percent: this.analytics.loansPercent || 0, color: '#ef4444' }
+    ].filter(d => d.percent > 0);
+  }
 
-    // Only call loans if user has permission
-    if (this.session.canAny('VIEW_LOANS', 'VIEW_PENDING_LOAN_APPROVALS')) {
-      this.api.getLoans().subscribe({
-        next: (loans) => {
-          this.pendingLoans = loans.filter((l) => l.status === 'PENDING' || l.status === 'DEFAULTED');
-          checkDone();
-        },
-        error: () => {
-          this.pendingLoans = [];
-          checkDone();
-        }
-      });
-    }
+  // Build CSS conic-gradient for donut
+  get donutGradient(): string {
+    const data = this.allocationData;
+    if (data.length === 0) return 'conic-gradient(#e5e7eb 0% 100%)';
+    let gradient = 'conic-gradient(';
+    let cumulative = 0;
+    data.forEach((item, i) => {
+      const start = cumulative;
+      cumulative += item.percent;
+      gradient += `${item.color} ${start}% ${cumulative}%`;
+      if (i < data.length - 1) gradient += ', ';
+    });
+    gradient += ')';
+    return gradient;
+  }
 
-    // Only call transactions if user has permission
-    if (this.session.can('VIEW_TRANSACTIONS')) {
-      this.api.getTransactions().subscribe({
-        next: (tx) => {
-          this.recentTransactions = tx.slice(0, 5);
-          checkDone();
-        },
-        error: () => {
-          this.recentTransactions = [];
-          checkDone();
-        }
-      });
-    }
+  // Line chart helpers
+  getPointX(index: number): number {
+    const points = this.analytics?.fundGrowth?.length || 1;
+    const chartWidth = 260; // 290 - 30 (left margin)
+    const spacing = chartWidth / Math.max(points - 1, 1);
+    return 30 + (index * spacing);
+  }
 
-    // Only call members if user has permission
-    if (this.session.can('VIEW_MEMBERS')) {
-      this.api.getMembers().subscribe({
-        next: (m) => {
-          this.memberCount = m.length;
-          checkDone();
-        },
-        error: () => {
-          this.memberCount = 0;
-          checkDone();
-        }
-      });
-    }
+  getPointY(amount: number): number {
+    if (!this.analytics?.fundGrowth || this.analytics.fundGrowth.length === 0) return 90;
+    const max = Math.max(...this.analytics.fundGrowth.map(p => p.amount || 0));
+    if (max === 0) return 90;
+    const chartHeight = 80; // 90 - 10 (margins)
+    return 90 - ((amount / max) * chartHeight);
+  }
+
+  getLinePath(): string {
+    if (!this.analytics?.fundGrowth || this.analytics.fundGrowth.length === 0) return '';
+    return this.analytics.fundGrowth
+      .map((point, i) => {
+        const x = this.getPointX(i);
+        const y = this.getPointY(point.amount);
+        return i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+      })
+      .join(' ');
+  }
+
+  getAreaPath(): string {
+    if (!this.analytics?.fundGrowth || this.analytics.fundGrowth.length === 0) return '';
+    const points = this.analytics.fundGrowth;
+    let path = `M 30 90`; // Start at bottom left
+    points.forEach((point, i) => {
+      const x = this.getPointX(i);
+      const y = this.getPointY(point.amount);
+      path += ` L ${x} ${y}`;
+    });
+    // Close the path back to bottom
+    const lastX = this.getPointX(points.length - 1);
+    path += ` L ${lastX} 90 Z`;
+    return path;
   }
 }

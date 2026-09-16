@@ -25,11 +25,17 @@ export class InvestmentDetailComponent implements OnInit {
   showSellModal = false;
   showWriteOffModal = false;
   showDeleteModal = false;
+  showTopupModal = false;
 
   // Form data
   updateValueForm = { newValue: 0, notes: '' };
   sellForm = { soldAmount: 0, soldDate: '', notes: '' };
   writeOffReason = '';
+  topupForm = { amount: 0, topupDate: '', notes: '' };
+
+  // Topup history
+  topupHistory: any[] = [];
+  loadingTopups = false;
 
   categories = [
     { value: 'MONEY_MARKET', label: 'Money Market' },
@@ -71,6 +77,7 @@ export class InvestmentDetailComponent implements OnInit {
         this.loading = false;
         this.cdr.detectChanges();
         this.loadValueHistory(id);
+        this.loadTopupHistory(id);
       },
       error: () => {
         this.loading = false;
@@ -91,6 +98,22 @@ export class InvestmentDetailComponent implements OnInit {
       error: () => {
         this.valueHistory = [];
         this.loadingHistory = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  loadTopupHistory(investmentId: number) {
+    this.loadingTopups = true;
+    this.api.getInvestmentTopupHistory(investmentId).subscribe({
+      next: (data) => {
+        this.topupHistory = data;
+        this.loadingTopups = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.topupHistory = [];
+        this.loadingTopups = false;
         this.cdr.detectChanges();
       }
     });
@@ -221,6 +244,43 @@ export class InvestmentDetailComponent implements OnInit {
       error: () => {
         this.saving = false;
         alert('Failed to delete investment');
+      }
+    });
+  }
+
+  // Topup (Add Principal) Modal
+  openTopupModal() {
+    if (!this.investment) return;
+    this.topupForm = {
+      amount: 0,
+      topupDate: new Date().toISOString().split('T')[0],
+      notes: ''
+    };
+    this.showTopupModal = true;
+    this.cdr.detectChanges();
+  }
+
+  closeTopupModal() {
+    this.showTopupModal = false;
+    this.cdr.detectChanges();
+  }
+
+  submitTopup() {
+    if (!this.investment || this.topupForm.amount <= 0) return;
+    this.saving = true;
+    const id = this.investment.id;
+    this.api.topupInvestment(id, this.topupForm.amount, this.topupForm.topupDate, this.topupForm.notes).subscribe({
+      next: (updated) => {
+        this.saving = false;
+        this.showTopupModal = false;
+        this.investment = updated;
+        this.loadValueHistory(id);
+        this.loadTopupHistory(id);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.saving = false;
+        alert('Failed to add principal');
       }
     });
   }

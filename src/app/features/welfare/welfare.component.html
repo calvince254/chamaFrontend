@@ -13,7 +13,7 @@
     <div class="spinner"></div>
     <p>Loading welfare events...</p>
   </div>
-} @else if (events.length === 0) {
+} @else if (events.length === 0 && !hasFilters) {
   <div class="empty-state-card">
     <app-icon name="heart" class="empty-icon"></app-icon>
     <h3>No welfare events</h3>
@@ -25,55 +25,96 @@
     }
   </div>
 } @else {
+  <!-- Filter -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Status:</label>
+      <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+        <option value="">All</option>
+        <option value="OPEN">Open</option>
+        <option value="CLOSED">Closed</option>
+      </select>
+    </div>
+    @if (statusFilter) {
+      <button class="reset-filters" (click)="statusFilter = ''; onFilterChange()">Reset filters</button>
+    }
+  </div>
+
   <div class="card">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Member</th>
-          <th>Event</th>
-          <th>Relation</th>
-          <th>Reported</th>
-          <th>Per-Member</th>
-          <th>Collection</th>
-          <th>Members Paid</th>
-          <th>Status</th>
-          @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
-            <th>Actions</th>
-          }
-        </tr>
-      </thead>
-      <tbody>
-        @for (e of events; track e.id) {
+    @if (events.length === 0 && hasFilters) {
+      <div class="empty-filter-state">
+        <app-icon name="search"></app-icon>
+        <p>No welfare events match your filters</p>
+        <button class="btn btn-outline btn-sm" (click)="resetFilters()">Reset filters</button>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
           <tr>
-            <td>{{ e.memberName }}</td>
-            <td><span class="badge badge-info">{{ e.eventType }}</span></td>
-            <td>{{ e.relation }}</td>
-            <td>{{ e.dateReported | date:'d MMM y' }}</td>
-            <td>KES {{ e.amountPerMember | number }}</td>
-            <td>
-              <div class="progress-track"><div class="progress-fill" [style.width.%]="progress(e)"></div></div>
-              <div class="progress-label">KES {{ e.totalCollected | number }} / {{ e.totalExpected | number }}</div>
-            </td>
-            <td>
-              @if (e.totalInvolved && e.totalInvolved > 0) {
-                <div class="progress-track"><div class="progress-fill" [style.width.%]="paymentProgress(e)"></div></div>
-                <div class="progress-label">{{ e.paidCount || 0 }} / {{ e.totalInvolved }} members</div>
-              } @else {
-                <span class="text-muted">—</span>
-              }
-            </td>
-            <td><span class="badge" [ngClass]="e.status === 'CLOSED' ? 'badge-success' : 'badge-warning'">{{ e.status }}</span></td>
+            <th>Member</th>
+            <th>Event</th>
+            <th>Relation</th>
+            <th>Reported</th>
+            <th>Per-Member</th>
+            <th>Collection</th>
+            <th>Members Paid</th>
+            <th>Status</th>
             @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
-              <td>
-                <button class="btn btn-sm btn-ghost" (click)="openPaymentsModal(e)" onclick="console.log()">
-                  <app-icon name="users"></app-icon> Payments
-                </button>
-              </td>
+              <th>Actions</th>
             }
           </tr>
-        }
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          @for (e of events; track e.id) {
+            <tr>
+              <td>{{ e.memberName }}</td>
+              <td><span class="badge badge-info">{{ e.eventType }}</span></td>
+              <td>{{ e.relation }}</td>
+              <td>{{ e.dateReported | date:'d MMM y' }}</td>
+              <td>KES {{ e.amountPerMember | number }}</td>
+              <td>
+                <div class="progress-track"><div class="progress-fill" [style.width.%]="progress(e)"></div></div>
+                <div class="progress-label">KES {{ e.totalCollected | number }} / {{ e.totalExpected | number }}</div>
+              </td>
+              <td>
+                @if (e.totalInvolved && e.totalInvolved > 0) {
+                  <div class="progress-track"><div class="progress-fill" [style.width.%]="paymentProgress(e)"></div></div>
+                  <div class="progress-label">{{ e.paidCount || 0 }} / {{ e.totalInvolved }} members</div>
+                } @else {
+                  <span class="text-muted">—</span>
+                }
+              </td>
+              <td><span class="badge" [ngClass]="e.status === 'CLOSED' ? 'badge-success' : 'badge-warning'">{{ e.status }}</span></td>
+              @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
+                <td>
+                  <button class="btn btn-sm btn-ghost" (click)="openPaymentsModal(e)" onclick="console.log()">
+                    <app-icon name="users"></app-icon> Payments
+                  </button>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <!-- Pagination -->
+      @if (totalPages > 1) {
+        <div class="pagination">
+          <div class="pagination-info">
+            Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+              <app-icon name="chevron-left"></app-icon>
+            </button>
+            <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+            <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+              <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
+    }
   </div>
 }
 
@@ -239,19 +280,24 @@
                     }
                   </td>
                   <td>
-                    <button 
-                      class="btn btn-sm" 
-                      [class.btn-success]="!c.paid" 
-                      [class.btn-ghost]="c.paid"
-                      (click)="togglePayment(c)" 
-                      [disabled]="updatingPayment()"
-                      onclick="console.log()">
-                      @if (c.paid) {
+                    @if (c.paid) {
+                      <button 
+                        class="btn btn-sm btn-ghost"
+                        (click)="togglePayment(c)" 
+                        [disabled]="updatingPayment()">
                         <app-icon name="close"></app-icon> Mark Unpaid
-                      } @else {
-                        <app-icon name="check"></app-icon> Mark Paid
+                      </button>
+                      @if (c.paidFromContribution) {
+                        <span class="badge badge-info" style="margin-left: 4px; font-size: 8px;">From {{ c.sourceContributionTypeName }}</span>
                       }
-                    </button>
+                    } @else {
+                      <button 
+                        class="btn btn-sm btn-success"
+                        (click)="openPaymentMethodModal(c)" 
+                        [disabled]="updatingPayment()">
+                        <app-icon name="check"></app-icon> Mark Paid
+                      </button>
+                    }
                   </td>
                 </tr>
               }
@@ -261,6 +307,125 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closePaymentsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Pay from Contribution Fund Modal -->
+@if (showFundPaymentModal && selectedContribution) {
+  <div class="modal-backdrop" (click)="closeFundPaymentModal()">
+    <div class="modal" style="max-width: 420px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Mark Payment</h3>
+          <p class="modal-subtitle">{{ selectedContribution.memberName }} · KES {{ selectedContribution.amountExpected | number }}</p>
+        </div>
+        <button class="icon-btn" (click)="closeFundPaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Payment Method Selection -->
+        <div class="form-field">
+          <label style="margin-bottom: 10px; display: block;">How is this payment being made?</label>
+          
+          <div class="payment-method-options" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Cash Option -->
+            <label class="payment-method-option" 
+                   [class.selected]="paymentMethod === 'CASH'"
+                   style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s;"
+                   [style.borderColor]="paymentMethod === 'CASH' ? 'var(--color-primary)' : 'var(--color-border)'"
+                   [style.background]="paymentMethod === 'CASH' ? '#eaf4f2' : 'white'">
+              <input type="radio" name="paymentMethod" value="CASH" [(ngModel)]="paymentMethod" style="width: 16px; height: 16px;" />
+              <div style="flex: 1;">
+                <div style="font-size: 12px; font-weight: 600; color: var(--color-text);">
+                  <app-icon name="cash" style="margin-right: 6px;"></app-icon> Cash / Direct Payment
+                </div>
+                <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">Member paid cash, M-Pesa, or bank transfer</div>
+              </div>
+            </label>
+
+            <!-- From Savings Option -->
+            <label class="payment-method-option" 
+                   [class.selected]="paymentMethod === 'CONTRIBUTION_FUND'"
+                   style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s;"
+                   [style.borderColor]="paymentMethod === 'CONTRIBUTION_FUND' ? 'var(--color-primary)' : 'var(--color-border)'"
+                   [style.background]="paymentMethod === 'CONTRIBUTION_FUND' ? '#eaf4f2' : 'white'">
+              <input type="radio" name="paymentMethod" value="CONTRIBUTION_FUND" [(ngModel)]="paymentMethod" (change)="loadContributionBalances(selectedContribution.memberId)" style="width: 16px; height: 16px;" />
+              <div style="flex: 1;">
+                <div style="font-size: 12px; font-weight: 600; color: var(--color-text);">
+                  <app-icon name="wallet" style="margin-right: 6px;"></app-icon> From Contribution Savings
+                </div>
+                <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">Deduct from member's contribution pool</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Contribution Pool Selection (only when From Savings is selected) -->
+        @if (paymentMethod === 'CONTRIBUTION_FUND') {
+          <div class="form-field" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+            <label style="margin-bottom: 8px; display: block;">Select contribution pool to deduct from:</label>
+            
+            @if (loadingBalances()) {
+              <div class="loading-state" style="padding: 16px; text-align: center;">
+                <div class="spinner-sm"></div>
+                <p style="font-size: 10px; margin-top: 8px;">Loading balances...</p>
+              </div>
+            } @else if (contributionBalances.length === 0) {
+              <div class="empty-state" style="padding: 16px; text-align: center; background: #fef2f2; border-radius: 8px;">
+                <app-icon name="alert-circle" style="font-size: 20px; color: var(--color-danger); margin-bottom: 6px;"></app-icon>
+                <p style="font-size: 10px; color: var(--color-danger);">No contribution balances available for this member.</p>
+              </div>
+            } @else {
+              <div class="contribution-options" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
+                @for (balance of contributionBalances; track balance.contributionTypeId) {
+                  <label class="contribution-option" 
+                         [class.selected]="selectedContributionTypeId === balance.contributionTypeId"
+                         [class.insufficient]="balance.balance < selectedContribution.amountExpected"
+                         style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer;"
+                         [style.borderColor]="selectedContributionTypeId === balance.contributionTypeId ? 'var(--color-primary)' : 'var(--color-border)'"
+                         [style.background]="selectedContributionTypeId === balance.contributionTypeId ? '#f0fdf4' : 'white'"
+                         [style.opacity]="balance.balance < selectedContribution.amountExpected ? '0.6' : '1'">
+                    <input type="radio" 
+                           name="contributionType" 
+                           [value]="balance.contributionTypeId" 
+                           [(ngModel)]="selectedContributionTypeId"
+                           [disabled]="balance.balance < selectedContribution.amountExpected" />
+                    <div style="flex: 1;">
+                      <div style="font-size: 11px; font-weight: 500;">{{ balance.contributionTypeName }}</div>
+                      <div style="font-size: 10px;">
+                        Balance: 
+                        <span [style.color]="balance.balance >= selectedContribution.amountExpected ? 'var(--color-success)' : 'var(--color-danger)'"
+                              style="font-weight: 600;">
+                          KES {{ balance.balance | number }}
+                        </span>
+                        @if (balance.balance < selectedContribution.amountExpected) {
+                          <span style="color: var(--color-danger); font-size: 9px;"> (Insufficient)</span>
+                        }
+                      </div>
+                    </div>
+                  </label>
+                }
+              </div>
+
+              @if (selectedContributionTypeId && getSelectedBalance()) {
+                <div class="summary-box" style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 10px; border-radius: 6px; margin-top: 10px;">
+                  <div style="font-size: 9px; color: #15803d;">
+                    After deduction: <strong>KES {{ (getSelectedBalance()?.balance || 0) - selectedContribution.amountExpected | number }}</strong>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeFundPaymentModal()" [disabled]="processingFundPayment()">Cancel</button>
+        <button class="btn btn-primary" 
+                (click)="confirmPayment()" 
+                [disabled]="processingFundPayment() || (paymentMethod === 'CONTRIBUTION_FUND' && (!selectedContributionTypeId || !hasSufficientBalance()))">
+          {{ processingFundPayment() ? 'Processing...' : 'Confirm Payment' }}
+        </button>
       </div>
     </div>
   </div>

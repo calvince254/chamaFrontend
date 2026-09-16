@@ -1,0 +1,201 @@
+<div class="page-header">
+  <div>
+    <h1>Platform Audit Trail</h1>
+    <p class="text-muted">View all system activities across all chamas.</p>
+  </div>
+</div>
+
+<!-- Loading State -->
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading audit logs...</p>
+  </div>
+} @else if (auditLogs.length === 0) {
+  <div class="empty-state-card">
+    <app-icon name="activity" class="empty-icon"></app-icon>
+    <h3>No audit logs found</h3>
+    <p>Activities will appear here once users start using the system.</p>
+  </div>
+} @else {
+  <!-- Stats Summary -->
+  <div class="stats-strip" style="margin-bottom: 16px;">
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Total Activities</div>
+      <div class="stats-strip-value">{{ totalElements | number }}</div>
+    </div>
+  </div>
+
+  <!-- Audit Logs Table -->
+  <div class="card">
+    <table class="data-table audit-table">
+      <thead>
+        <tr>
+          <th style="width: 130px;">TIMESTAMP</th>
+          <th style="width: 90px;">CHAMA</th>
+          <th style="width: 120px;">USER</th>
+          <th style="width: 85px;">MODULE</th>
+          <th style="width: 65px;">ACTION</th>
+          <th style="width: 140px;">DESCRIPTION</th>
+          <th style="width: 85px;">IP ADDRESS</th>
+          <th style="width: 60px;">STATUS</th>
+          <th style="width: 45px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (log of auditLogs; track log.id) {
+          <tr>
+            <td class="timestamp-cell">{{ formatTimestamp(log.timestamp) }}</td>
+            <td>
+              <span class="tenant-badge" style="display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: #e8edec; padding: 3px 8px; border-radius: 10px; font-size: 9px; font-weight: 500;" title="{{ log.tenantName || 'Platform' }}">
+                {{ log.tenantName || 'Platform' }}
+              </span>
+            </td>
+            <td>
+              <div class="user-cell">
+                <span class="user-name-link">{{ log.memberName || 'System' }}</span>
+                @if (log.memberEmail) {
+                  <span class="user-email">{{ log.memberEmail }}</span>
+                }
+              </div>
+            </td>
+            <td class="module-cell">{{ log.module }}</td>
+            <td>
+              <span class="action-badge" [ngClass]="getActionClass(log.action)">{{ log.action }}</span>
+            </td>
+            <td style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ log.description || '—' }}">{{ log.description || '—' }}</td>
+            <td class="ip-cell">{{ log.ipAddress || '—' }}</td>
+            <td>
+              <span class="status-text" [ngClass]="getStatusClass(log.status)">{{ log.status }}</span>
+            </td>
+            <td class="actions-cell">
+              <button class="action-btn" (click)="viewLog(log)" title="View Details">
+                <app-icon name="eye"></app-icon>
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  @if (totalPages > 0) {
+    <div class="pagination">
+      <div class="pagination-info">
+        Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+      </div>
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
+          <app-icon name="chevron-left"></app-icon> Previous
+        </button>
+        <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+        <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+          Next <app-icon name="chevron-right"></app-icon>
+        </button>
+      </div>
+    </div>
+  }
+}
+
+<!-- Detail Modal -->
+@if (showDetailModal && selectedLog) {
+  <div class="modal-backdrop" (click)="closeDetailModal()">
+    <div class="modal" style="max-width: 600px;" (click)="$event.stopPropagation()">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <h3 style="font-size: 14px; margin: 0;">Audit log details</h3>
+          <span style="font-size: 10px; color: #6b7a78;">{{ formatTimestamp(selectedLog.timestamp) }}</span>
+        </div>
+        <button class="icon-btn" (click)="closeDetailModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+        
+        <!-- Tenant Info -->
+        <div style="background: #fff8e6; border: 1px solid #ffd666; border-radius: 6px; padding: 10px 12px;">
+          <div style="font-size: 9px; font-weight: 600; color: #d48806; text-transform: uppercase; margin-bottom: 4px;">CHAMA</div>
+          <div style="font-weight: 600; font-size: 12px; color: #d48806;">{{ selectedLog.tenantName || 'Platform' }}</div>
+        </div>
+
+        <!-- User & Module -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="background: #e8edec; border-radius: 6px; padding: 10px 12px;">
+            <div style="font-weight: 600; font-size: 11px;">{{ selectedLog.memberName || 'System' }}</div>
+            @if (selectedLog.memberEmail) {
+              <div style="font-size: 9px; color: #6b7a78;">{{ selectedLog.memberEmail }}</div>
+            }
+          </div>
+          <div style="background: #e8edec; border-radius: 6px; padding: 10px 12px;">
+            <div style="font-weight: 600; font-size: 11px;">{{ selectedLog.module }}</div>
+          </div>
+        </div>
+
+        <!-- Action & Status -->
+        <div style="display: flex; gap: 8px;">
+          <span class="action-badge" [ngClass]="getActionClass(selectedLog.action)">{{ selectedLog.action }}</span>
+          <span class="status-badge" [ngClass]="getStatusClass(selectedLog.status)">{{ selectedLog.status }}</span>
+        </div>
+
+        <!-- Stats Grid -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #e4e9e8; border: 1px solid #e4e9e8; border-radius: 6px; overflow: hidden;">
+          <div style="background: white; padding: 10px 12px;">
+            <div style="font-size: 8px; font-weight: 600; color: #6b7a78; text-transform: uppercase; margin-bottom: 4px;">ENTITY TYPE</div>
+            <div style="font-size: 11px;">{{ selectedLog.entityType || '—' }}</div>
+          </div>
+          <div style="background: white; padding: 10px 12px;">
+            <div style="font-size: 8px; font-weight: 600; color: #6b7a78; text-transform: uppercase; margin-bottom: 4px;">ENTITY ID</div>
+            <div style="font-size: 11px;">{{ selectedLog.entityId || '—' }}</div>
+          </div>
+          <div style="background: white; padding: 10px 12px;">
+            <div style="font-size: 8px; font-weight: 600; color: #6b7a78; text-transform: uppercase; margin-bottom: 4px;">IP ADDRESS</div>
+            <div style="font-size: 11px; font-family: monospace;">{{ selectedLog.ipAddress || '—' }}</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: #e4e9e8; border: 1px solid #e4e9e8; border-radius: 6px; overflow: hidden;">
+          <div style="background: white; padding: 10px 12px;">
+            <div style="font-size: 8px; font-weight: 600; color: #6b7a78; text-transform: uppercase; margin-bottom: 4px;">RESPONSE STATUS</div>
+            <div style="font-size: 11px;" [style.color]="(selectedLog.responseStatus ?? 0) < 400 ? '#16a34a' : '#dc2626'">
+              {{ selectedLog.responseStatus || '—' }}{{ selectedLog.responseStatus && selectedLog.responseStatus < 400 ? ' OK' : '' }}
+            </div>
+          </div>
+          <div style="background: white; padding: 10px 12px;">
+            <div style="font-size: 8px; font-weight: 600; color: #6b7a78; text-transform: uppercase; margin-bottom: 4px;">EXECUTION TIME</div>
+            <div style="font-size: 11px;">{{ selectedLog.executionTimeMs ? selectedLog.executionTimeMs + 'ms' : '—' }}</div>
+          </div>
+        </div>
+
+        <!-- Description -->
+        @if (selectedLog.description) {
+          <div>
+            <div style="font-size: 8px; font-weight: 600; color: #6b7a78; text-transform: uppercase; margin-bottom: 6px;">DESCRIPTION</div>
+            <p style="font-size: 11px; margin: 0;">{{ selectedLog.description }}</p>
+          </div>
+        }
+
+        <!-- Changes -->
+        @if (selectedLog.oldValue || selectedLog.newValue) {
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 8px; font-weight: 600; color: #6b7a78; text-transform: uppercase;">CHANGES</span>
+              <button class="btn btn-ghost btn-sm" (click)="copyChanges()">
+                <app-icon name="copy"></app-icon> Copy
+              </button>
+            </div>
+            <div style="background: #1e2a2d; border-radius: 6px; overflow: hidden;">
+              @if (selectedLog.newValue) {
+                <div style="padding: 8px 12px; border-bottom: 1px solid #2d3a3d;">
+                  <div style="font-size: 9px; font-weight: 600; color: #9cdcfe; margin-bottom: 4px;">New Value</div>
+                </div>
+                <pre style="margin: 0; padding: 12px; font-family: 'Consolas', monospace; font-size: 10px; color: #d4d4d4; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow: auto;">{{ formatJson(selectedLog.newValue) }}</pre>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}

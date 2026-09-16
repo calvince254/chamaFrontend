@@ -1,0 +1,239 @@
+<div class="page-header">
+  <div>
+    <h1>Resources</h1>
+    <p>Shared documents and files for members to download.</p>
+  </div>
+  @if (session.can('UPLOAD_RESOURCE')) {
+    <button class="btn btn-primary" (click)="openUploadForm()">
+      <app-icon name="upload"></app-icon> Upload Resource
+    </button>
+  }
+</div>
+
+<!-- Search -->
+<div class="toolbar">
+  <div class="search-box">
+    <app-icon name="search"></app-icon>
+    <input type="text" placeholder="Search resources..." [(ngModel)]="search" (ngModelChange)="onSearchChange()" />
+  </div>
+  <div class="spacer"></div>
+  <span class="count-badge">{{ totalElements }} resources</span>
+</div>
+
+<!-- Loading State -->
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading resources...</p>
+  </div>
+} @else if (resources.length === 0) {
+  <div class="empty-state-card">
+    <app-icon name="folder" class="empty-icon"></app-icon>
+    <h3>No resources yet</h3>
+    <p>Upload files for members to access and download.</p>
+    @if (session.can('UPLOAD_RESOURCE')) {
+      <button class="btn btn-primary" (click)="openUploadForm()">
+        <app-icon name="upload"></app-icon> Upload First Resource
+      </button>
+    }
+  </div>
+} @else {
+  <!-- Resources Grid - 4 items per row -->
+  <div class="resources-grid">
+    @for (r of resources; track r.id) {
+      <div class="resource-card">
+        <div class="resource-header">
+          <div class="resource-icon" [ngClass]="'icon-' + r.fileExtension?.toLowerCase()">
+            <app-icon [name]="getFileIcon(r.fileExtension)"></app-icon>
+          </div>
+          <div class="resource-title">
+            <div class="resource-name" [title]="r.name">{{ r.name }}</div>
+            <div class="resource-meta">
+              <span class="resource-ext">.{{ r.fileExtension }}</span>
+              <span class="separator">·</span>
+              <span>{{ formatFileSize(r.fileSize) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="resource-uploaded">
+          {{ r.uploadedByName || 'Unknown' }} · {{ formatDate(r.createdAt) }}
+        </div>
+        <div class="resource-downloads">
+          {{ r.downloadCount }} downloads
+        </div>
+        <div class="resource-actions">
+          @if (session.can('DOWNLOAD_RESOURCE')) {
+            <button class="action-btn" (click)="downloadResource(r)" title="Download">
+              <app-icon name="download"></app-icon>
+            </button>
+          }
+          <button class="action-btn" (click)="viewResource(r)" title="View Details">
+            <app-icon name="eye"></app-icon>
+          </button>
+          @if (session.can('EDIT_RESOURCE')) {
+            <button class="action-btn" (click)="openEditForm(r)" title="Edit">
+              <app-icon name="edit"></app-icon>
+            </button>
+          }
+          @if (session.can('DELETE_RESOURCE')) {
+            <button class="action-btn action-btn-danger" (click)="deleteResource(r)" title="Delete">
+              <app-icon name="trash"></app-icon>
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <div class="pagination-info">
+        Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+      </div>
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
+          <app-icon name="chevron-left"></app-icon> Previous
+        </button>
+        <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+        <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+          Next <app-icon name="chevron-right"></app-icon>
+        </button>
+      </div>
+    </div>
+  }
+}
+
+<!-- Upload Modal -->
+@if (showUploadForm) {
+  <div class="modal-backdrop" (click)="closeUploadForm()">
+    <div class="modal modal-md" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Upload Resource</h3>
+        <button class="icon-btn" (click)="closeUploadForm()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label>File <span class="required">*</span></label>
+          <div class="file-input-wrapper">
+            <input type="file" (change)="onFileSelected($event)" #fileInput />
+            <div class="file-input-display" (click)="fileInput.click()">
+              @if (selectedFile) {
+                <app-icon name="file"></app-icon>
+                <span>{{ selectedFile.name }}</span>
+                <span class="file-size">({{ formatFileSize(selectedFile.size) }})</span>
+              } @else {
+                <app-icon name="upload"></app-icon>
+                <span>Click to select a file</span>
+              }
+            </div>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Name <span class="required">*</span></label>
+          <input type="text" [(ngModel)]="uploadName" placeholder="Enter resource name" />
+        </div>
+        <div class="form-field">
+          <label>Description</label>
+          <textarea [(ngModel)]="uploadDescription" rows="3" placeholder="Optional description..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeUploadForm()" [disabled]="uploading()">Cancel</button>
+        <button class="btn btn-primary" (click)="uploadResource()" [disabled]="uploading() || !selectedFile || !uploadName.trim()">
+          {{ uploading() ? 'Uploading...' : 'Upload' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Edit Modal -->
+@if (showEditForm && editingResource) {
+  <div class="modal-backdrop" (click)="closeEditForm()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Edit Resource</h3>
+        <button class="icon-btn" (click)="closeEditForm()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-field">
+          <label>Name <span class="required">*</span></label>
+          <input type="text" [(ngModel)]="editName" placeholder="Resource name" />
+        </div>
+        <div class="form-field">
+          <label>Description</label>
+          <textarea [(ngModel)]="editDescription" rows="3" placeholder="Description..."></textarea>
+        </div>
+        <div class="form-hint">
+          <app-icon name="info"></app-icon>
+          File: {{ editingResource.originalFileName }}
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeEditForm()" [disabled]="saving()">Cancel</button>
+        <button class="btn btn-primary" (click)="saveResource()" [disabled]="saving() || !editName.trim()">
+          {{ saving() ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Detail Modal -->
+@if (showDetailModal && selectedResource) {
+  <div class="modal-backdrop" (click)="closeDetailModal()">
+    <div class="modal modal-md" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Resource Details</h3>
+        <button class="icon-btn" (click)="closeDetailModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div class="detail-row">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{{ selectedResource.name }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">File</span>
+            <span class="detail-value">{{ selectedResource.originalFileName }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Size</span>
+            <span class="detail-value">{{ formatFileSize(selectedResource.fileSize) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Type</span>
+            <span class="detail-value">{{ selectedResource.contentType }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Uploaded By</span>
+            <span class="detail-value">{{ selectedResource.uploadedByName || 'Unknown' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Uploaded At</span>
+            <span class="detail-value">{{ selectedResource.createdAt }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Downloads</span>
+            <span class="detail-value">{{ selectedResource.downloadCount }}</span>
+          </div>
+          @if (selectedResource.description) {
+            <div class="detail-row detail-row-full">
+              <span class="detail-label">Description</span>
+              <span class="detail-value">{{ selectedResource.description }}</span>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeDetailModal()">Close</button>
+        @if (session.can('DOWNLOAD_RESOURCE')) {
+          <button class="btn btn-primary" (click)="downloadResource(selectedResource)">
+            <app-icon name="download"></app-icon> Download
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

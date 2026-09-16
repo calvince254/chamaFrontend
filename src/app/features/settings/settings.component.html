@@ -48,7 +48,16 @@
           </div>
           <div class="form-field">
             <label>Registration fee (KES)</label>
-            <input type="number" [(ngModel)]="chama.registrationFee" name="registrationFee" />
+            <input type="number" [(ngModel)]="chama.registrationFee" name="registrationFee" [disabled]="!chama.registrationFeeRequired" />
+          </div>
+          <div class="form-field form-field-checkbox">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="chama.registrationFeeRequired" name="registrationFeeRequired" />
+              <span>Require registration fee for new members</span>
+            </label>
+            <small style="color: var(--color-text-muted); font-size: 10px; display: block; margin-top: 2px;">
+              When enabled, new members must pay the registration fee before being fully onboarded.
+            </small>
           </div>
           <div class="form-field">
             <label>Minimum members</label>
@@ -61,6 +70,13 @@
           <div class="form-field">
             <label>Signatories required per transaction</label>
             <input type="number" [(ngModel)]="chama.signaturesRequired" name="signaturesRequired" />
+          </div>
+          <div class="form-field">
+            <label>Session timeout (minutes)</label>
+            <input type="number" [(ngModel)]="chama.sessionTimeoutMinutes" name="sessionTimeoutMinutes" min="0" max="480" />
+            <small style="color: var(--color-text-muted); font-size: 10px; display: block; margin-top: 2px;">
+              Auto-logout after this many minutes of inactivity. Set to 0 to disable.
+            </small>
           </div>
         </div>
         <div style="margin-top: 14px; text-align: right;">
@@ -704,6 +720,7 @@
                   <div class="form-field">
                     <label>Approval levels</label>
                     <select [(ngModel)]="editingLoanProduct.approvalLevels" (ngModelChange)="onApprovalLevelsChange()">
+                      <option [value]="0">0 levels (guarantors only)</option>
                       <option [value]="1">1 level</option>
                       <option [value]="2">2 levels</option>
                       <option [value]="3">3 levels</option>
@@ -731,6 +748,51 @@
                     </div>
                     <p class="form-hint">Select the member who will approve loans at each level.</p>
                   }
+                </div>
+              }
+            </div>
+
+            <!-- Processing Fee Card -->
+            <div class="form-card">
+              <div class="form-card-header">
+                <div>
+                  <span class="form-card-header-title"><app-icon name="dollar-sign"></app-icon> Processing fee</span>
+                  <p class="form-hint" style="margin-top: 2px;">Charge a fee for processing loan applications.</p>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="editingLoanProduct.processingFeeEnabled" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              @if (editingLoanProduct.processingFeeEnabled) {
+                <div class="form-card-body">
+                  <div class="penalty-settings-grid">
+                    <div class="form-field">
+                      <label>Fee type</label>
+                      <select [(ngModel)]="editingLoanProduct.processingFeeType">
+                        <option value="FIXED">Fixed amount</option>
+                        <option value="PERCENTAGE">Percentage of loan</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label>{{ editingLoanProduct.processingFeeType === 'PERCENTAGE' ? 'Fee percentage (%)' : 'Fee amount (KES)' }} <span class="required">*</span></label>
+                      <input type="number" [(ngModel)]="editingLoanProduct.processingFeeValue" placeholder="{{ editingLoanProduct.processingFeeType === 'PERCENTAGE' ? '5' : '500' }}" min="0" step="0.01" />
+                    </div>
+                  </div>
+                  <div class="form-field">
+                    <label>When to deduct</label>
+                    <select [(ngModel)]="editingLoanProduct.processingFeeDeduction">
+                      <option value="UPFRONT">Upfront (deduct from disbursement)</option>
+                      <option value="ON_REPAYMENT">On repayment (add to loan amount)</option>
+                    </select>
+                  </div>
+                  <p class="form-hint">
+                    @if (editingLoanProduct.processingFeeDeduction === 'UPFRONT') {
+                      Fee will be deducted before disbursement. Member receives loan amount minus fee.
+                    } @else {
+                      Fee will be added to total loan amount. Member pays fee with repayments.
+                    }
+                  </p>
                 </div>
               }
             </div>
@@ -857,6 +919,12 @@
               <input type="checkbox" [(ngModel)]="shareSettings.includePenalties" />
               <span class="share-checkbox-text">
                 Penalties collected <span class="share-checkbox-meta">late payment</span>
+              </span>
+            </label>
+            <label class="share-checkbox-item">
+              <input type="checkbox" [(ngModel)]="shareSettings.includeProcessingFees" />
+              <span class="share-checkbox-text">
+                Processing fees <span class="share-checkbox-meta">loan fees</span>
               </span>
             </label>
           </div>

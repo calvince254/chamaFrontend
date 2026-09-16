@@ -17,6 +17,8 @@ interface LoginResponse {
   superAdmin: boolean;
   avatarInitials: string;
   permissionCodes: string[];  // New granular permission codes from JWT
+  mustChangePassword?: boolean; // First-login password change requirement
+  sessionTimeoutMinutes?: number; // Idle timeout in minutes (0 = disabled)
 }
 
 /**
@@ -32,6 +34,14 @@ export class SessionService {
   
   // Store permission codes for quick lookup
   private permissionCodes = signal<Set<string>>(new Set());
+  
+  // Flag for first-login password change requirement
+  private _mustChangePassword = signal<boolean>(false);
+  mustChangePassword = this._mustChangePassword.asReadonly();
+  
+  // Session timeout in minutes (from tenant settings)
+  private _sessionTimeoutMinutes = signal<number>(0);
+  sessionTimeoutMinutes = this._sessionTimeoutMinutes.asReadonly();
 
   currentUser = this.user.asReadonly();
 
@@ -41,20 +51,23 @@ export class SessionService {
       if (restored) {
         this.user.set(restored.user);
         this.permissionCodes.set(new Set(restored.codes));
+        this._sessionTimeoutMinutes.set(restored.sessionTimeoutMinutes);
       }
     }
   }
 
-  private restore(): { user: CurrentUser; codes: string[] } | null {
+  private restore(): { user: CurrentUser; codes: string[]; sessionTimeoutMinutes: number } | null {
     if (!isPlatformBrowser(this.platformId)) return null;
     try {
       const raw = localStorage.getItem('chama.currentUser');
       const token = localStorage.getItem('chama.token');
       const codesRaw = localStorage.getItem('chama.permissionCodes');
+      const timeoutRaw = localStorage.getItem('chama.sessionTimeoutMinutes');
       if (raw && token) {
         const user = JSON.parse(raw) as CurrentUser;
         const codes = codesRaw ? JSON.parse(codesRaw) as string[] : [];
-        return { user, codes };
+        const sessionTimeoutMinutes = timeoutRaw ? parseInt(timeoutRaw, 10) : 0;
+        return { user, codes, sessionTimeoutMinutes };
       }
     } catch (e) {
       console.error('Failed to restore session:', e);
@@ -62,17 +75,19 @@ export class SessionService {
     return null;
   }
 
-  private persist(user: CurrentUser | null, token?: string, codes?: string[]) {
+  private persist(user: CurrentUser | null, token?: string, codes?: string[], sessionTimeoutMinutes?: number) {
     if (!isPlatformBrowser(this.platformId)) return;
     try {
       if (user && token) {
         localStorage.setItem('chama.currentUser', JSON.stringify(user));
         localStorage.setItem('chama.token', token);
         localStorage.setItem('chama.permissionCodes', JSON.stringify(codes || []));
+        localStorage.setItem('chama.sessionTimeoutMinutes', String(sessionTimeoutMinutes || 0));
       } else {
         localStorage.removeItem('chama.currentUser');
         localStorage.removeItem('chama.token');
         localStorage.removeItem('chama.permissionCodes');
+        localStorage.removeItem('chama.sessionTimeoutMinutes');
       }
     } catch (e) {
       console.error('Failed to persist session:', e);
@@ -104,9 +119,12 @@ export class SessionService {
         };
         
         const codes = response.permissionCodes || [];
+        const timeout = response.sessionTimeoutMinutes || 0;
         this.user.set(user);
         this.permissionCodes.set(new Set(codes));
-        this.persist(user, response.token, codes);
+        this._mustChangePassword.set(response.mustChangePassword || false);
+        this._sessionTimeoutMinutes.set(timeout);
+        this.persist(user, response.token, codes, timeout);
       }),
       map(() => true),
       catchError(error => {
@@ -123,7 +141,36 @@ export class SessionService {
   logout() {
     this.user.set(null);
     this.permissionCodes.set(new Set());
+    this._mustChangePassword.set(false);
+    this._sessionTimeoutMinutes.set(0);
     this.persist(null);
+  }
+
+  /**
+   * Change password - used for first-login password change
+   */
+  changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Observable<boolean> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/auth/change-password`, {
+      currentPassword,
+      newPassword,
+      confirmPassword
+    }).pipe(
+      tap(() => {
+        this._mustChangePassword.set(false);
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Password change failed:', error);
+        throw error;
+      })
+    );
+  }
+
+  /**
+   * Clear the mustChangePassword flag (after successful change)
+   */
+  clearMustChangePassword() {
+    this._mustChangePassword.set(false);
   }
 
   /**

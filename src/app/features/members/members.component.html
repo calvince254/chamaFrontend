@@ -3,12 +3,30 @@
     <h1>Members</h1>
     <p>All registered members of the group.</p>
   </div>
-  @if (session.can('CREATE_MEMBER')) {
-    <button class="btn btn-primary" (click)="openNew()">
-      <app-icon name="plus"></app-icon> Add Member
-    </button>
-  }
+  <div class="header-actions">
+    @if (session.can('VERIFY_REGISTRATION_FEE') && awaitingVerificationCount > 0) {
+      <button class="btn btn-outline btn-warning" (click)="showVerificationModal = true; verifyingPayment = awaitingVerificationPayments[0]">
+        <app-icon name="clock"></app-icon> {{ awaitingVerificationCount }} Awaiting Verification
+      </button>
+    }
+    @if (session.can('CREATE_MEMBER')) {
+      <button class="btn btn-primary" (click)="openNew()">
+        <app-icon name="plus"></app-icon> Add member
+      </button>
+    }
+  </div>
 </div>
+
+<!-- Registration Fee Legend -->
+@if (isRegFeeRequired()) {
+  <div class="reg-fee-legend">
+    <span class="legend-title">Registration Fee (KES {{ registrationFeeInfo?.amount | number }}):</span>
+    <span class="legend-item legend-unpaid"><span class="legend-dot"></span> Unpaid</span>
+    <span class="legend-item legend-awaiting"><span class="legend-dot"></span> Awaiting Verification</span>
+    <span class="legend-item legend-paid"><span class="legend-dot"></span> Paid</span>
+    <span class="legend-item legend-rejected"><span class="legend-dot"></span> Rejected</span>
+  </div>
+}
 
 @if (loading()) {
   <div class="loading-state">
@@ -27,66 +45,130 @@
     }
   </div>
 } @else {
-  <div class="toolbar">
-    <input type="search" placeholder="Search by name or member no." [(ngModel)]="search" />
-    <select [(ngModel)]="statusFilter">
+  <div class="members-toolbar">
+    <div class="search-box">
+      <app-icon name="search"></app-icon>
+      <input type="text" placeholder="Search by name or member no." [(ngModel)]="search" (ngModelChange)="onFilterChange()" />
+    </div>
+    <select class="status-filter" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
       <option value="ALL">All statuses</option>
       <option value="ACTIVE">Active</option>
       <option value="SUSPENDED">Suspended</option>
       <option value="EXITED">Exited</option>
     </select>
     <div class="spacer"></div>
-    <span class="badge badge-neutral">{{ filtered.length }} members</span>
+    <span class="members-count">{{ totalElements }} members</span>
   </div>
 
-  <div class="card">
-    <table class="data-table">
+  <div class="members-table-container">
+    <table class="members-table">
       <thead>
         <tr>
-          <th>Member</th><th>Member No.</th><th>Role</th><th>Savings</th><th>Shares</th><th>Loan Bal.</th><th>Status</th><th></th>
+          <th>Member</th>
+          <th>Member no.</th>
+          <th>Role</th>
+          @if (isRegFeeRequired()) {
+            <th>Reg. Fee</th>
+          }
+          <th>Savings</th>
+          <th>Shares</th>
+          <th>Loan bal.</th>
+          <th>Status</th>
+          <th class="actions-col">Actions</th>
         </tr>
       </thead>
       <tbody>
-        @for (m of filtered; track m.id) {
-          <tr>
+        @for (m of members; track m.id) {
+          <tr [class]="getRegFeeStatusClass(m)">
             <td>
-              <div style="font-weight:600">{{ m.name }}</div>
-              <div style="font-size:12px;color:var(--color-text-muted)">{{ m.phone }}</div>
+              <div class="member-name">{{ m.name }}</div>
+              <div class="member-phone">{{ m.phone }}</div>
             </td>
-            <td>{{ m.memberNo }}</td>
+            <td class="member-no-cell">{{ m.memberNo }}</td>
             <td>{{ m.role }}</td>
+            @if (isRegFeeRequired()) {
+              <td>
+                <span class="reg-fee-badge" [class.badge-unpaid]="!m.regFeeStatus || m.regFeeStatus === 'PENDING'" 
+                      [class.badge-awaiting]="m.regFeeStatus === 'AWAITING_VERIFICATION'"
+                      [class.badge-paid]="m.regFeeStatus === 'VERIFIED'"
+                      [class.badge-rejected]="m.regFeeStatus === 'REJECTED'">
+                  {{ getRegFeeStatusLabel(m) }}
+                </span>
+                @if (canPayRegFee(m) && session.can('PAY_REGISTRATION_FEE')) {
+                  <button class="btn btn-xs btn-outline" (click)="openRegFeePayModal(m); $event.stopPropagation()" title="Pay registration fee">
+                    Pay
+                  </button>
+                }
+              </td>
+            }
             <td>KES {{ m.totalSavings | number }}</td>
-            <td>{{ m.totalShares }}</td>
-            <td>KES {{ m.outstandingLoan | number }}</td>
+            <td>{{ m.totalShares | number:'1.2-2' }}%</td>
             <td>
-              <span class="badge" [ngClass]="{
-                'badge-success': m.status === 'ACTIVE',
-                'badge-warning': m.status === 'SUSPENDED',
-                'badge-neutral': m.status === 'EXITED'
-              }">{{ m.status }}</span>
+              <span class="loan-balance" [class.has-loan]="m.outstandingLoan > 0">
+                KES {{ m.outstandingLoan | number }}
+              </span>
+            </td>
+            <td>
+              <span class="status-badge" [class.status-active]="m.status === 'ACTIVE'" [class.status-suspended]="m.status === 'SUSPENDED'" [class.status-exited]="m.status === 'EXITED'">
+                {{ m.status | titlecase }}
+              </span>
               @if (m.arrearsMonths > 0) {
-                <span class="badge badge-danger" style="margin-left:4px">{{ m.arrearsMonths }}mo arrears</span>
+                <span class="arrears-badge">{{ m.arrearsMonths }}mo arrears</span>
               }
             </td>
-            <td>
-              <button class="btn btn-ghost btn-sm" (click)="viewMember(m)" title="View details">
+            <td class="actions-cell">
+              <button class="action-btn" (click)="viewMember(m)" title="View details">
                 <app-icon name="eye"></app-icon>
               </button>
               @if (session.can('EDIT_MEMBER')) {
-                <button class="btn btn-ghost btn-sm" (click)="edit(m)">Edit</button>
+                <button class="action-btn" (click)="edit(m)" title="Edit member">
+                  <app-icon name="edit"></app-icon>
+                </button>
               }
               @if (session.can('DELETE_MEMBER')) {
-                <button class="btn btn-ghost btn-sm btn-danger" (click)="delete(m)">Delete</button>
+                <button class="action-btn action-btn-danger" (click)="delete(m)" title="Remove member (soft delete)">
+                  <app-icon name="user-x"></app-icon>
+                </button>
+              }
+              @if (session.can('HARD_DELETE_MEMBER')) {
+                <button class="action-btn action-btn-danger" (click)="hardDelete(m)" title="Permanently delete member & all data">
+                  <app-icon name="trash"></app-icon>
+                </button>
               }
             </td>
           </tr>
         }
-        @if (filtered.length === 0 && members.length > 0) {
-          <tr><td colspan="8" class="empty-state">No members match your filters.</td></tr>
+        @if (members.length === 0) {
+          <tr><td [attr.colspan]="isRegFeeRequired() ? 9 : 8" class="empty-state">No members match your filters.</td></tr>
         }
       </tbody>
     </table>
   </div>
+
+  <!-- Pagination -->
+  @if (totalPages > 1) {
+    <div class="pagination">
+      <div class="pagination-info">
+        Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+      </div>
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
+          <app-icon name="chevron-left"></app-icon>
+        </button>
+        @for (page of pageNumbers; track page) {
+          <button class="pagination-btn" [class.active]="page === currentPage" (click)="goToPage(page)">
+            {{ page + 1 }}
+          </button>
+        }
+        <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+          <app-icon name="chevron-right"></app-icon>
+        </button>
+      </div>
+      <div class="pagination-page-info">
+        Page {{ currentPage + 1 }} of {{ totalPages }}
+      </div>
+    </div>
+  }
 }
 
 @if (showForm) {
@@ -119,13 +201,37 @@
               <span class="error-text">{{ formErrors()['email'] }}</span>
             }
           </div>
-          <div class="form-field" [class.has-error]="formErrors()['password']">
-            <label>Password @if (!editing.id) { <span class="required">*</span> }</label>
-            <input type="password" [(ngModel)]="editing.password" name="password" [placeholder]="editing.id ? 'Leave blank to keep current' : 'Minimum 6 characters'" />
-            @if (formErrors()['password']) {
-              <span class="error-text">{{ formErrors()['password'] }}</span>
-            }
-          </div>
+          
+          <!-- Password Mode Selection (only for new members) -->
+          @if (!editing.id) {
+            <div class="form-field">
+              <label>Password Option</label>
+              <select [(ngModel)]="editing.passwordMode" name="passwordMode">
+                <option value="">Enter password manually</option>
+                <option value="default">Use default (12345678)</option>
+                <option value="random">Generate random & email</option>
+              </select>
+              <span class="form-hint">
+                @if (editing.passwordMode === 'default') {
+                  Member must change password on first login
+                } @else if (editing.passwordMode === 'random') {
+                  Password will be emailed to member
+                }
+              </span>
+            </div>
+          }
+          
+          <!-- Manual password field -->
+          @if (!editing.passwordMode) {
+            <div class="form-field" [class.has-error]="formErrors()['password']">
+              <label>Password @if (!editing.id) { <span class="required">*</span> }</label>
+              <input type="password" [(ngModel)]="editing.password" name="password" [placeholder]="editing.id ? 'Leave blank to keep current' : 'Minimum 6 characters'" />
+              @if (formErrors()['password']) {
+                <span class="error-text">{{ formErrors()['password'] }}</span>
+              }
+            </div>
+          }
+          
           <div class="form-field">
             <label>Status</label>
             <select [(ngModel)]="editing.status" name="status">
@@ -139,7 +245,7 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="close()" [disabled]="saving()">Cancel</button>
         <button class="btn btn-primary" (click)="save()" [disabled]="saving()">
-          {{ saving() ? 'Saving...' : 'Save Member' }}
+          {{ saving() ? 'Saving...' : (editing.id ? 'Update Member' : 'Save Member') }}
         </button>
       </div>
     </div>
@@ -395,6 +501,115 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Registration Fee Payment Modal -->
+@if (showRegFeePayModal && regFeePayMember) {
+  <div class="modal-backdrop" (click)="closeRegFeePayModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay Registration Fee</h3>
+        <button class="icon-btn" (click)="closeRegFeePayModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="payment-info">
+          <div class="payment-row">
+            <span class="payment-label">Member:</span>
+            <span class="payment-value">{{ regFeePayMember.name }}</span>
+          </div>
+          <div class="payment-row">
+            <span class="payment-label">Amount:</span>
+            <span class="payment-value payment-amount">KES {{ registrationFeeInfo?.amount | number }}</span>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Payment Reference Number <span class="required">*</span></label>
+          <input type="text" [(ngModel)]="regFeeReferenceNumber" placeholder="e.g. MPESA code, bank reference" />
+          <span class="form-hint">Enter the transaction reference from your payment method</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeRegFeePayModal()" [disabled]="submittingRegFee()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitRegFeePayment()" [disabled]="submittingRegFee() || !regFeeReferenceNumber.trim()">
+          {{ submittingRegFee() ? 'Submitting...' : 'Submit Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Registration Fee Verification Modal -->
+@if (showVerificationModal) {
+  <div class="modal-backdrop" (click)="closeVerificationModal()">
+    <div class="modal modal-md" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Verify Registration Fee Payments</h3>
+        <button class="icon-btn" (click)="closeVerificationModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        @if (awaitingVerificationPayments.length === 0) {
+          <div class="empty-state-inline">
+            <app-icon name="check-circle"></app-icon>
+            <p>No payments awaiting verification</p>
+          </div>
+        } @else {
+          <div class="verification-list">
+            @for (payment of awaitingVerificationPayments; track payment.id) {
+              <div class="verification-card" [class.active]="verifyingPayment?.id === payment.id">
+                <div class="verification-info">
+                  <div class="verification-member">{{ payment.memberName }}</div>
+                  <div class="verification-details">
+                    <span>Member #{{ payment.memberNo }}</span>
+                    <span class="separator">•</span>
+                    <span>KES {{ payment.amount | number }}</span>
+                    <span class="separator">•</span>
+                    <span>Ref: {{ payment.referenceNumber }}</span>
+                  </div>
+                  <div class="verification-date">Submitted: {{ payment.paidAt | date:'d MMM y, h:mm a' }}</div>
+                </div>
+                <div class="verification-actions">
+                  <button class="btn btn-sm btn-success" (click)="verifyingPayment = payment; verifyPayment()" [disabled]="verifyingAction()">
+                    <app-icon name="check"></app-icon> Verify
+                  </button>
+                  <button class="btn btn-sm btn-outline btn-danger" (click)="openRejectModal(payment)" [disabled]="verifyingAction()">
+                    <app-icon name="x"></app-icon> Reject
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeVerificationModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Reject Reason Modal -->
+@if (showRejectModal && verifyingPayment) {
+  <div class="modal-backdrop" (click)="closeRejectModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Reject Payment</h3>
+        <button class="icon-btn" (click)="closeRejectModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <p class="reject-info">Rejecting payment from <strong>{{ verifyingPayment.memberName }}</strong> (Ref: {{ verifyingPayment.referenceNumber }})</p>
+        <div class="form-field">
+          <label>Reason for Rejection <span class="required">*</span></label>
+          <textarea [(ngModel)]="rejectReason" rows="3" placeholder="Explain why this payment is being rejected..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeRejectModal()" [disabled]="verifyingAction()">Cancel</button>
+        <button class="btn btn-danger" (click)="rejectPayment()" [disabled]="verifyingAction() || !rejectReason.trim()">
+          {{ verifyingAction() ? 'Rejecting...' : 'Reject Payment' }}
+        </button>
       </div>
     </div>
   </div>

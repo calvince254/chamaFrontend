@@ -89,7 +89,7 @@
                 <span class="shares-pool-chip-value">- KES {{ calculation.totalPaidOut | number }}</span>
               </div>
             }
-            <div class="shares-pool-chip shares-pool-chip-total">
+            <div class="shares-pool-chip shares-pool-chip-total" [class.shares-pool-chip-negative]="totalPoolValue < 0">
               <span class="shares-pool-chip-label">Total pool</span>
               <span class="shares-pool-chip-value">KES {{ totalPoolValue | number }}</span>
             </div>
@@ -135,7 +135,7 @@
                   <td class="text-center">
                     <span class="shares-percentage-badge">{{ share.sharePercentage | number:'1.2-2' }}%</span>
                   </td>
-                  <td class="text-right shares-value">KES {{ share.memberValue | number:'1.0-0' }}</td>
+                  <td class="text-right shares-value" [class.shares-value-negative]="share.memberValue < 0">KES {{ share.memberValue | number:'1.0-0' }}</td>
                 </tr>
               }
             </tbody>
@@ -144,7 +144,7 @@
                 <td class="shares-total-label">Total</td>
                 <td class="text-right shares-total-value">KES {{ totalShareContributions | number }}</td>
                 <td class="text-center shares-total-value">100%</td>
-                <td class="text-right shares-total-value shares-total-primary">KES {{ totalPoolValue | number:'1.0-0' }}</td>
+                <td class="text-right shares-total-value shares-total-primary" [class.shares-value-negative]="totalPoolValue < 0">KES {{ totalPoolValue | number:'1.0-0' }}</td>
               </tr>
             </tfoot>
           </table>
@@ -203,8 +203,16 @@
 
     <!-- Payout History -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0; font-size: 0.85rem; font-weight: 600;">Payout History</h3>
+        <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()" style="width: auto; min-width: 140px;">
+          <option value="ALL">All statuses</option>
+          <option value="DRAFT">Draft</option>
+          <option value="PENDING">Pending</option>
+          <option value="APPROVED">Approved</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
       </div>
       @if (loadingPayouts()) {
         <div class="loading-inline" style="padding: 20px;">
@@ -263,6 +271,24 @@
             }
           </tbody>
         </table>
+
+        <!-- Pagination -->
+        @if (totalPages > 0) {
+          <div class="pagination">
+            <div class="pagination-info">
+              Showing {{ payouts.length === 0 ? 0 : currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }} payouts
+            </div>
+            <div class="pagination-controls">
+              <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+                <app-icon name="chevron-left"></app-icon> Previous
+              </button>
+              <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+              <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+                Next <app-icon name="chevron-right"></app-icon>
+              </button>
+            </div>
+          </div>
+        }
       }
     </div>
   </div>

@@ -24,6 +24,17 @@
       }
     </nav>
 
+    <!-- License Suspended Warning for Admins -->
+    @if (isLicenseSuspended && isAdmin()) {
+      <div class="sidebar-warning">
+        <app-icon name="alert-triangle"></app-icon>
+        <div>
+          <strong>License Suspended</strong>
+          <span>Pay your invoice to restore full access</span>
+        </div>
+      </div>
+    }
+
     <div class="sidebar-footer">
       <img src="images/calpex-final-512px.png" alt="Calpex Technologies" class="footer-logo" />
       <div class="footer-text">
@@ -70,3 +81,78 @@
     </main>
   </div>
 </div>
+
+<!-- License Suspended Overlay for Regular Members -->
+@if (showSuspendedOverlay) {
+  <div class="suspended-overlay">
+    <div class="suspended-modal">
+      <div class="suspended-icon">
+        <app-icon name="alert-circle"></app-icon>
+      </div>
+      <h2>Account Access Restricted</h2>
+      <p>Your organization's account has been temporarily suspended due to an outstanding billing issue.</p>
+      <div class="suspended-actions">
+        <p class="suspended-contact">Please contact your Chama administrator to resolve this matter.</p>
+        <button class="btn btn-outline" (click)="logout()">
+          <app-icon name="logout"></app-icon> Log Out
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Password Change Modal (First Login) -->
+@if (showPasswordChangeModal()) {
+  <div class="modal-backdrop">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3>
+          <app-icon name="shield"></app-icon>
+          Change Your Password
+        </h3>
+      </div>
+      <div class="modal-body">
+        <div class="password-change-notice">
+          <app-icon name="info"></app-icon>
+          <p>For security reasons, you must change your password before continuing. Please create a new password that you'll remember.</p>
+        </div>
+
+        @if (passwordChangeError()) {
+          <div class="error-banner">{{ passwordChangeError() }}</div>
+        }
+
+        <div class="form-field">
+          <label>Current Password <span class="required">*</span></label>
+          <input 
+            type="password" 
+            [(ngModel)]="passwordChangeForm.currentPassword" 
+            placeholder="Enter your current password"
+            [disabled]="passwordChanging()" />
+        </div>
+
+        <div class="form-field">
+          <label>New Password <span class="required">*</span></label>
+          <input 
+            type="password" 
+            [(ngModel)]="passwordChangeForm.newPassword" 
+            placeholder="Enter a new password (min 6 characters)"
+            [disabled]="passwordChanging()" />
+        </div>
+
+        <div class="form-field">
+          <label>Confirm New Password <span class="required">*</span></label>
+          <input 
+            type="password" 
+            [(ngModel)]="passwordChangeForm.confirmPassword" 
+            placeholder="Re-enter your new password"
+            [disabled]="passwordChanging()" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" (click)="submitPasswordChange()" [disabled]="passwordChanging()">
+          {{ passwordChanging() ? 'Changing...' : 'Change Password' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
