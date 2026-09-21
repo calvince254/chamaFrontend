@@ -99,6 +99,29 @@ export class MembersComponent implements OnInit {
     private confirmDialog: ConfirmDialogService
   ) {}
 
+  /**
+   * Check if user has any member action permissions (to show/hide actions column)
+   */
+  hasAnyMemberAction(): boolean {
+    return this.session.canAny(
+      'VIEW_MEMBER_DETAILS',
+      'EDIT_MEMBER',
+      'DELETE_MEMBER',
+      'HARD_DELETE_MEMBER',
+      'RESET_PASSWORD'
+    );
+  }
+
+  /**
+   * Calculate table colspan for empty state row
+   */
+  getTableColspan(): number {
+    let cols = 8; // Base columns: Member, Member no, Email, Role, Savings, Shares, Loan bal, Status
+    if (this.isRegFeeRequired()) cols++;
+    if (this.hasAnyMemberAction()) cols++;
+    return cols;
+  }
+
   ngOnInit() {
     // Only load data if user has permission to view members
     if (this.session.can('VIEW_MEMBERS') || this.session.can('CREATE_MEMBER')) {
@@ -745,6 +768,10 @@ export class MembersComponent implements OnInit {
   // ==================== MEMBER DETAIL MODAL ====================
 
   viewMember(m: MemberWithRegFee) {
+    // Check permission before making API call
+    if (!this.session.can('VIEW_MEMBER_DETAILS')) {
+      return;
+    }
     this.selectedMember = m;
     this.memberSummary = null;
     this.detailTab = 'overview';

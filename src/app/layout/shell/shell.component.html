@@ -62,17 +62,42 @@
 
       <button class="icon-btn hide-mobile" title="Notifications"><app-icon name="bell"></app-icon></button>
 
-      <div class="user-menu">
-        <div class="user-avatar">{{ user()?.avatarInitials }}</div>
-        <div class="user-info hide-mobile">
-          <span class="user-name">{{ user()?.name }}</span>
-          <span class="user-role">{{ user()?.roleName }}</span>
-        </div>
-        <div class="user-divider hide-mobile"></div>
-        <button class="logout-btn" (click)="logout()" title="Log out">
-          <app-icon name="logout"></app-icon>
-          <span class="hide-mobile">Logout</span>
+      <div class="user-menu" (clickOutside)="closeUserDropdown()">
+        <button class="user-menu-trigger" (click)="toggleUserDropdown()">
+          <div class="user-avatar">{{ user()?.avatarInitials }}</div>
+          <div class="user-info hide-mobile">
+            <span class="user-name">{{ user()?.name }}</span>
+            <span class="user-role">{{ user()?.roleName }}</span>
+          </div>
+          <app-icon name="chevron-down" class="dropdown-chevron hide-mobile" [class.rotated]="userDropdownOpen()"></app-icon>
         </button>
+        
+        @if (userDropdownOpen()) {
+          <div class="user-dropdown">
+            <div class="dropdown-header">
+              <div class="dropdown-avatar">{{ user()?.avatarInitials }}</div>
+              <div class="dropdown-user-details">
+                <span class="dropdown-name">{{ user()?.name }}</span>
+                <span class="dropdown-email">{{ user()?.email }}</span>
+                <span class="dropdown-role">{{ user()?.roleName }}</span>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" (click)="openMyProfile()">
+              <app-icon name="user"></app-icon>
+              <span>My Profile</span>
+            </button>
+            <button class="dropdown-item" (click)="openChangePasswordModal()">
+              <app-icon name="lock"></app-icon>
+              <span>Change Password</span>
+            </button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item dropdown-item-danger" (click)="logout()">
+              <app-icon name="logout"></app-icon>
+              <span>Logout</span>
+            </button>
+          </div>
+        }
       </div>
     </header>
 
@@ -101,7 +126,7 @@
   </div>
 }
 
-<!-- Password Change Modal (First Login) -->
+<!-- Password Change Modal (First Login - Cannot be dismissed) -->
 @if (showPasswordChangeModal()) {
   <div class="modal-backdrop">
     <div class="modal modal-wide">
@@ -152,6 +177,114 @@
         <button class="btn btn-primary" (click)="submitPasswordChange()" [disabled]="passwordChanging()">
           {{ passwordChanging() ? 'Changing...' : 'Change Password' }}
         </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Voluntary Password Change Modal (User-initiated) -->
+@if (showVoluntaryPasswordModal()) {
+  <div class="modal-backdrop" (click)="closeVoluntaryPasswordModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <app-icon name="lock"></app-icon>
+          Change Password
+        </h3>
+        <button class="modal-close" (click)="closeVoluntaryPasswordModal()">
+          <app-icon name="close"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (voluntaryPasswordError()) {
+          <div class="error-banner">{{ voluntaryPasswordError() }}</div>
+        }
+        
+        @if (voluntaryPasswordSuccess()) {
+          <div class="success-banner">{{ voluntaryPasswordSuccess() }}</div>
+        }
+
+        <div class="form-field">
+          <label>Current Password <span class="required">*</span></label>
+          <input 
+            type="password" 
+            [(ngModel)]="voluntaryPasswordForm.currentPassword" 
+            placeholder="Enter your current password"
+            [disabled]="voluntaryPasswordChanging()" />
+        </div>
+
+        <div class="form-field">
+          <label>New Password <span class="required">*</span></label>
+          <input 
+            type="password" 
+            [(ngModel)]="voluntaryPasswordForm.newPassword" 
+            placeholder="Enter a new password (min 6 characters)"
+            [disabled]="voluntaryPasswordChanging()" />
+        </div>
+
+        <div class="form-field">
+          <label>Confirm New Password <span class="required">*</span></label>
+          <input 
+            type="password" 
+            [(ngModel)]="voluntaryPasswordForm.confirmPassword" 
+            placeholder="Re-enter your new password"
+            [disabled]="voluntaryPasswordChanging()" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeVoluntaryPasswordModal()" [disabled]="voluntaryPasswordChanging()">
+          Cancel
+        </button>
+        <button class="btn btn-primary" (click)="submitVoluntaryPasswordChange()" [disabled]="voluntaryPasswordChanging()">
+          {{ voluntaryPasswordChanging() ? 'Changing...' : 'Change Password' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- My Profile Modal -->
+@if (showProfileModal()) {
+  <div class="modal-backdrop" (click)="closeProfileModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <app-icon name="user"></app-icon>
+          My Profile
+        </h3>
+        <button class="modal-close" (click)="closeProfileModal()">
+          <app-icon name="close"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="profile-card">
+          <div class="profile-avatar-large">{{ user()?.avatarInitials }}</div>
+          <div class="profile-details">
+            <div class="profile-row">
+              <span class="profile-label">Name</span>
+              <span class="profile-value">{{ user()?.name }}</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-label">Email</span>
+              <span class="profile-value">{{ user()?.email }}</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-label">Phone</span>
+              <span class="profile-value">{{ user()?.phone || 'Not set' }}</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-label">Role</span>
+              <span class="profile-value">{{ user()?.roleName }}</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-label">Chama</span>
+              <span class="profile-value">{{ user()?.tenantName }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeProfileModal()">Close</button>
       </div>
     </div>
   </div>

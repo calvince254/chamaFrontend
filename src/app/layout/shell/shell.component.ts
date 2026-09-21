@@ -73,6 +73,23 @@ export class ShellComponent implements OnInit, OnDestroy {
   passwordChangeError = signal('');
   passwordChanging = signal(false);
   
+  // User dropdown state
+  userDropdownOpen = signal(false);
+  
+  // Voluntary password change modal state
+  showVoluntaryPasswordModal = signal(false);
+  voluntaryPasswordForm = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  };
+  voluntaryPasswordError = signal('');
+  voluntaryPasswordSuccess = signal('');
+  voluntaryPasswordChanging = signal(false);
+  
+  // Profile modal state
+  showProfileModal = signal(false);
+  
   // Session validation
   private platformId = inject(PLATFORM_ID);
   private sessionValidated = false;
@@ -124,10 +141,13 @@ export class ShellComponent implements OnInit, OnDestroy {
     
     this.loadLicenseStatus();
     
-    // Start idle monitoring if session timeout is configured
-    const timeout = this.session.sessionTimeoutMinutes();
-    if (timeout > 0) {
-      this.idleService.startWatching(timeout);
+    // Start idle monitoring if session timeout is configured (skip for super admin)
+    const u = this.session.currentUser();
+    if (!u?.isSuperAdmin) {
+      const timeout = this.session.sessionTimeoutMinutes();
+      if (timeout > 0) {
+        this.idleService.startWatching(timeout);
+      }
     }
   }
 
@@ -175,10 +195,13 @@ export class ShellComponent implements OnInit, OnDestroy {
         this.forceLogout('Session expired. Please log in again.');
       } else {
         this.sessionValidated = true;
-        // Restart idle monitoring with potentially updated timeout
-        const timeout = this.session.sessionTimeoutMinutes();
-        if (timeout > 0) {
-          this.idleService.startWatching(timeout);
+        // Restart idle monitoring with potentially updated timeout (skip for super admin)
+        const u = this.session.currentUser();
+        if (!u?.isSuperAdmin) {
+          const timeout = this.session.sessionTimeoutMinutes();
+          if (timeout > 0) {
+            this.idleService.startWatching(timeout);
+          }
         }
       }
     });
@@ -320,5 +343,101 @@ export class ShellComponent implements OnInit, OnDestroy {
       confirmPassword: ''
     };
     this.passwordChangeError.set('');
+  }
+
+  // User dropdown methods
+  toggleUserDropdown() {
+    this.userDropdownOpen.update(v => !v);
+  }
+
+  closeUserDropdown() {
+    this.userDropdownOpen.set(false);
+  }
+
+  // Profile modal methods
+  openMyProfile() {
+    this.closeUserDropdown();
+    this.showProfileModal.set(true);
+  }
+
+  closeProfileModal() {
+    this.showProfileModal.set(false);
+  }
+
+  // Voluntary password change methods
+  openChangePasswordModal() {
+    this.closeUserDropdown();
+    this.resetVoluntaryPasswordForm();
+    this.showVoluntaryPasswordModal.set(true);
+  }
+
+  closeVoluntaryPasswordModal() {
+    this.showVoluntaryPasswordModal.set(false);
+    this.resetVoluntaryPasswordForm();
+  }
+
+  resetVoluntaryPasswordForm() {
+    this.voluntaryPasswordForm = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    };
+    this.voluntaryPasswordError.set('');
+    this.voluntaryPasswordSuccess.set('');
+  }
+
+  submitVoluntaryPasswordChange() {
+    if (!this.voluntaryPasswordForm.currentPassword || !this.voluntaryPasswordForm.newPassword || !this.voluntaryPasswordForm.confirmPassword) {
+      this.voluntaryPasswordError.set('All fields are required');
+      return;
+    }
+    
+    if (this.voluntaryPasswordForm.newPassword.length < 6) {
+      this.voluntaryPasswordError.set('New password must be at least 6 characters');
+      return;
+    }
+    
+    if (this.voluntaryPasswordForm.newPassword !== this.voluntaryPasswordForm.confirmPassword) {
+      this.voluntaryPasswordError.set('Passwords do not match');
+      return;
+    }
+    
+    this.voluntaryPasswordChanging.set(true);
+    this.voluntaryPasswordError.set('');
+    this.voluntaryPasswordSuccess.set('');
+    
+    this.session.changePassword(
+      this.voluntaryPasswordForm.currentPassword,
+      this.voluntaryPasswordForm.newPassword,
+      this.voluntaryPasswordForm.confirmPassword
+    ).subscribe({
+      next: () => {
+        this.voluntaryPasswordChanging.set(false);
+        this.voluntaryPasswordSuccess.set('Password changed successfully!');
+        // Reset form fields but keep modal open to show success
+        this.voluntaryPasswordForm = {
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        };
+        // Auto-close after 2 seconds
+        setTimeout(() => {
+          this.closeVoluntaryPasswordModal();
+        }, 2000);
+      },
+      error: (err) => {
+        this.voluntaryPasswordChanging.set(false);
+        this.voluntaryPasswordError.set(err.error?.message || err.message || 'Failed to change password');
+      }
+    });
+  }
+
+  // Click outside handler for dropdown
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.user-menu')) {
+      this.closeUserDropdown();
+    }
   }
 }

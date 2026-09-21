@@ -75,7 +75,9 @@
           <th>Shares</th>
           <th>Loan bal.</th>
           <th>Status</th>
-          <th class="actions-col">Actions</th>
+          @if (hasAnyMemberAction()) {
+            <th class="actions-col">Actions</th>
+          }
         </tr>
       </thead>
       <tbody>
@@ -118,35 +120,39 @@
                 <span class="arrears-badge">{{ m.arrearsMonths }}mo arrears</span>
               }
             </td>
-            <td class="actions-cell">
-              <button class="action-btn" (click)="viewMember(m)" title="View details">
-                <app-icon name="eye"></app-icon>
-              </button>
-              @if (session.can('EDIT_MEMBER')) {
-                <button class="action-btn" (click)="edit(m)" title="Edit member">
-                  <app-icon name="edit"></app-icon>
-                </button>
-              }
-              @if (session.can('DELETE_MEMBER')) {
-                <button class="action-btn action-btn-danger" (click)="delete(m)" title="Remove member (soft delete)">
-                  <app-icon name="user-x"></app-icon>
-                </button>
-              }
-              @if (session.can('HARD_DELETE_MEMBER')) {
-                <button class="action-btn action-btn-danger" (click)="hardDelete(m)" title="Permanently delete member & all data">
-                  <app-icon name="trash"></app-icon>
-                </button>
-              }
-              @if (session.can('RESET_PASSWORD')) {
-                <button class="action-btn action-btn-warning" (click)="openResetPasswordModal(m)" title="Reset password">
-                  <app-icon name="key"></app-icon>
-                </button>
-              }
-            </td>
+            @if (hasAnyMemberAction()) {
+              <td class="actions-cell">
+                @if (session.can('VIEW_MEMBER_DETAILS')) {
+                  <button class="action-btn" (click)="viewMember(m)" title="View details">
+                    <app-icon name="eye"></app-icon>
+                  </button>
+                }
+                @if (session.can('EDIT_MEMBER')) {
+                  <button class="action-btn" (click)="edit(m)" title="Edit member">
+                    <app-icon name="edit"></app-icon>
+                  </button>
+                }
+                @if (session.can('DELETE_MEMBER')) {
+                  <button class="action-btn action-btn-danger" (click)="delete(m)" title="Remove member (soft delete)">
+                    <app-icon name="user-x"></app-icon>
+                  </button>
+                }
+                @if (session.can('HARD_DELETE_MEMBER')) {
+                  <button class="action-btn action-btn-danger" (click)="hardDelete(m)" title="Permanently delete member & all data">
+                    <app-icon name="trash"></app-icon>
+                  </button>
+                }
+                @if (session.can('RESET_PASSWORD')) {
+                  <button class="action-btn action-btn-warning" (click)="openResetPasswordModal(m)" title="Reset password">
+                    <app-icon name="key"></app-icon>
+                  </button>
+                }
+              </td>
+            }
           </tr>
         }
         @if (members.length === 0) {
-          <tr><td [attr.colspan]="isRegFeeRequired() ? 9 : 8" class="empty-state">No members match your filters.</td></tr>
+          <tr><td [attr.colspan]="getTableColspan()" class="empty-state">No members match your filters.</td></tr>
         }
       </tbody>
     </table>
