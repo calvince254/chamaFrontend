@@ -75,7 +75,10 @@ export class SharesComponent implements OnInit {
   constructor(private api: ApiService, public session: SessionService) {}
 
   ngOnInit() {
-    this.loadShareCalculation();
+    // Only load data if user has permission to view shares
+    if (this.session.can('VIEW_SHARES') || this.session.can('VIEW_SHARE_CALCULATION')) {
+      this.loadShareCalculation();
+    }
   }
 
   onTabChange(tab: 'ownership' | 'payouts') {

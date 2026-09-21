@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { SessionService } from '../../core/services/session.service';
 import { FinanceSummary, Transaction, PageResponse, Member } from '../../core/models/models';
 import { IconComponent } from '../../shared/icon.component';
 
@@ -48,11 +49,14 @@ export class FinanceComponent implements OnInit {
     this.onFilterChange();
   }
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private session: SessionService) {}
 
   ngOnInit() {
-    this.loadMembers();
-    this.loadData();
+    // Only load data if user has permission to view finance
+    if (this.session.can('VIEW_FINANCE') || this.session.can('VIEW_TRANSACTIONS')) {
+      this.loadMembers();
+      this.loadData();
+    }
   }
 
   loadMembers() {

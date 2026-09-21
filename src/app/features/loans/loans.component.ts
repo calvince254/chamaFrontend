@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { LoanExtended, LoanProduct, Member, LoanPenalty, PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods } from '../../core/models/models';
+import { LoanExtended, LoanProduct, Member, LoanPenalty, PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods, CreditScoreResponse } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
@@ -114,6 +114,11 @@ export class LoansComponent implements OnInit {
   loanRepaymentPaymentMethods: EnabledPaymentMethods | null = null;
   loadingLoanRepaymentMethods = signal(false);
 
+  // Credit Score Info (displayed near Apply for Loan button)
+  myCreditScore: CreditScoreResponse | null = null;
+  loadingCreditScore = signal(false);
+  showCreditScoreModal = false; // Modal for credit score info
+
   constructor(
     private api: ApiService, 
     public session: SessionService,
@@ -122,10 +127,13 @@ export class LoansComponent implements OnInit {
   ) {}
   
   ngOnInit() {
-    this.determineDefaultTab();
-    this.loadData();
-    this.loadMembers();
-    this.loadLoanProducts();
+    // Only load data if user has permission to view loans
+    if (this.session.can('VIEW_LOANS') || this.session.can('VIEW_ALL_LOANS_ADMIN') || this.session.can('CREATE_LOAN')) {
+      this.determineDefaultTab();
+      this.loadData();
+      this.loadMembers();
+      this.loadLoanProducts();
+    }
   }
 
   determineDefaultTab() {
@@ -393,6 +401,30 @@ export class LoansComponent implements OnInit {
         // Silently handle - interceptor shows toast
       }
     });
+  }
+
+  loadMyCreditScore() {
+    this.loadingCreditScore.set(true);
+    this.api.getMyCreditScore().subscribe({
+      next: (response) => {
+        this.myCreditScore = response;
+        this.loadingCreditScore.set(false);
+      },
+      error: () => {
+        this.loadingCreditScore.set(false);
+        // Silently handle - user may not have loans yet
+      }
+    });
+  }
+
+  openCreditScoreModal() {
+    this.showCreditScoreModal = true;
+    // Reload credit score when opening modal
+    this.loadMyCreditScore();
+  }
+
+  closeCreditScoreModal() {
+    this.showCreditScoreModal = false;
   }
 
   onTabChange(tab: 'my-loans' | 'pending' | 'all' | 'awaiting-confirmation' | 'awaiting-disbursement' | 'my-penalties' | 'penalties' | 'income') {
@@ -1105,6 +1137,43 @@ export class LoansComponent implements OnInit {
       default:
         return 'badge-neutral';
     }
+  }
+
+  // Credit Score Helpers
+  getCreditScoreBackground(color: string): string {
+    const backgrounds: Record<string, string> = {
+      'green': '#dcfce7',
+      'blue': '#dbeafe',
+      'yellow': '#fef3c7',
+      'orange': '#fed7aa',
+      'red': '#fee2e2',
+      'gray': '#f3f4f6'
+    };
+    return backgrounds[color] || '#f3f4f6';
+  }
+
+  getCreditScoreColor(color: string): string {
+    const colors: Record<string, string> = {
+      'green': '#16a34a',
+      'blue': '#2563eb',
+      'yellow': '#ca8a04',
+      'orange': '#ea580c',
+      'red': '#dc2626',
+      'gray': '#6b7280'
+    };
+    return colors[color] || '#6b7280';
+  }
+
+  getCreditRatingLabel(rating: string): string {
+    const labels: Record<string, string> = {
+      'EXCELLENT': 'Excellent',
+      'GOOD': 'Good',
+      'FAIR': 'Fair',
+      'POOR': 'Poor',
+      'VERY_POOR': 'Very Poor',
+      'NO_HISTORY': 'No History'
+    };
+    return labels[rating] || rating;
   }
 
   getPenaltyStatusClass(status: string): string {

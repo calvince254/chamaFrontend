@@ -80,9 +80,12 @@ export class InvestmentsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadInvestments();
-    this.loadMembers();
-    this.loadPendingApprovalCount();
+    // Only load data if user has permission to view investments
+    if (this.session.can('VIEW_INVESTMENTS') || this.session.can('CREATE_INVESTMENT')) {
+      this.loadInvestments();
+      this.loadMembers();
+      this.loadPendingApprovalCount();
+    }
   }
 
   // Data loading

@@ -32,15 +32,16 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((error: HttpErrorResponse) => {
-      // Handle 401 Unauthorized only - this means session expired or not authenticated
-      // Do NOT redirect on 403 - that means user is logged in but lacks permission
+      // Handle 401 Unauthorized - token invalid, expired, or blacklisted
       if (error.status === 401) {
-        // Clear stored auth data
+        // Clear ALL stored auth data
         localStorage.removeItem('chama.token');
         localStorage.removeItem('chama.currentUser');
         localStorage.removeItem('chama.permissionCodes');
+        localStorage.removeItem('chama.sessionTimeoutMinutes');
+        localStorage.removeItem('chama.mustChangePassword');
         
-        // Redirect to login
+        // Redirect to login with session expired message
         router.navigate(['/login'], { 
           queryParams: { sessionExpired: 'true' } 
         });
@@ -88,10 +89,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         toast?.warning('Session Expired', 'Please log in again.');
       } else if (error.status === 403) {
         // Forbidden - user is logged in but lacks permission for this action
-        // Do NOT show generic error for dashboard data - just silently fail
-        if (!endpoint.includes('dashboard') && !endpoint.includes('finance/summary')) {
+        // Silently fail for ALL GET requests (data loading)
+        // Only show toast for POST/PUT/DELETE (user-initiated actions)
+        if (req.method !== 'GET') {
           toast?.warning('Access Denied', 'You do not have permission to perform this action.');
         }
+        // GET requests fail silently - no toast notification
       } else if (error.status === 404) {
         // Not found
         toast?.error('Not Found', `The requested resource (${endpoint}) was not found.`);

@@ -63,8 +63,11 @@ export class WelfareComponent implements OnInit {
   constructor(private api: ApiService, public session: SessionService, private toast: ToastService) {}
 
   ngOnInit() {
-    this.loadEvents();
-    this.loadMembers();
+    // Only load data if user has permission to view welfare events
+    if (this.session.can('VIEW_WELFARE_EVENTS') || this.session.can('CREATE_WELFARE_EVENT')) {
+      this.loadEvents();
+      this.loadMembers();
+    }
   }
 
   loadEvents() {

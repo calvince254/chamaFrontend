@@ -58,7 +58,10 @@ export class MeetingsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadMeetings();
+    // Only load data if user has permission to view meetings
+    if (this.session.can('VIEW_MEETINGS') || this.session.can('CREATE_MEETING')) {
+      this.loadMeetings();
+    }
   }
 
   loadMeetings() {

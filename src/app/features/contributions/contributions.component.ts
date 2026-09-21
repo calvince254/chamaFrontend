@@ -309,12 +309,15 @@ export class ContributionsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.setDefaultMonth();
-    this.loadContributionTypes();
-    this.loadMembers();
-    this.loadPenalties();
-    this.loadTopUps();
-    this.loadPendingTopUpsCount();
+    // Only load data if user has permission to view contributions
+    if (this.session.can('VIEW_CONTRIBUTIONS') || this.session.can('CREATE_CONTRIBUTION')) {
+      this.setDefaultMonth();
+      this.loadContributionTypes();
+      this.loadMembers();
+      this.loadPenalties();
+      this.loadTopUps();
+      this.loadPendingTopUpsCount();
+    }
   }
 
   setDefaultMonth() {

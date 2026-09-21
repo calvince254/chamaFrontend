@@ -476,6 +476,40 @@ export interface LoanEligibility {
   loanAmount: number;
   eligible: boolean;
   shortfall: number;
+  loanHistory?: LoanHistorySummary;
+  creditScore?: CreditScore;
+  eligibilityNotes?: string[];
+}
+
+export interface LoanHistorySummary {
+  totalLoansCount: number;
+  completedLoansCount: number;
+  activeLoansCount: number;
+  defaultedLoansCount: number;
+  totalBorrowed: number;
+  totalRepaid: number;
+  currentOutstanding: number;
+  hasActiveLoans: boolean;
+  onTimePaymentsCount: number;
+  latePaymentsCount: number;
+  missedPaymentsCount: number;
+  repaymentRate: number;
+}
+
+export interface CreditScore {
+  score: number;           // 0-100
+  rating: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'VERY_POOR' | 'NO_HISTORY';
+  ratingColor: string;     // green, blue, yellow, orange, red, gray
+  description: string;
+  factors: string[];
+}
+
+// Standalone credit score response for /my-credit-score endpoint
+export interface CreditScoreResponse {
+  creditScore: CreditScore;
+  loanHistory: LoanHistorySummary;
+  memberName: string;
+  totalContributions: number;
 }
 
 // ==================== Loan Income ====================

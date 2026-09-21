@@ -3,11 +3,16 @@
     <h1>Loans</h1>
     <p>Manage loan applications, approvals, disbursements, and repayments.</p>
   </div>
-  @if (session.can('APPLY_FOR_LOAN')) {
-    <button class="btn btn-primary" (click)="openNewApplication()">
-      <app-icon name="plus"></app-icon> Apply for Loan
+  <div style="display: flex; gap: 12px; align-items: center;">
+    <button class="btn btn-outline" (click)="openCreditScoreModal()">
+      <app-icon name="info"></app-icon> My Credit Score
     </button>
-  }
+    @if (session.can('APPLY_FOR_LOAN')) {
+      <button class="btn btn-primary" (click)="openNewApplication()">
+        <app-icon name="plus"></app-icon> Apply for Loan
+      </button>
+    }
+  </div>
 </div>
 
 <!-- Tabs -->
@@ -633,6 +638,7 @@
               </div>
               
               @if (eligibility) {
+                <!-- Contribution-Based Eligibility -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
                   <div>
                     <div style="color: var(--color-text-muted);">Your Contributions</div>
@@ -654,21 +660,95 @@
                   </div>
                 </div>
                 
+                <!-- Credit Score Section -->
+                @if (eligibility.creditScore) {
+                  <div style="margin-top: 16px; padding: 12px; background: var(--color-surface); border-radius: 6px; border: 1px solid var(--color-border);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                      <div style="font-weight: 600; font-size: 12px;">Credit Score</div>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;"
+                             [style.background]="getCreditScoreBackground(eligibility.creditScore.ratingColor)"
+                             [style.color]="getCreditScoreColor(eligibility.creditScore.ratingColor)">
+                          {{ eligibility.creditScore.score }}
+                        </div>
+                        <div>
+                          <div style="font-weight: 600; font-size: 12px;" [style.color]="getCreditScoreColor(eligibility.creditScore.ratingColor)">
+                            {{ getCreditRatingLabel(eligibility.creditScore.rating) }}
+                          </div>
+                          <div style="font-size: 10px; color: var(--color-text-muted);">{{ eligibility.creditScore.description }}</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    @if (eligibility.creditScore.factors && eligibility.creditScore.factors.length > 0) {
+                      <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 8px;">
+                        <div style="font-weight: 500; margin-bottom: 4px;">Score Factors:</div>
+                        @for (factor of eligibility.creditScore.factors; track factor) {
+                          <div>• {{ factor }}</div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+                
+                <!-- Loan History Summary -->
+                @if (eligibility.loanHistory && eligibility.loanHistory.totalLoansCount > 0) {
+                  <div style="margin-top: 12px; padding: 12px; background: var(--color-surface); border-radius: 6px; border: 1px solid var(--color-border);">
+                    <div style="font-weight: 600; font-size: 12px; margin-bottom: 8px;">Loan History</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 11px;">
+                      <div style="text-align: center; padding: 8px; background: var(--color-success-subtle); border-radius: 4px;">
+                        <div style="font-weight: 600; color: var(--color-success);">{{ eligibility.loanHistory.completedLoansCount }}</div>
+                        <div style="font-size: 10px; color: var(--color-text-muted);">Completed</div>
+                      </div>
+                      <div style="text-align: center; padding: 8px; background: var(--color-warning-subtle); border-radius: 4px;">
+                        <div style="font-weight: 600; color: var(--color-warning);">{{ eligibility.loanHistory.activeLoansCount }}</div>
+                        <div style="font-size: 10px; color: var(--color-text-muted);">Active</div>
+                      </div>
+                      <div style="text-align: center; padding: 8px; background: var(--color-danger-subtle); border-radius: 4px;">
+                        <div style="font-weight: 600; color: var(--color-danger);">{{ eligibility.loanHistory.defaultedLoansCount }}</div>
+                        <div style="font-size: 10px; color: var(--color-text-muted);">Defaulted</div>
+                      </div>
+                    </div>
+                    @if (eligibility.loanHistory.hasActiveLoans) {
+                      <div style="margin-top: 8px; font-size: 10px; color: var(--color-text-muted);">
+                        Current outstanding: <strong>KES {{ eligibility.loanHistory.currentOutstanding | number }}</strong>
+                      </div>
+                    }
+                  </div>
+                }
+                
+                <!-- Eligibility Notes -->
+                @if (eligibility.eligibilityNotes && eligibility.eligibilityNotes.length > 0) {
+                  <div style="margin-top: 12px;">
+                    @for (note of eligibility.eligibilityNotes; track note) {
+                      <div style="font-size: 11px; padding: 6px 8px; margin-bottom: 4px; background: var(--color-surface); border-radius: 4px; border-left: 3px solid var(--color-border);">
+                        {{ note }}
+                      </div>
+                    }
+                  </div>
+                }
+                
+                <!-- Final Eligibility Status -->
                 @if (eligibility.eligible) {
                   <div style="margin-top: 12px; padding: 8px; background: var(--color-success); color: white; border-radius: 4px; font-size: 11px; text-align: center;">
-                    ✓ Eligible - contributions cover the loan amount
+                    ✓ Eligible - All criteria met
                   </div>
                 } @else {
                   <div style="margin-top: 12px; padding: 8px; background: var(--color-danger); color: white; border-radius: 4px; font-size: 11px; text-align: center;">
-                    ✗ Not eligible - shortfall of KES {{ eligibility.shortfall | number }}
-                  </div>
-                  <div style="margin-top: 8px; font-size: 10px; color: var(--color-danger);">
-                    @if (selectedProduct.requiredGuarantors > 0) {
-                      Add more guarantors or reduce the loan amount.
-                    } @else {
-                      Please reduce the loan amount.
+                    ✗ Not eligible
+                    @if (eligibility.shortfall > 0) {
+                      - contribution shortfall of KES {{ eligibility.shortfall | number }}
                     }
                   </div>
+                  @if (eligibility.shortfall > 0) {
+                    <div style="margin-top: 8px; font-size: 10px; color: var(--color-danger);">
+                      @if (selectedProduct.requiredGuarantors > 0) {
+                        Add more guarantors or reduce the loan amount.
+                      } @else {
+                        Please reduce the loan amount.
+                      }
+                    </div>
+                  }
                 }
               } @else {
                 <div style="font-size: 11px; color: var(--color-text-muted);">
@@ -1504,6 +1584,184 @@
         <button class="btn btn-primary" (click)="submitLoanPenaltyPayment()" [disabled]="submittingLoanPenaltyPayment() || !canSubmitLoanPenaltyPayment()">
           {{ submittingLoanPenaltyPayment() ? 'Processing...' : 'Submit Payment' }}
         </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Credit Score Modal -->
+@if (showCreditScoreModal) {
+  <div class="modal-backdrop" (click)="closeCreditScoreModal()">
+    <div class="modal" style="max-width: 600px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>My Credit Score</h3>
+        <button class="icon-btn" (click)="closeCreditScoreModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
+        <!-- Loading State -->
+        @if (loadingCreditScore()) {
+          <div style="text-align: center; padding: 40px;">
+            <div class="spinner" style="width: 40px; height: 40px; margin: 0 auto 16px;"></div>
+            <p style="color: var(--color-text-muted);">Loading your credit score...</p>
+          </div>
+        } @else if (myCreditScore && myCreditScore.creditScore) {
+          <!-- Credit Score Display -->
+          <div style="text-align: center; padding: 20px 0; border-bottom: 1px solid var(--color-border); margin-bottom: 20px;">
+            <div style="width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 32px; margin: 0 auto 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"
+                 [style.background]="getCreditScoreBackground(myCreditScore.creditScore.ratingColor)"
+                 [style.color]="getCreditScoreColor(myCreditScore.creditScore.ratingColor)">
+              {{ myCreditScore.creditScore.score }}
+            </div>
+            <div style="font-size: 20px; font-weight: 600; margin-bottom: 4px;" [style.color]="getCreditScoreColor(myCreditScore.creditScore.ratingColor)">
+              {{ getCreditRatingLabel(myCreditScore.creditScore.rating) }}
+            </div>
+            <div style="color: var(--color-text-muted); font-size: 13px;">
+              {{ myCreditScore.creditScore.description }}
+            </div>
+          </div>
+
+          <!-- Loan History Summary -->
+          @if (myCreditScore.loanHistory) {
+            <div style="margin-bottom: 20px;">
+              <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px;">Your Loan History</div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                <div style="text-align: center; padding: 12px; background: var(--color-surface); border-radius: 8px;">
+                  <div style="font-size: 24px; font-weight: 700; color: var(--color-text);">{{ myCreditScore.loanHistory.totalLoansCount }}</div>
+                  <div style="font-size: 11px; color: var(--color-text-muted);">Total Loans</div>
+                </div>
+                <div style="text-align: center; padding: 12px; background: var(--color-success-subtle); border-radius: 8px;">
+                  <div style="font-size: 24px; font-weight: 700; color: var(--color-success);">{{ myCreditScore.loanHistory.completedLoansCount }}</div>
+                  <div style="font-size: 11px; color: var(--color-text-muted);">Completed</div>
+                </div>
+                <div style="text-align: center; padding: 12px; background: var(--color-warning-subtle); border-radius: 8px;">
+                  <div style="font-size: 24px; font-weight: 700; color: var(--color-warning);">{{ myCreditScore.loanHistory.activeLoansCount }}</div>
+                  <div style="font-size: 11px; color: var(--color-text-muted);">Active</div>
+                </div>
+                <div style="text-align: center; padding: 12px; background: var(--color-danger-subtle); border-radius: 8px;">
+                  <div style="font-size: 24px; font-weight: 700; color: var(--color-danger);">{{ myCreditScore.loanHistory.defaultedLoansCount }}</div>
+                  <div style="font-size: 11px; color: var(--color-text-muted);">Defaulted</div>
+                </div>
+              </div>
+              @if (myCreditScore.loanHistory.hasActiveLoans) {
+                <div style="margin-top: 12px; padding: 10px; background: var(--color-info-subtle); border-radius: 6px; font-size: 12px;">
+                  Current Outstanding: <strong>KES {{ myCreditScore.loanHistory.currentOutstanding | number }}</strong>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Your Score Factors -->
+          @if (myCreditScore.creditScore?.factors && myCreditScore.creditScore.factors.length > 0) {
+            <div style="margin-bottom: 20px;">
+              <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px;">Your Score Breakdown</div>
+              <div style="background: var(--color-surface); border-radius: 8px; padding: 12px;">
+                @for (factor of myCreditScore.creditScore!.factors; track factor) {
+                  <div style="padding: 8px 0; border-bottom: 1px solid var(--color-border); font-size: 13px;"
+                       [style.border-bottom]="$last ? 'none' : '1px solid var(--color-border)'">
+                    {{ factor }}
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- How Score is Calculated -->
+          <div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px;">How Credit Score is Calculated</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <!-- Factors Table -->
+              <div>
+                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                  <thead>
+                    <tr style="background: var(--color-surface);">
+                      <th style="text-align: left; padding: 8px 10px; border: 1px solid var(--color-border);">Factor</th>
+                      <th style="text-align: center; padding: 8px 10px; border: 1px solid var(--color-border); width: 70px;">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Base score</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border);">50</td>
+                    </tr>
+                    <tr style="background: var(--color-success-subtle);">
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Each completed loan (max 3)</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border); color: var(--color-success);">+10</td>
+                    </tr>
+                    <tr style="background: var(--color-danger-subtle);">
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Each defaulted loan</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border); color: var(--color-danger);">-25</td>
+                    </tr>
+                    <tr style="background: var(--color-success-subtle);">
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Repayment rate ≥ 90%</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border); color: var(--color-success);">+15</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Repayment rate 70-89%</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border); color: var(--color-success);">+5</td>
+                    </tr>
+                    <tr style="background: var(--color-danger-subtle);">
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Repayment rate &lt; 50%</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border); color: var(--color-danger);">-10</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Has active loans</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border); color: var(--color-warning);">-5</td>
+                    </tr>
+                    <tr style="background: var(--color-success-subtle);">
+                      <td style="padding: 6px 10px; border: 1px solid var(--color-border);">Established history (3+ loans)</td>
+                      <td style="text-align: center; padding: 6px 10px; border: 1px solid var(--color-border); color: var(--color-success);">+5</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Score Ranges -->
+              <div>
+                <div style="font-weight: 500; font-size: 12px; margin-bottom: 8px;">Score Ranges</div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #dcfce7; border-radius: 6px;">
+                    <span style="font-weight: 600; color: #16a34a; min-width: 50px;">80-100</span>
+                    <span style="font-size: 11px; color: #16a34a;">Excellent</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #dbeafe; border-radius: 6px;">
+                    <span style="font-weight: 600; color: #2563eb; min-width: 50px;">65-79</span>
+                    <span style="font-size: 11px; color: #2563eb;">Good</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #fef3c7; border-radius: 6px;">
+                    <span style="font-weight: 600; color: #ca8a04; min-width: 50px;">50-64</span>
+                    <span style="font-size: 11px; color: #ca8a04;">Fair</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #fed7aa; border-radius: 6px;">
+                    <span style="font-weight: 600; color: #ea580c; min-width: 50px;">30-49</span>
+                    <span style="font-size: 11px; color: #ea580c;">Poor</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #fee2e2; border-radius: 6px;">
+                    <span style="font-weight: 600; color: #dc2626; min-width: 50px;">0-29</span>
+                    <span style="font-size: 11px; color: #dc2626;">Very Poor</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        } @else {
+          <!-- Error/No Data State -->
+          <div style="text-align: center; padding: 40px;">
+            <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--color-surface); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+              <app-icon name="info" style="font-size: 32px; color: var(--color-text-muted);"></app-icon>
+            </div>
+            <h4 style="margin-bottom: 8px;">Credit Score Not Available</h4>
+            <p style="color: var(--color-text-muted); font-size: 13px; margin-bottom: 16px;">
+              Your credit score will be calculated once you have loan activity.
+              Start by applying for a loan and making timely repayments.
+            </p>
+            <button class="btn btn-primary" (click)="closeCreditScoreModal(); openNewApplication()">
+              Apply for Your First Loan
+            </button>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" (click)="closeCreditScoreModal()">Close</button>
       </div>
     </div>
   </div>

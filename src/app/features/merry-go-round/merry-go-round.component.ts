@@ -202,7 +202,10 @@ export class MerryGoRoundComponent implements OnInit {
   private confirm = inject(ConfirmDialogService);
 
   ngOnInit() {
-    this.loadData();
+    // Only load data if user has permission to view merry-go-round
+    if (this.session.can('VIEW_MERRY_GO_ROUND') || this.session.can('CREATE_MGR_CYCLE')) {
+      this.loadData();
+    }
   }
 
   loadData() {

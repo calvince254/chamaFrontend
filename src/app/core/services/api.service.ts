@@ -11,7 +11,7 @@ import {
   PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, RecordPaymentRequest,
   RegistrationFeePayment, RegistrationFeeInfo, Resource, AuditLog, ContributionTopUp, ContributionBalance,
   PaymentSettings, EnabledPaymentMethods, TreasurerDevice, InitiatePaymentRequest, InitiatePaymentResponse,
-  GuarantorLiability
+  GuarantorLiability, CreditScoreResponse
 } from '../models/models';
 
 /**
@@ -1218,6 +1218,10 @@ export class ApiService {
       guarantorIds,
       loanAmount
     });
+  }
+
+  getMyCreditScore(): Observable<CreditScoreResponse> {
+    return this.http.get<CreditScoreResponse>(`${this.baseUrl}/loans/my-credit-score`);
   }
 
   approveLoanExtended(id: number, comments?: string): Observable<LoanExtended> {

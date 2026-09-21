@@ -136,20 +136,69 @@ export class SettingsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadTenantSettings();
-    this.loadFineTypes();
-    this.loadContributionTypes();
-    this.loadLoanProducts();
-    this.loadRoles();
-    this.loadMembers();
-    this.loadShareSettings();
-    this.loadPaymentSettings();
-    this.loadTreasurerDevices();
+    // Determine default tab based on permissions
+    this.setDefaultTab();
+    
+    // Only load data for tabs the user has permission to view
+    // This prevents 403 errors showing in Network tab/console
+    
+    if (this.session.can('VIEW_TENANT_SETTINGS') || this.session.can('EDIT_TENANT_SETTINGS') || this.session.currentUser()?.isSuperAdmin) {
+      this.loadTenantSettings();
+    }
+    
+    if (this.session.can('VIEW_FINE_TYPES') || this.session.can('CREATE_FINE_TYPE')) {
+      this.loadFineTypes();
+    }
+    
+    if (this.session.can('VIEW_CONTRIBUTION_TYPES') || this.session.can('CREATE_CONTRIBUTION_TYPE')) {
+      this.loadContributionTypes();
+    }
+    
+    if (this.session.can('VIEW_LOAN_PRODUCTS') || this.session.can('CREATE_LOAN_PRODUCT')) {
+      this.loadLoanProducts();
+      this.loadRoles(); // Needed for loan approvers
+      this.loadMembers(); // Needed for loan approvers
+    }
+    
+    if (this.session.can('VIEW_SHARE_SETTINGS') || this.session.can('MANAGE_SHARE_SETTINGS')) {
+      this.loadShareSettings();
+      // Also need contribution types for share settings
+      if (!this.session.can('VIEW_CONTRIBUTION_TYPES') && !this.session.can('CREATE_CONTRIBUTION_TYPE')) {
+        this.loadContributionTypes();
+      }
+    }
+    
+    if (this.session.can('VIEW_PAYMENT_SETTINGS') || this.session.can('MANAGE_PAYMENT_SETTINGS')) {
+      this.loadPaymentSettings();
+      this.loadTreasurerDevices();
+    }
     
     // Load system settings for super admin
     if (this.session.currentUser()?.isSuperAdmin) {
       this.loadSystemSettings();
     }
+  }
+
+  /**
+   * Set the default active tab based on user's permissions
+   */
+  setDefaultTab() {
+    if (this.session.can('VIEW_TENANT_SETTINGS') || this.session.can('EDIT_TENANT_SETTINGS')) {
+      this.activeTab = 'general';
+    } else if (this.session.can('VIEW_FINE_TYPES') || this.session.can('CREATE_FINE_TYPE')) {
+      this.activeTab = 'fines';
+    } else if (this.session.can('VIEW_CONTRIBUTION_TYPES') || this.session.can('CREATE_CONTRIBUTION_TYPE')) {
+      this.activeTab = 'contributions';
+    } else if (this.session.can('VIEW_LOAN_PRODUCTS') || this.session.can('CREATE_LOAN_PRODUCT')) {
+      this.activeTab = 'loans';
+    } else if (this.session.can('VIEW_SHARE_SETTINGS') || this.session.can('MANAGE_SHARE_SETTINGS')) {
+      this.activeTab = 'shares';
+    } else if (this.session.can('VIEW_PAYMENT_SETTINGS') || this.session.can('MANAGE_PAYMENT_SETTINGS')) {
+      this.activeTab = 'payments';
+    } else if (this.session.currentUser()?.isSuperAdmin) {
+      this.activeTab = 'system';
+    }
+    // If no permissions, keep default 'general' - the tab will just be hidden
   }
 
   // ==================== Tenant Settings ====================

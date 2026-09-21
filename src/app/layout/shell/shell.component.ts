@@ -1,5 +1,5 @@
-import { Component, computed, OnInit, OnDestroy, Signal, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, OnInit, OnDestroy, Signal, signal, HostListener, PLATFORM_ID, inject } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { SessionService } from '../../core/services/session.service';
@@ -72,6 +72,10 @@ export class ShellComponent implements OnInit, OnDestroy {
   };
   passwordChangeError = signal('');
   passwordChanging = signal(false);
+  
+  // Session validation
+  private platformId = inject(PLATFORM_ID);
+  private sessionValidated = false;
 
   constructor(
     public session: SessionService, 
@@ -115,6 +119,9 @@ export class ShellComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    // Validate session on app init (check if token is still valid)
+    this.validateSessionOnInit();
+    
     this.loadLicenseStatus();
     
     // Start idle monitoring if session timeout is configured
@@ -122,6 +129,70 @@ export class ShellComponent implements OnInit, OnDestroy {
     if (timeout > 0) {
       this.idleService.startWatching(timeout);
     }
+  }
+
+  /**
+   * Validate session when tab becomes visible (user returns to tab)
+   */
+  @HostListener('document:visibilitychange')
+  onVisibilityChange() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    
+    if (document.visibilityState === 'visible' && this.session.isLoggedIn()) {
+      // Check token expiry first (fast, no API call)
+      if (this.session.isTokenExpired()) {
+        console.log('Token expired on tab focus, logging out');
+        this.forceLogout('Token expired. Please log in again.');
+        return;
+      }
+      
+      // Validate with backend every time tab becomes visible
+      this.session.validateSession().subscribe(valid => {
+        if (!valid) {
+          this.forceLogout('Session expired. Please log in again.');
+        }
+      });
+    }
+  }
+
+  /**
+   * Validate session on app initialization
+   */
+  private validateSessionOnInit() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    if (!this.session.isLoggedIn()) return;
+    
+    // Check token expiry first
+    if (this.session.isTokenExpired()) {
+      console.log('Token expired on init, logging out');
+      this.forceLogout('Session expired. Please log in again.');
+      return;
+    }
+    
+    // Validate with backend
+    this.session.validateSession().subscribe(valid => {
+      if (!valid) {
+        this.forceLogout('Session expired. Please log in again.');
+      } else {
+        this.sessionValidated = true;
+        // Restart idle monitoring with potentially updated timeout
+        const timeout = this.session.sessionTimeoutMinutes();
+        if (timeout > 0) {
+          this.idleService.startWatching(timeout);
+        }
+      }
+    });
+  }
+
+  /**
+   * Force logout and redirect to login with message
+   */
+  private forceLogout(message: string) {
+    this.idleService.stopWatching();
+    this.session.logout();
+    this.router.navigate(['/login'], { 
+      queryParams: { sessionExpired: 'true', message: message } 
+    });
   }
 
   ngOnDestroy() {

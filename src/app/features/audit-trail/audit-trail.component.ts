@@ -52,9 +52,12 @@ export class AuditTrailComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadFilters();
-    this.loadAuditLogs();
-    this.loadStatistics();
+    // Only load data if user has permission to view audit trail
+    if (this.session.can('VIEW_AUDIT_LOGS') || this.session.currentUser()?.isSuperAdmin) {
+      this.loadFilters();
+      this.loadAuditLogs();
+      this.loadStatistics();
+    }
   }
 
   loadFilters() {

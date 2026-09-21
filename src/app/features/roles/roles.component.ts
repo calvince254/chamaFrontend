@@ -57,8 +57,11 @@ export class RolesComponent implements OnInit {
   private confirm = inject(ConfirmDialogService);
 
   ngOnInit() {
-    this.loadAvailablePermissions();
-    this.loadRoles();
+    // Only load data if user has permission to view roles
+    if (this.session.can('VIEW_ROLES') || this.session.can('CREATE_ROLE')) {
+      this.loadAvailablePermissions();
+      this.loadRoles();
+    }
   }
 
   loadAvailablePermissions() {

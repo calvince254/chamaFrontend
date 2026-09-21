@@ -54,7 +54,10 @@ export class ResourcesComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadResources();
+    // Only load data if user has permission to view resources
+    if (this.session.can('VIEW_RESOURCES') || this.session.can('UPLOAD_RESOURCE')) {
+      this.loadResources();
+    }
   }
 
   loadResources() {

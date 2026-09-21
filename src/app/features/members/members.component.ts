@@ -100,7 +100,10 @@ export class MembersComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.initializeData();
+    // Only load data if user has permission to view members
+    if (this.session.can('VIEW_MEMBERS') || this.session.can('CREATE_MEMBER')) {
+      this.initializeData();
+    }
   }
 
   /**

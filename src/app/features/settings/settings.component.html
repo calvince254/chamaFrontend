@@ -7,24 +7,32 @@
 
 <!-- Tabs -->
 <div class="tabs">
-  <button class="tab" [class.active]="activeTab === 'general'" (click)="activeTab = 'general'">
-    General Settings
-  </button>
-  <button class="tab" [class.active]="activeTab === 'fines'" (click)="activeTab = 'fines'">
-    Fine Types
-  </button>
-  <button class="tab" [class.active]="activeTab === 'contributions'" (click)="activeTab = 'contributions'">
-    Contribution Types
-  </button>
-  <button class="tab" [class.active]="activeTab === 'loans'" (click)="activeTab = 'loans'">
-    Loan Products
-  </button>
+  @if (session.can('VIEW_TENANT_SETTINGS') || session.can('EDIT_TENANT_SETTINGS')) {
+    <button class="tab" [class.active]="activeTab === 'general'" (click)="activeTab = 'general'">
+      General Settings
+    </button>
+  }
+  @if (session.can('VIEW_FINE_TYPES') || session.can('CREATE_FINE_TYPE')) {
+    <button class="tab" [class.active]="activeTab === 'fines'" (click)="activeTab = 'fines'">
+      Fine Types
+    </button>
+  }
+  @if (session.can('VIEW_CONTRIBUTION_TYPES') || session.can('CREATE_CONTRIBUTION_TYPE')) {
+    <button class="tab" [class.active]="activeTab === 'contributions'" (click)="activeTab = 'contributions'">
+      Contribution Types
+    </button>
+  }
+  @if (session.can('VIEW_LOAN_PRODUCTS') || session.can('CREATE_LOAN_PRODUCT')) {
+    <button class="tab" [class.active]="activeTab === 'loans'" (click)="activeTab = 'loans'">
+      Loan Products
+    </button>
+  }
   @if (session.can('VIEW_SHARE_SETTINGS') || session.can('MANAGE_SHARE_SETTINGS')) {
     <button class="tab" [class.active]="activeTab === 'shares'" (click)="activeTab = 'shares'">
       Share Calculation
     </button>
   }
-  @if (session.can('EDIT_TENANT_SETTINGS')) {
+  @if (session.can('VIEW_PAYMENT_SETTINGS') || session.can('MANAGE_PAYMENT_SETTINGS')) {
     <button class="tab" [class.active]="activeTab === 'payments'" (click)="activeTab = 'payments'">
       Payment Settings
     </button>

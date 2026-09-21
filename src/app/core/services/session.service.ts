@@ -287,4 +287,110 @@ export class SessionService {
   getPermissionCodes(): string[] {
     return Array.from(this.permissionCodes());
   }
+
+  /**
+   * Check if the stored JWT token is expired.
+   * Decodes the token and checks the 'exp' claim.
+   */
+  isTokenExpired(): boolean {
+    const token = this.getToken();
+    if (!token) return true;
+    
+    try {
+      // Decode JWT payload (base64)
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      
+      const payload = JSON.parse(atob(parts[1]));
+      if (!payload.exp) return true;
+      
+      // exp is in seconds, Date.now() is in milliseconds
+      const expiryTime = payload.exp * 1000;
+      const now = Date.now();
+      
+      // Consider expired if less than 60 seconds remaining
+      return now >= (expiryTime - 60000);
+    } catch (e) {
+      console.error('Failed to decode token:', e);
+      return true;
+    }
+  }
+
+  /**
+   * Get token expiry time in milliseconds
+   */
+  getTokenExpiryTime(): number | null {
+    const token = this.getToken();
+    if (!token) return null;
+    
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      
+      const payload = JSON.parse(atob(parts[1]));
+      return payload.exp ? payload.exp * 1000 : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Validate session with the backend.
+   * Calls /auth/me to verify token is still valid and user exists.
+   * Returns true if session is valid, false otherwise.
+   * On failure, clears local storage and logs out.
+   */
+  validateSession(): Observable<boolean> {
+    if (!this.isLoggedIn()) {
+      return of(false);
+    }
+
+    // First check if token is expired locally (no need to call backend)
+    if (this.isTokenExpired()) {
+      console.log('Token expired locally, logging out');
+      this.logout();
+      return of(false);
+    }
+
+    return this.http.get<any>(`${this.apiUrl}/auth/me`).pipe(
+      tap(response => {
+        // Update user info in case it changed (permissions, role, etc.)
+        if (response) {
+          const user: CurrentUser = {
+            id: response.id,
+            name: response.name,
+            email: response.email,
+            phone: response.phone || '',
+            tenantId: response.tenantId,
+            tenantName: response.tenantName,
+            roleName: response.roleName,
+            isSuperAdmin: response.superAdmin,
+            avatarInitials: response.avatarInitials || this.getInitials(response.name)
+          };
+          
+          const codes = response.permissionCodes || [];
+          const timeout = response.sessionTimeoutMinutes || 0;
+          
+          this.user.set(user);
+          this.permissionCodes.set(new Set(codes));
+          this._sessionTimeoutMinutes.set(timeout);
+          
+          // Update localStorage with fresh data (keep existing token)
+          const token = this.getToken();
+          if (token) {
+            this.persist(user, token, codes, timeout, this.mustChangePassword());
+          }
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        // 401 means token is invalid/expired/blacklisted - logout
+        if (error.status === 401 || error.status === 403) {
+          console.log('Session validation failed, logging out');
+          this.logout();
+        }
+        return of(false);
+      })
+    );
+  }
 }
