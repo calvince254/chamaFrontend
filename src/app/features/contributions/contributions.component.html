@@ -62,10 +62,10 @@
       <option value="OVERDUE">Overdue</option>
     </select>
 
-    @if (session.can('GENERATE_CONTRIBUTIONS') && selectedContributionTypeId) {
+    @if (canShowGenerateButton()) {
       <button class="btn btn-primary" (click)="openGenerateModal()">
         <app-icon name="plus"></app-icon>
-        Generate contributions
+        Generate contributions ({{ availableMembersForFilterMonth() }})
       </button>
     }
   </div>
@@ -115,11 +115,13 @@
   } @else if (contributions.length === 0) {
     <div class="empty-state">
       <p>No contributions for this period.</p>
-      <p style="margin: 6px 0 12px;">Click "Generate contributions" to create records for members.</p>
-      @if (session.can('GENERATE_CONTRIBUTIONS')) {
+      @if (canShowGenerateButton()) {
+        <p style="margin: 6px 0 12px;">Click "Generate contributions" to create records for members.</p>
         <button class="btn btn-primary" (click)="openGenerateModal()">
-          <app-icon name="plus"></app-icon> Generate contributions
+          <app-icon name="plus"></app-icon> Generate contributions ({{ availableMembersForFilterMonth() }})
         </button>
+      } @else if (selectedContributionTypeId && availableMembersForFilterMonth() === 0) {
+        <p style="margin-top: 8px; color: var(--color-text-muted);">All members already have contributions for this month.</p>
       }
     </div>
   } @else {
@@ -156,7 +158,16 @@
               <td class="col-action">
                 @if (c.status === 'PAID') {
                   <span class="settled-text">Settled</span>
+                } @else if (c.hasPendingClaim) {
+                  <span class="badge badge-warning">Awaiting Confirmation</span>
+                  @if (session.can('VERIFY_PAYMENTS') && c.payableId) {
+                    <button class="btn btn-success btn-sm ms-1" (click)="confirmPayment(c.payableId)">Confirm</button>
+                  }
+                } @else if (isOwnContribution(c)) {
+                  <!-- Member can pay their own contribution -->
+                  <button class="btn btn-primary btn-sm" (click)="openMemberContributionPaymentModal(c)">Pay</button>
                 } @else if (session.can('RECORD_CONTRIBUTION_PAYMENT')) {
+                  <!-- Admin can record payment directly -->
                   <button class="btn btn-primary btn-sm" (click)="openPaymentForm(c)">
                     Record payment
                   </button>
@@ -272,7 +283,7 @@
                 <div class="member-no">{{ p.memberNo }}</div>
               </td>
               <td>
-                <span class="badge" [ngClass]="p.penaltyType === 'MEETING_ABSENT' ? 'badge-info' : 'badge-warning'">
+                <span class="badge badge-warning">
                   {{ getPenaltyTypeLabel(p.penaltyType) }}
                 </span>
               </td>
@@ -292,11 +303,23 @@
               <td class="col-action">
                 @if (p.status === 'PAID' || p.status === 'WAIVED') {
                   <span class="settled-text">{{ p.status === 'WAIVED' ? 'Waived' : 'Settled' }}</span>
-                } @else {
-                  <button class="btn btn-primary btn-sm" (click)="openPenaltyPaymentForm(p)">Pay</button>
+                } @else if (p.hasPendingClaim) {
+                  <span class="badge badge-warning">Awaiting Confirmation</span>
+                  @if (session.can('VERIFY_PAYMENTS') && p.payableId) {
+                    <button class="btn btn-success btn-sm ms-1" (click)="confirmPayment(p.payableId)">Confirm</button>
+                  }
+                } @else if (isOwnPenalty(p)) {
+                  <!-- Member can pay their own penalty -->
+                  <button class="btn btn-primary btn-sm" (click)="openMemberPenaltyPaymentModal(p)">Pay</button>
+                } @else if (session.can('RECORD_PENALTY_PAYMENT')) {
+                  <!-- Admin can record payment directly -->
+                  <button class="btn btn-primary btn-sm" (click)="openPenaltyPaymentForm(p)">Record</button>
                   @if (session.can('WAIVE_PENALTY')) {
                     <button class="btn btn-ghost btn-sm" (click)="waivePenalty(p)" title="Waive">Waive</button>
                   }
+                } @else {
+                  <!-- Regular member seeing another's penalty - show nothing or limited info -->
+                  <span class="settled-text">—</span>
                 }
               </td>
             </tr>
@@ -384,7 +407,9 @@
           <tr>
             <th>Member</th>
             <th>Contribution Type</th>
+            <th>Month</th>
             <th style="text-align: right;">Amount</th>
+            <th>Description</th>
             <th>Request Date</th>
             <th>Status</th>
             <th>Approved By</th>
@@ -399,7 +424,21 @@
                 <div class="member-no">{{ t.memberNo }}</div>
               </td>
               <td>{{ t.contributionTypeName }}</td>
+              <td>
+                @if (t.targetMonth) {
+                  {{ t.targetMonth }}
+                } @else {
+                  <span style="color: var(--color-text-muted);">—</span>
+                }
+              </td>
               <td style="text-align: right; font-weight: 600;">KES {{ t.amount | number }}</td>
+              <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                @if (t.description) {
+                  <span title="{{ t.description }}">{{ t.description }}</span>
+                } @else {
+                  <span style="color: var(--color-text-muted);">—</span>
+                }
+              </td>
               <td>{{ formatDateTime(t.requestDate) }}</td>
               <td><span class="badge" [ngClass]="getTopUpStatusClass(t.status)">{{ t.status }}</span></td>
               <td>
@@ -458,7 +497,7 @@
 
 <!-- ==================== MODALS ==================== -->
 
-<!-- Record Payment Modal -->
+<!-- Record Payment Modal (Admin) -->
 @if (showPaymentForm && payingContribution) {
   <div class="modal-backdrop" (click)="closePaymentForm()">
     <div class="modal" style="max-width: 340px;" (click)="$event.stopPropagation()">
@@ -490,7 +529,117 @@
   </div>
 }
 
-<!-- Record Penalty Payment Modal -->
+<!-- Pay Contribution Modal (Member) -->
+@if (showMemberContributionPaymentModal && contributionToPayMember) {
+  <div class="modal-backdrop" (click)="closeMemberContributionPaymentModal()">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay Contribution</h3>
+        <button class="btn btn-ghost btn-sm" (click)="closeMemberContributionPaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Contribution Info -->
+        <div class="payment-info">
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Contribution Type:</span>
+            <span style="font-weight: 600;">{{ contributionToPayMember.contributionTypeName }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Period:</span>
+            <span style="font-weight: 500;">{{ contributionToPayMember.month }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Balance:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ contributionToPayMember.amountDue - contributionToPayMember.amountPaid | number }}</span>
+          </div>
+        </div>
+
+        <!-- Payment Amount -->
+        <div class="form-field">
+          <label>Payment Amount (KES) *</label>
+          <input type="number" [(ngModel)]="contributionPaymentAmount" 
+                 [max]="contributionToPayMember.amountDue - contributionToPayMember.amountPaid" min="1" />
+          <small style="color: var(--color-text-muted);">Enter full or partial payment amount</small>
+        </div>
+
+        <!-- Payment Method Selection -->
+        @if (loadingContributionPaymentMethods()) {
+          <div style="text-align: center; padding: 12px;">
+            <div class="spinner-sm"></div>
+          </div>
+        } @else if (contributionPaymentMethods) {
+          <div class="form-field">
+            <label>Payment Method *</label>
+            <div class="payment-methods">
+              @if (contributionPaymentMethods.manualEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedContributionPaymentMethod === 'MANUAL'">
+                  <input type="radio" name="contributionPaymentMethod" value="MANUAL" [(ngModel)]="selectedContributionPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="file-text"></app-icon>
+                    <div>
+                      <div class="method-title">Manual Verification</div>
+                      <div class="method-desc">Enter M-PESA or bank reference</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (contributionPaymentMethods.inAppSmsEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedContributionPaymentMethod === 'IN_APP_SMS'">
+                  <input type="radio" name="contributionPaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedContributionPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="message-square"></app-icon>
+                    <div>
+                      <div class="method-title">SMS Verification</div>
+                      <div class="method-desc">Capture confirmation SMS</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (contributionPaymentMethods.stkPushEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedContributionPaymentMethod === 'STK_PUSH'">
+                  <input type="radio" name="contributionPaymentMethod" value="STK_PUSH" [(ngModel)]="selectedContributionPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="smartphone"></app-icon>
+                    <div>
+                      <div class="method-title">M-PESA STK Push</div>
+                      <div class="method-desc">Receive prompt on your phone</div>
+                    </div>
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Reference code for MANUAL method -->
+          @if (selectedContributionPaymentMethod === 'MANUAL') {
+            <div class="form-field">
+              <label>Payment Reference Number *</label>
+              <input type="text" [(ngModel)]="contributionPaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+            </div>
+          }
+
+          <!-- Phone number for STK Push -->
+          @if (selectedContributionPaymentMethod === 'STK_PUSH') {
+            <div class="form-field">
+              <label>Phone Number *</label>
+              <input type="tel" [(ngModel)]="contributionPaymentPhoneNumber" placeholder="e.g. 0712345678" />
+              <small style="color: var(--color-text-muted);">The M-PESA prompt will be sent to this number</small>
+            </div>
+          }
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeMemberContributionPaymentModal()" [disabled]="submittingContributionPayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitMemberContributionPayment()" [disabled]="submittingContributionPayment() || !canSubmitContributionPayment()">
+          {{ submittingContributionPayment() ? 'Processing...' : 'Submit Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Record Penalty Payment Modal (Admin) -->
 @if (showPenaltyPaymentForm && payingPenalty) {
   <div class="modal-backdrop" (click)="closePenaltyPaymentForm()">
     <div class="modal" style="max-width: 340px;" (click)="$event.stopPropagation()">
@@ -516,6 +665,108 @@
         <button class="btn btn-ghost btn-sm" (click)="closePenaltyPaymentForm()" [disabled]="saving()">Cancel</button>
         <button class="btn btn-primary" (click)="recordPenaltyPayment()" [disabled]="saving()">
           {{ saving() ? 'Saving...' : 'Record Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Pay Penalty Modal (Member) -->
+@if (showMemberPenaltyPaymentModal && penaltyToPayMember) {
+  <div class="modal-backdrop" (click)="closeMemberPenaltyPaymentModal()">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay Penalty</h3>
+        <button class="btn btn-ghost btn-sm" (click)="closeMemberPenaltyPaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Penalty Info -->
+        <div class="payment-info">
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Penalty Type:</span>
+            <span style="font-weight: 600;">{{ getPenaltyTypeLabel(penaltyToPayMember.penaltyType) }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Reason:</span>
+            <span style="font-weight: 500; max-width: 200px; text-align: right;">{{ penaltyToPayMember.reason }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Amount:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ penaltyToPayMember.balance | number }}</span>
+          </div>
+        </div>
+
+        <!-- Payment Method Selection -->
+        @if (loadingPenaltyPaymentMethods()) {
+          <div style="text-align: center; padding: 12px;">
+            <div class="spinner-sm"></div>
+          </div>
+        } @else if (penaltyPaymentMethods) {
+          <div class="form-field">
+            <label>Payment Method *</label>
+            <div class="payment-methods">
+              @if (penaltyPaymentMethods.manualEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedPenaltyPaymentMethod === 'MANUAL'">
+                  <input type="radio" name="penaltyPaymentMethod" value="MANUAL" [(ngModel)]="selectedPenaltyPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="file-text"></app-icon>
+                    <div>
+                      <div class="method-title">Manual Verification</div>
+                      <div class="method-desc">Enter M-PESA or bank reference</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (penaltyPaymentMethods.inAppSmsEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedPenaltyPaymentMethod === 'IN_APP_SMS'">
+                  <input type="radio" name="penaltyPaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedPenaltyPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="message-square"></app-icon>
+                    <div>
+                      <div class="method-title">SMS Verification</div>
+                      <div class="method-desc">Capture confirmation SMS</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (penaltyPaymentMethods.stkPushEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedPenaltyPaymentMethod === 'STK_PUSH'">
+                  <input type="radio" name="penaltyPaymentMethod" value="STK_PUSH" [(ngModel)]="selectedPenaltyPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="smartphone"></app-icon>
+                    <div>
+                      <div class="method-title">M-PESA STK Push</div>
+                      <div class="method-desc">Receive prompt on your phone</div>
+                    </div>
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Reference code for MANUAL method -->
+          @if (selectedPenaltyPaymentMethod === 'MANUAL') {
+            <div class="form-field">
+              <label>Payment Reference Number *</label>
+              <input type="text" [(ngModel)]="penaltyPaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+            </div>
+          }
+
+          <!-- Phone number for STK Push -->
+          @if (selectedPenaltyPaymentMethod === 'STK_PUSH') {
+            <div class="form-field">
+              <label>Phone Number *</label>
+              <input type="tel" [(ngModel)]="penaltyPaymentPhoneNumber" placeholder="e.g. 0712345678" />
+              <small style="color: var(--color-text-muted);">The M-PESA prompt will be sent to this number</small>
+            </div>
+          }
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeMemberPenaltyPaymentModal()" [disabled]="submittingPenaltyPayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitMemberPenaltyPayment()" [disabled]="submittingPenaltyPayment() || !canSubmitPenaltyPayment()">
+          {{ submittingPenaltyPayment() ? 'Processing...' : 'Submit Payment' }}
         </button>
       </div>
     </div>
@@ -609,8 +860,20 @@
         </div>
 
         <div class="form-field">
-          <label>Amount (KES)</label>
+          <label>Month <span style="color: var(--color-danger);">*</span></label>
+          <input type="month" class="form-input" [(ngModel)]="topUpFormData.targetMonth" />
+          <small style="color: var(--color-text-muted);">Select the month this top-up applies to</small>
+        </div>
+
+        <div class="form-field">
+          <label>Amount (KES) <span style="color: var(--color-danger);">*</span></label>
           <input type="number" class="form-input" [(ngModel)]="topUpFormData.amount" min="1" placeholder="Enter amount" />
+        </div>
+
+        <div class="form-field">
+          <label>Description</label>
+          <input type="text" class="form-input" [(ngModel)]="topUpFormData.description" placeholder="e.g., Backdated payment for missed month" />
+          <small style="color: var(--color-text-muted);">Brief description of this top-up</small>
         </div>
 
         <div class="form-field">
@@ -625,7 +888,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost btn-sm" (click)="closeTopUpForm()" [disabled]="submittingTopUp()">Cancel</button>
-        <button class="btn btn-primary" (click)="submitTopUp()" [disabled]="submittingTopUp() || !topUpFormData.contributionTypeId || topUpFormData.amount <= 0">
+        <button class="btn btn-primary" (click)="submitTopUp()" [disabled]="submittingTopUp() || !topUpFormData.contributionTypeId || topUpFormData.amount <= 0 || !topUpFormData.targetMonth">
           {{ submittingTopUp() ? 'Submitting...' : 'Submit Request' }}
         </button>
       </div>

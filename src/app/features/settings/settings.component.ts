@@ -6,7 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
 import { IconComponent } from '../../shared/icon.component';
-import { FineType, ContributionType, LoanProduct, LoanApprovalLevel, Role, Member, TenantSettings, ShareSettings } from '../../core/models/models';
+import { FineType, ContributionType, LoanProduct, LoanApprovalLevel, Role, Member, TenantSettings, ShareSettings, PaymentSettings, TreasurerDevice } from '../../core/models/models';
 
 @Component({
   selector: 'app-settings',
@@ -53,7 +53,28 @@ export class SettingsComponent implements OnInit {
   members: Member[] = [];
 
   // Active tab
-  activeTab: 'general' | 'fines' | 'contributions' | 'loans' | 'shares' | 'system' = 'general';
+  activeTab: 'general' | 'fines' | 'contributions' | 'loans' | 'shares' | 'payments' | 'system' = 'general';
+
+  // Payment Settings
+  paymentSettings: PaymentSettings = {
+    inAppSmsEnabled: false,
+    stkPushEnabled: false,
+    manualEnabled: true,
+    darajaConsumerKey: '',
+    darajaConsumerSecret: '',
+    businessShortCode: '',
+    treasurerPhone: '',
+    treasurerName: '',
+    claimExpiryMinutes: 30,
+    fallbackMatchWindowMinutes: 20,
+    smsNotificationsEnabled: false,
+    pushNotificationsEnabled: true,
+    defaultPaymentMethod: 'MANUAL'
+  };
+  treasurerDevices: TreasurerDevice[] = [];
+  loadingPaymentSettings = signal(false);
+  savingPaymentSettings = signal(false);
+  loadingTreasurerDevices = signal(false);
 
   // Share Settings
   shareSettings: ShareSettings = {
@@ -122,6 +143,8 @@ export class SettingsComponent implements OnInit {
     this.loadRoles();
     this.loadMembers();
     this.loadShareSettings();
+    this.loadPaymentSettings();
+    this.loadTreasurerDevices();
     
     // Load system settings for super admin
     if (this.session.currentUser()?.isSuperAdmin) {
@@ -799,5 +822,99 @@ export class SettingsComponent implements OnInit {
         this.toast.error('Failed to save', err.error?.message || 'Please try again.');
       }
     });
+  }
+
+  // ==================== Payment Settings ====================
+  loadPaymentSettings() {
+    this.loadingPaymentSettings.set(true);
+    this.api.getPaymentSettings().subscribe({
+      next: (settings) => {
+        this.paymentSettings = settings;
+        this.loadingPaymentSettings.set(false);
+      },
+      error: (err) => {
+        this.loadingPaymentSettings.set(false);
+        if (err.status !== 403 && err.status !== 404) {
+          console.error('Failed to load payment settings:', err);
+        }
+      }
+    });
+  }
+
+  savePaymentSettings() {
+    // Validate STK Push fields if enabled
+    if (this.paymentSettings.stkPushEnabled) {
+      if (!this.paymentSettings.darajaConsumerKey || !this.paymentSettings.darajaConsumerSecret || !this.paymentSettings.businessShortCode) {
+        this.toast.warning('Missing fields', 'STK Push requires Daraja Consumer Key, Secret, and Business Short Code');
+        return;
+      }
+    }
+
+    // Validate In-App SMS fields if enabled
+    if (this.paymentSettings.inAppSmsEnabled) {
+      if (!this.paymentSettings.treasurerPhone || !this.paymentSettings.treasurerName) {
+        this.toast.warning('Missing fields', 'In-App SMS requires Treasurer Phone and Name');
+        return;
+      }
+    }
+
+    this.savingPaymentSettings.set(true);
+    this.api.updatePaymentSettings(this.paymentSettings).subscribe({
+      next: (settings) => {
+        this.paymentSettings = settings;
+        this.savingPaymentSettings.set(false);
+        this.toast.success('Settings saved', 'Payment settings have been updated.');
+      },
+      error: (err) => {
+        this.savingPaymentSettings.set(false);
+        this.toast.error('Failed to save', err.error?.message || 'Please try again.');
+      }
+    });
+  }
+
+  loadTreasurerDevices() {
+    this.loadingTreasurerDevices.set(true);
+    this.api.getTreasurerDevices().subscribe({
+      next: (devices) => {
+        this.treasurerDevices = devices;
+        this.loadingTreasurerDevices.set(false);
+      },
+      error: (err) => {
+        this.loadingTreasurerDevices.set(false);
+        if (err.status !== 403 && err.status !== 404) {
+          console.error('Failed to load treasurer devices:', err);
+        }
+      }
+    });
+  }
+
+  async revokeTreasurerDevice(device: TreasurerDevice) {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Revoke Device?',
+      message: `Are you sure you want to revoke access for "${device.deviceName}"? The treasurer will need to re-register this device.`,
+      confirmText: 'Revoke',
+      type: 'danger'
+    });
+
+    if (confirmed) {
+      this.api.revokeTreasurerDevice(device.id).subscribe({
+        next: () => {
+          this.toast.success('Device revoked', 'The device has been removed from the authorized list.');
+          this.loadTreasurerDevices();
+        },
+        error: (err) => {
+          this.toast.error('Failed to revoke', err.error?.message || 'Please try again.');
+        }
+      });
+    }
+  }
+
+  getPaymentMethodLabel(method: string): string {
+    switch (method) {
+      case 'IN_APP_SMS': return 'In-App SMS';
+      case 'STK_PUSH': return 'STK Push';
+      case 'MANUAL': return 'Manual Verification';
+      default: return method;
+    }
   }
 }

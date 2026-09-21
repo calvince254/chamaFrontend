@@ -287,9 +287,15 @@
               </div>
               <div class="form-field">
                 <label>Password <span class="required">*</span></label>
-                <input type="password" [(ngModel)]="draft.adminPassword" name="adminPassword" 
-                       placeholder="••••••••"
-                       [class.input-error]="formErrors.adminPassword">
+                <select [(ngModel)]="draft.adminPassword" name="adminPassword"
+                        [class.input-error]="formErrors.adminPassword">
+                  <option value="">-- Select Password --</option>
+                  <option value="12345678">12345678</option>
+                  <option value="password123">password123</option>
+                  <option value="Welcome@123">Welcome@123</option>
+                  <option value="Chama@2024">Chama@2024</option>
+                </select>
+                <span class="form-hint">Admin will be required to change password on first login</span>
                 @if (formErrors.adminPassword) {
                   <span class="error-text">{{ formErrors.adminPassword }}</span>
                 }

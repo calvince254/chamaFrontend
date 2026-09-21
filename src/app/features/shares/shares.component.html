@@ -340,6 +340,28 @@
         <button class="icon-btn" (click)="closeNewPayoutModal()"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
+        <!-- Available Funds Summary -->
+        @if (liquidity) {
+          <div class="liquidity-summary" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; padding: 16px; background: var(--color-bg); border-radius: 8px;">
+            <div style="text-align: center;">
+              <div style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase;">Total Pool</div>
+              <div style="font-size: 16px; font-weight: 600;">KES {{ liquidity.totalPoolValue | number }}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase;">Liquid Cash</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--color-success);">KES {{ liquidity.liquidCash | number }}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase;">Locked (Investments)</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--color-warning);">KES {{ liquidity.lockedInInvestments | number }}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 11px; color: var(--color-text-muted); text-transform: uppercase;">Outstanding Loans</div>
+              <div style="font-size: 16px; font-weight: 600; color: var(--color-danger);">KES {{ liquidity.outstandingLoans | number }}</div>
+            </div>
+          </div>
+        }
+
         <div class="payout-form">
           <!-- Payout Type -->
           <div class="form-field">
@@ -351,7 +373,7 @@
             </select>
             <small class="form-hint">
               @if (newPayoutType === 'FULL_DISTRIBUTION') {
-                Distribute entire liquid cash to all members based on share percentage.
+                Distribute to all members based on share percentage.
               } @else if (newPayoutType === 'PARTIAL_DIVIDEND') {
                 Distribute a portion of profits to all members.
               } @else {
@@ -360,29 +382,160 @@
             </small>
           </div>
 
+          <!-- Distribution Options (for Partial/Full Distribution) -->
+          @if (newPayoutType !== 'INDIVIDUAL_WITHDRAWAL') {
+            <div class="form-field">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" [(ngModel)]="useOwnershipDistribution" (ngModelChange)="onDistributionOptionChange()" 
+                       style="width: 18px; height: 18px;" />
+                <span>Distribute based on ownership percentage</span>
+              </label>
+              <small class="form-hint">
+                When enabled, each member receives based on their share percentage. When disabled, enter a fixed total amount.
+              </small>
+            </div>
+
+            @if (useOwnershipDistribution) {
+              <div class="form-field">
+                <label>Distribution Percentage</label>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <input type="range" min="1" max="100" [(ngModel)]="distributionPercentage" 
+                         (ngModelChange)="onDistributionPercentageChange()"
+                         style="flex: 1;" />
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="number" min="1" max="100" [(ngModel)]="distributionPercentage" 
+                           (ngModelChange)="onDistributionPercentageChange()"
+                           style="width: 60px; text-align: center;" />
+                    <span>%</span>
+                  </div>
+                </div>
+                <small class="form-hint">
+                  Each member will receive {{ distributionPercentage }}% of their estimated value.
+                </small>
+              </div>
+
+              <!-- Distribution Preview Summary -->
+              @if (calculation) {
+                <div style="padding: 12px; background: var(--color-bg); border-radius: 6px; font-size: 13px; margin-bottom: 12px;">
+                  <div style="font-weight: 600; margin-bottom: 8px;">Distribution Summary</div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--color-text-muted);">Total Pool Value:</span>
+                    <span style="font-weight: 600;">KES {{ calculation.totalPoolValue | number }}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--color-text-muted);">Distribution ({{ distributionPercentage }}%):</span>
+                    <span style="font-weight: 600; color: var(--color-primary);">KES {{ getEstimatedDistributionTotal() | number }}</span>
+                  </div>
+                  @if (liquidity) {
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                      <span style="color: var(--color-text-muted);">Available Liquid Cash:</span>
+                      <span style="font-weight: 600; color: var(--color-success);">KES {{ liquidity.liquidCash | number }}</span>
+                    </div>
+                    @if (getEstimatedDistributionTotal() > liquidity.liquidCash) {
+                      <div style="margin-top: 8px; padding: 8px; background: var(--color-danger-light, #f8d7da); border-radius: 4px; color: var(--color-danger);">
+                        ⚠️ Distribution amount exceeds available liquid cash. Will be capped at KES {{ liquidity.liquidCash | number }}.
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            }
+          }
+
           <!-- Member Selection (for Individual Withdrawal) -->
           @if (newPayoutType === 'INDIVIDUAL_WITHDRAWAL') {
             <div class="form-field">
               <label>Member</label>
-              <select [(ngModel)]="newPayoutMemberId">
+              <select [(ngModel)]="newPayoutMemberId" (ngModelChange)="onMemberSelectionChange()">
                 <option [ngValue]="null">Select member</option>
                 @for (m of members; track m.id) {
                   <option [ngValue]="m.id">{{ m.name }}</option>
                 }
               </select>
+              @if (newPayoutMemberId && calculation) {
+                @for (ms of calculation.memberShares; track ms.memberId) {
+                  @if (ms.memberId === newPayoutMemberId) {
+                    <div style="margin-top: 8px; padding: 12px; background: var(--color-bg); border-radius: 6px; font-size: 13px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: var(--color-text-muted);">Member's Share:</span>
+                        <span style="font-weight: 600;">{{ ms.sharePercentage | number:'1.2-2' }}%</span>
+                      </div>
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: var(--color-text-muted);">Estimated Value:</span>
+                        <span style="font-weight: 600; color: var(--color-primary);">KES {{ ms.memberValue | number }}</span>
+                      </div>
+                      @if (totalGuarantorLiability > 0) {
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                          <span style="color: var(--color-text-muted);">Guarantor Liability:</span>
+                          <span style="font-weight: 600; color: var(--color-warning);">- KES {{ totalGuarantorLiability | number }}</span>
+                        </div>
+                      }
+                      <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--color-border);">
+                        <span style="color: var(--color-text-muted);">Max Withdrawable:</span>
+                        <span style="font-weight: 600; color: var(--color-success);">KES {{ getMaxWithdrawable(ms) | number }}</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Guarantor Liabilities Detail -->
+                    @if (guarantorLiabilities.length > 0) {
+                      <div style="margin-top: 8px; padding: 12px; background: var(--color-warning-light, #fff3cd); border-radius: 6px; font-size: 12px; border: 1px solid var(--color-warning);">
+                        <div style="font-weight: 600; margin-bottom: 8px; color: var(--color-warning-dark, #856404);">
+                          ⚠️ Guarantor Obligations (Must retain this amount)
+                        </div>
+                        @for (liability of guarantorLiabilities; track liability.loanId) {
+                          <div style="display: flex; justify-content: space-between; margin-bottom: 4px; padding: 4px 0; border-bottom: 1px dashed var(--color-border);">
+                            <span>Loan to {{ liability.borrowerName }}</span>
+                            <span style="font-weight: 600;">KES {{ liability.memberLiability | number }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+                }
+              }
             </div>
           }
 
-          <!-- Amount -->
-          <div class="form-field">
-            <label>Amount (KES)</label>
-            <input type="number" [(ngModel)]="newPayoutAmount" [disabled]="newPayoutType === 'FULL_DISTRIBUTION'" />
-            @if (liquidity) {
-              <small class="form-hint">
-                Available: KES {{ liquidity.liquidCash | number }}
-              </small>
-            }
-          </div>
+          <!-- Amount (only show for individual withdrawal or when not using ownership distribution) -->
+          @if (newPayoutType === 'INDIVIDUAL_WITHDRAWAL' || !useOwnershipDistribution) {
+            <div class="form-field">
+              <label>Amount (KES)</label>
+              <input type="number" [(ngModel)]="newPayoutAmount" />
+              @if (liquidity) {
+                <small class="form-hint">
+                  Available Liquid Cash: KES {{ liquidity.liquidCash | number }}
+                </small>
+              }
+              <!-- Validation messages -->
+              @if (newPayoutType === 'INDIVIDUAL_WITHDRAWAL' && newPayoutMemberId && calculation) {
+                @for (ms of calculation.memberShares; track ms.memberId) {
+                  @if (ms.memberId === newPayoutMemberId) {
+                    @if (newPayoutAmount && newPayoutAmount > ms.memberValue) {
+                      <small style="color: var(--color-danger); display: block; margin-top: 4px;">
+                        ⚠️ Amount exceeds member's estimated value (KES {{ ms.memberValue | number }})
+                      </small>
+                    }
+                    @if (newPayoutAmount && totalGuarantorLiability > 0 && (ms.memberValue - newPayoutAmount) < totalGuarantorLiability) {
+                      <small style="color: var(--color-danger); display: block; margin-top: 4px;">
+                        ⚠️ Must retain KES {{ totalGuarantorLiability | number }} to cover guarantor obligations
+                      </small>
+                    }
+                    @if (newPayoutAmount && liquidity && newPayoutAmount > liquidity.liquidCash) {
+                      <small style="color: var(--color-danger); display: block; margin-top: 4px;">
+                        ⚠️ Amount exceeds available liquid cash (KES {{ liquidity.liquidCash | number }})
+                      </small>
+                    }
+                  }
+                }
+              } @else if (!useOwnershipDistribution) {
+                @if (newPayoutAmount && liquidity && newPayoutAmount > liquidity.liquidCash) {
+                  <small style="color: var(--color-danger); display: block; margin-top: 4px;">
+                    ⚠️ Amount exceeds available liquid cash (KES {{ liquidity.liquidCash | number }})
+                  </small>
+                }
+              }
+            </div>
+          }
 
           <!-- Description -->
           <div class="form-field">

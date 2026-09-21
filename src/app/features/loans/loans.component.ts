@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { LoanExtended, LoanProduct, Member, LoanPenalty, PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment } from '../../core/models/models';
+import { LoanExtended, LoanProduct, Member, LoanPenalty, PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
@@ -24,11 +24,17 @@ export class LoansComponent implements OnInit {
   loanPenalties: LoanPenalty[] = [];
   
   // UI state
-  activeTab: 'my-loans' | 'pending' | 'all' | 'penalties' | 'income' | 'pending-payments' = 'my-loans';
+  activeTab: 'my-loans' | 'pending' | 'all' | 'awaiting-confirmation' | 'awaiting-disbursement' | 'my-penalties' | 'penalties' | 'income' = 'my-loans';
   statusFilter = 'ALL';
   loading = signal(false);
   loadingPenalties = signal(false);
   saving = signal(false);
+  
+  // Awaiting confirmation loans (for admin)
+  awaitingConfirmationLoans: LoanExtended[] = [];
+  
+  // Awaiting disbursement loans (APPROVED status)
+  awaitingDisbursementLoans: LoanExtended[] = [];
 
   // Pagination
   currentPage = 0;
@@ -72,12 +78,8 @@ export class LoansComponent implements OnInit {
   incomeTotalElements = 0;
   incomeTotalPages = 0;
   
-  // Payment verification
-  pendingPayments: LoanPayment[] = [];
-  loadingPayments = signal(false);
+  // Payment management
   showRecordPaymentModal = false;
-  showRejectPaymentModal = false;
-  selectedPayment: LoanPayment | null = null;
   paymentForm = {
     amount: 0,
     paymentMethod: '',
@@ -88,6 +90,29 @@ export class LoansComponent implements OnInit {
   // Loan payment history for details modal
   loanPaymentHistory: LoanPayment[] = [];
   loadingLoanPayments = signal(false);
+  
+  // Loan penalty payment (member)
+  showLoanPenaltyPaymentModal = false;
+  penaltyToPay: LoanPenalty | null = null;
+  selectedLoanPenaltyPaymentMethod: 'MANUAL' | 'STK_PUSH' | 'IN_APP_SMS' = 'MANUAL';
+  loanPenaltyPaymentReferenceCode = '';
+  loanPenaltyPaymentPhoneNumber = '';
+  submittingLoanPenaltyPayment = signal(false);
+  loanPenaltyPaymentResponse: InitiatePaymentResponse | null = null;
+  loanPenaltyPaymentMethods: EnabledPaymentMethods | null = null;
+  loadingLoanPenaltyPaymentMethods = signal(false);
+  
+  // Loan repayment (member unified payment)
+  showLoanRepaymentPaymentModal = false;
+  loanForRepayment: LoanExtended | null = null;
+  selectedLoanRepaymentMethod: 'MANUAL' | 'STK_PUSH' | 'IN_APP_SMS' = 'MANUAL';
+  loanRepaymentReferenceCode = '';
+  loanRepaymentPhoneNumber = '';
+  loanRepaymentAmount = 0;
+  submittingLoanRepayment = signal(false);
+  loanRepaymentResponse: InitiatePaymentResponse | null = null;
+  loanRepaymentPaymentMethods: EnabledPaymentMethods | null = null;
+  loadingLoanRepaymentMethods = signal(false);
 
   constructor(
     private api: ApiService, 
@@ -130,10 +155,16 @@ export class LoansComponent implements OnInit {
       });
     } else if (this.activeTab === 'pending') {
       this.loading.set(true);
-      this.api.getLoansPaginated(this.currentPage, this.pageSize, 'PENDING_APPROVAL').subscribe({
-        next: (response: PageResponse<LoanExtended>) => {
-          this.pendingApprovals = response.content;
-          this.updatePaginationState(response);
+      // Use the dedicated endpoint that returns loans needing current user's approval
+      // This includes loans where the user is a guarantor or an approver at the current level
+      this.api.getPendingApprovals().subscribe({
+        next: (loans: LoanExtended[]) => {
+          this.pendingApprovals = loans;
+          // Update pagination state manually since this endpoint isn't paginated
+          this.totalElements = loans.length;
+          this.totalPages = 1;
+          this.isFirst = true;
+          this.isLast = true;
           this.loading.set(false);
         },
         error: (err) => {
@@ -152,21 +183,52 @@ export class LoansComponent implements OnInit {
           this.loading.set(false);
         }
       });
-    } else if (this.activeTab === 'penalties') {
+    } else if (this.activeTab === 'awaiting-confirmation') {
+      this.loading.set(true);
+      // Filter all loans to only those with hasPendingClaim = true
+      this.api.getLoansPaginated(0, 100, 'ACTIVE').subscribe({
+        next: (response: PageResponse<LoanExtended>) => {
+          // Filter to only loans with pending claims
+          this.awaitingConfirmationLoans = response.content.filter(l => l.hasPendingClaim);
+          this.totalElements = this.awaitingConfirmationLoans.length;
+          this.totalPages = 1;
+          this.isFirst = true;
+          this.isLast = true;
+          this.loading.set(false);
+        },
+        error: (err) => {
+          this.loading.set(false);
+        }
+      });
+    } else if (this.activeTab === 'awaiting-disbursement') {
+      this.loading.set(true);
+      // Filter to APPROVED loans awaiting disbursement
+      this.api.getLoansPaginated(0, 100, 'APPROVED').subscribe({
+        next: (response: PageResponse<LoanExtended>) => {
+          this.awaitingDisbursementLoans = response.content;
+          this.totalElements = this.awaitingDisbursementLoans.length;
+          this.totalPages = 1;
+          this.isFirst = true;
+          this.isLast = true;
+          this.loading.set(false);
+        },
+        error: (err) => {
+          this.loading.set(false);
+        }
+      });
+    } else if (this.activeTab === 'penalties' || this.activeTab === 'my-penalties') {
       this.loadPenalties();
     } else if (this.activeTab === 'income') {
       this.loadLoanIncome();
-    } else if (this.activeTab === 'pending-payments') {
-      this.loadPendingPayments();
     }
   }
 
   loadPenalties() {
     this.loadingPenalties.set(true);
-    const isAdmin = this.session.can('VIEW_ALL_LOANS_ADMIN');
     
-    // Use non-paginated API for loan penalties (different from contribution penalties)
-    const request = isAdmin ? this.api.getLoanPenalties() : this.api.getMyLoanPenalties();
+    // Use 'my-penalties' tab for current user's penalties, 'penalties' tab for all penalties
+    const loadMyPenalties = this.activeTab === 'my-penalties';
+    const request = loadMyPenalties ? this.api.getMyLoanPenalties() : this.api.getLoanPenalties();
     request.subscribe({
       next: (penalties) => {
         this.loanPenalties = penalties;
@@ -230,29 +292,8 @@ export class LoansComponent implements OnInit {
     }
   }
 
-  // ==================== Payment Verification ====================
+  // ==================== Payment Management ====================
   
-  loadPendingPayments() {
-    this.loadingPayments.set(true);
-    this.api.getPendingLoanPayments().subscribe({
-      next: (payments) => {
-        this.pendingPayments = payments;
-        // Reset pagination state
-        this.totalElements = payments.length;
-        this.totalPages = 1;
-        this.isFirst = true;
-        this.isLast = true;
-        this.loadingPayments.set(false);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.loadingPayments.set(false);
-        this.loading.set(false);
-        console.error('Failed to load pending payments:', err);
-      }
-    });
-  }
-
   openRecordPaymentModal(loan: LoanExtended) {
     this.selectedLoan = loan;
     this.paymentForm = {
@@ -281,6 +322,13 @@ export class LoansComponent implements OnInit {
       return;
     }
 
+    // Validate amount doesn't exceed balance
+    const balance = this.selectedLoan.balanceOutstanding || 0;
+    if (this.paymentForm.amount > balance) {
+      this.toast.error('Invalid amount', `Payment amount cannot exceed outstanding balance of KES ${balance.toLocaleString()}`);
+      return;
+    }
+
     this.api.recordLoanPayment(this.selectedLoan.id, {
       amount: this.paymentForm.amount,
       paymentMethod: this.paymentForm.paymentMethod || undefined,
@@ -294,60 +342,6 @@ export class LoansComponent implements OnInit {
       },
       error: (err) => {
         this.toast.error('Payment failed', err.error?.message || 'Failed to submit payment.');
-      }
-    });
-  }
-
-  verifyPayment(payment: LoanPayment) {
-    this.confirmDialog.confirm({
-      title: 'Verify Payment',
-      message: `Are you sure you want to verify the payment of KES ${payment.amount.toLocaleString()} from ${payment.memberName}? This will apply the payment to their loan balance.`,
-      confirmText: 'Verify',
-      cancelText: 'Cancel',
-      type: 'info'
-    }).then(confirmed => {
-      if (confirmed) {
-        this.api.verifyLoanPayment(payment.id).subscribe({
-          next: () => {
-            this.toast.success('Payment verified', 'The payment has been verified and applied to the loan balance.');
-            this.loadPendingPayments();
-          },
-          error: (err) => {
-            this.toast.error('Verification failed', err.error?.message || 'Failed to verify payment.');
-          }
-        });
-      }
-    });
-  }
-
-  openRejectPaymentModal(payment: LoanPayment) {
-    this.selectedPayment = payment;
-    this.rejectionReason = '';
-    this.showRejectPaymentModal = true;
-  }
-
-  closeRejectPaymentModal() {
-    this.showRejectPaymentModal = false;
-    this.selectedPayment = null;
-    this.rejectionReason = '';
-  }
-
-  confirmRejectPayment() {
-    if (!this.selectedPayment) return;
-
-    if (!this.rejectionReason.trim()) {
-      this.toast.error('Reason required', 'Please provide a reason for rejection.');
-      return;
-    }
-
-    this.api.rejectLoanPayment(this.selectedPayment.id, this.rejectionReason).subscribe({
-      next: () => {
-        this.toast.success('Payment rejected', 'The payment has been rejected.');
-        this.closeRejectPaymentModal();
-        this.loadPendingPayments();
-      },
-      error: (err) => {
-        this.toast.error('Rejection failed', err.error?.message || 'Failed to reject payment.');
       }
     });
   }
@@ -401,7 +395,7 @@ export class LoansComponent implements OnInit {
     });
   }
 
-  onTabChange(tab: 'my-loans' | 'pending' | 'all' | 'penalties' | 'income' | 'pending-payments') {
+  onTabChange(tab: 'my-loans' | 'pending' | 'all' | 'awaiting-confirmation' | 'awaiting-disbursement' | 'my-penalties' | 'penalties' | 'income') {
     this.activeTab = tab;
     this.statusFilter = 'ALL';
     this.currentPage = 0;
@@ -413,8 +407,18 @@ export class LoansComponent implements OnInit {
       case 'my-loans': return this.myLoans;
       case 'pending': return this.pendingApprovals;
       case 'all': return this.allLoans;
+      case 'awaiting-confirmation': return this.awaitingConfirmationLoans;
+      case 'awaiting-disbursement': return this.awaitingDisbursementLoans;
       default: return [];
     }
+  }
+  
+  get awaitingConfirmationCount(): number {
+    return this.awaitingConfirmationLoans.length;
+  }
+  
+  get awaitingDisbursementCount(): number {
+    return this.awaitingDisbursementLoans.length;
   }
 
   // Stats
@@ -710,7 +714,9 @@ export class LoansComponent implements OnInit {
         }
       });
     } else {
-      this.api.rejectLoanExtended(this.selectedLoan.id, this.rejectionReason).subscribe({
+      // Determine if rejecting as guarantor based on pending approval type
+      const asGuarantor = this.selectedLoan.pendingApprovalType === 'GUARANTOR';
+      this.api.rejectLoanExtended(this.selectedLoan.id, this.rejectionReason, asGuarantor).subscribe({
         next: () => {
           this.saving.set(false);
           this.closeApprovalModal();
@@ -803,6 +809,117 @@ export class LoansComponent implements OnInit {
   }
 
   // ==================== Penalties ====================
+  
+  /**
+   * Check if current user owns this loan penalty
+   */
+  isOwnLoanPenalty(penalty: LoanPenalty): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser ? penalty.memberId === currentUser.id : false;
+  }
+
+  /**
+   * Check if penalty can be paid (not PAID or WAIVED)
+   */
+  canPayLoanPenalty(penalty: LoanPenalty): boolean {
+    return penalty.status !== 'PAID' && penalty.status !== 'WAIVED';
+  }
+
+  /**
+   * Open loan penalty payment modal (for member paying own penalty)
+   */
+  openLoanPenaltyPaymentModal(penalty: LoanPenalty) {
+    this.penaltyToPay = penalty;
+    this.selectedLoanPenaltyPaymentMethod = 'MANUAL';
+    this.loanPenaltyPaymentReferenceCode = '';
+    this.loanPenaltyPaymentPhoneNumber = '';
+    this.loanPenaltyPaymentResponse = null;
+    this.showLoanPenaltyPaymentModal = true;
+    this.loadLoanPenaltyPaymentMethods();
+  }
+
+  closeLoanPenaltyPaymentModal() {
+    this.showLoanPenaltyPaymentModal = false;
+    this.penaltyToPay = null;
+    this.loanPenaltyPaymentResponse = null;
+  }
+
+  loadLoanPenaltyPaymentMethods() {
+    this.loadingLoanPenaltyPaymentMethods.set(true);
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.loanPenaltyPaymentMethods = methods;
+        if (methods.manualEnabled) {
+          this.selectedLoanPenaltyPaymentMethod = 'MANUAL';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedLoanPenaltyPaymentMethod = 'IN_APP_SMS';
+        } else if (methods.stkPushEnabled) {
+          this.selectedLoanPenaltyPaymentMethod = 'STK_PUSH';
+        }
+        this.loadingLoanPenaltyPaymentMethods.set(false);
+      },
+      error: () => {
+        this.loadingLoanPenaltyPaymentMethods.set(false);
+      }
+    });
+  }
+
+  canSubmitLoanPenaltyPayment(): boolean {
+    if (!this.penaltyToPay) return false;
+    if (this.selectedLoanPenaltyPaymentMethod === 'MANUAL' && !this.loanPenaltyPaymentReferenceCode.trim()) return false;
+    if (this.selectedLoanPenaltyPaymentMethod === 'STK_PUSH' && !this.loanPenaltyPaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitLoanPenaltyPayment() {
+    if (!this.penaltyToPay) return;
+
+    if (this.selectedLoanPenaltyPaymentMethod === 'MANUAL' && !this.loanPenaltyPaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedLoanPenaltyPaymentMethod === 'STK_PUSH' && !this.loanPenaltyPaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingLoanPenaltyPayment.set(true);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'LOAN_PENALTY',
+      referenceId: this.penaltyToPay.id,
+      payerMemberId: this.penaltyToPay.memberId,
+      paymentMethod: this.selectedLoanPenaltyPaymentMethod,
+      referenceCode: this.selectedLoanPenaltyPaymentMethod === 'MANUAL' ? this.loanPenaltyPaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedLoanPenaltyPaymentMethod === 'STK_PUSH' ? this.loanPenaltyPaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
+        this.submittingLoanPenaltyPayment.set(false);
+        this.loanPenaltyPaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your payment has been submitted and is awaiting admin verification.');
+          this.closeLoanPenaltyPaymentModal();
+          this.loadPenalties();
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your loan penalty payment has been confirmed.');
+          this.closeLoanPenaltyPaymentModal();
+          this.loadPenalties();
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingLoanPenaltyPayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+      }
+    });
+  }
+
   async waivePenalty(penalty: LoanPenalty) {
     const reason = await this.confirmDialog.prompt({
       title: 'Waive Penalty',
@@ -824,6 +941,146 @@ export class LoansComponent implements OnInit {
         }
       });
     }
+  }
+
+  /**
+   * Confirm a pending payment (admin action)
+   */
+  confirmPayment(payableId: number) {
+    this.api.confirmPayment(payableId).subscribe({
+      next: () => {
+        this.toast.success('Payment confirmed', '');
+        this.loadData();
+        this.loadPenalties();
+      },
+      error: (err) => {
+        this.toast.error('Failed to confirm', err.error?.message || 'Please try again.');
+      }
+    });
+  }
+
+  // ==================== Loan Repayment (Member Payment) ====================
+
+  /**
+   * Check if current user owns this loan
+   */
+  isOwnLoan(loan: LoanExtended): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser ? loan.memberId === currentUser.id : false;
+  }
+
+  /**
+   * Check if loan can receive repayment (ACTIVE or OVERDUE)
+   */
+  canPayLoan(loan: LoanExtended): boolean {
+    return (loan.status === 'ACTIVE' || loan.status === 'OVERDUE') && 
+           (loan.balanceOutstanding || 0) > 0;
+  }
+
+  /**
+   * Open loan repayment modal (for member paying own loan)
+   */
+  openLoanRepaymentPaymentModal(loan: LoanExtended) {
+    this.loanForRepayment = loan;
+    this.selectedLoanRepaymentMethod = 'MANUAL';
+    this.loanRepaymentReferenceCode = '';
+    this.loanRepaymentPhoneNumber = '';
+    this.loanRepaymentAmount = loan.monthlyPayment || 0;
+    this.loanRepaymentResponse = null;
+    this.showLoanRepaymentPaymentModal = true;
+    this.loadLoanRepaymentMethods();
+  }
+
+  closeLoanRepaymentPaymentModal() {
+    this.showLoanRepaymentPaymentModal = false;
+    this.loanForRepayment = null;
+    this.loanRepaymentResponse = null;
+  }
+
+  loadLoanRepaymentMethods() {
+    this.loadingLoanRepaymentMethods.set(true);
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.loanRepaymentPaymentMethods = methods;
+        if (methods.manualEnabled) {
+          this.selectedLoanRepaymentMethod = 'MANUAL';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedLoanRepaymentMethod = 'IN_APP_SMS';
+        } else if (methods.stkPushEnabled) {
+          this.selectedLoanRepaymentMethod = 'STK_PUSH';
+        }
+        this.loadingLoanRepaymentMethods.set(false);
+      },
+      error: () => {
+        this.loadingLoanRepaymentMethods.set(false);
+      }
+    });
+  }
+
+  canSubmitLoanRepayment(): boolean {
+    if (!this.loanForRepayment || !this.loanRepaymentAmount) return false;
+    // Don't allow payment more than outstanding balance
+    if (this.loanRepaymentAmount > (this.loanForRepayment.balanceOutstanding || 0)) return false;
+    if (this.selectedLoanRepaymentMethod === 'MANUAL' && !this.loanRepaymentReferenceCode.trim()) return false;
+    if (this.selectedLoanRepaymentMethod === 'STK_PUSH' && !this.loanRepaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitLoanRepayment() {
+    if (!this.loanForRepayment || !this.loanRepaymentAmount) return;
+
+    // Validate amount doesn't exceed balance
+    const balance = this.loanForRepayment.balanceOutstanding || 0;
+    if (this.loanRepaymentAmount > balance) {
+      this.toast.error('Invalid amount', `Payment amount cannot exceed outstanding balance of KES ${balance.toLocaleString()}`);
+      return;
+    }
+
+    if (this.selectedLoanRepaymentMethod === 'MANUAL' && !this.loanRepaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedLoanRepaymentMethod === 'STK_PUSH' && !this.loanRepaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingLoanRepayment.set(true);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'LOAN_REPAYMENT',
+      referenceId: this.loanForRepayment.id,
+      payerMemberId: this.loanForRepayment.memberId,
+      amount: this.loanRepaymentAmount,
+      paymentMethod: this.selectedLoanRepaymentMethod,
+      referenceCode: this.selectedLoanRepaymentMethod === 'MANUAL' ? this.loanRepaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedLoanRepaymentMethod === 'STK_PUSH' ? this.loanRepaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
+        this.submittingLoanRepayment.set(false);
+        this.loanRepaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your loan repayment has been submitted and is awaiting admin verification.');
+          this.closeLoanRepaymentPaymentModal();
+          this.loadData();
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your loan repayment has been confirmed.');
+          this.closeLoanRepaymentPaymentModal();
+          this.loadData();
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingLoanRepayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+      }
+    });
   }
 
   // ==================== Helpers ====================
@@ -861,6 +1118,11 @@ export class LoansComponent implements OnInit {
   }
 
   canApprove(loan: LoanExtended): boolean {
+    // Only show approve/reject buttons in the Pending Approvals tab
+    // This prevents admin from seeing approve buttons in the "All Loans" view
+    if (this.activeTab !== 'pending') {
+      return false;
+    }
     return (loan.status === 'PENDING' || loan.status === 'PENDING_GUARANTORS' || loan.status === 'PENDING_APPROVAL') 
            && this.session.can('APPROVE_LOAN');
   }

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Investment, InvestmentValueHistory } from '../../core/models/models';
+import { Investment, InvestmentValueHistory, InvestmentApproval } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 
@@ -19,6 +19,14 @@ export class InvestmentDetailComponent implements OnInit {
   loading = true;
   loadingHistory = false;
   saving = false;
+
+  // Approval state
+  myApproval: InvestmentApproval | null = null;
+  approvalList: InvestmentApproval[] = [];
+  loadingApprovals = false;
+  showApprovalModal = false;
+  approvalAction: 'approve' | 'reject' = 'approve';
+  approvalComment = '';
 
   // Modal states
   showUpdateValueModal = false;
@@ -78,10 +86,34 @@ export class InvestmentDetailComponent implements OnInit {
         this.cdr.detectChanges();
         this.loadValueHistory(id);
         this.loadTopupHistory(id);
+        if (data.approvalStatus === 'PENDING') {
+          this.loadApprovalInfo(id);
+        }
       },
       error: () => {
         this.loading = false;
         this.router.navigate(['/app/investments']);
+      }
+    });
+  }
+
+  loadApprovalInfo(investmentId: number) {
+    this.loadingApprovals = true;
+    // Load all approvals for this investment
+    this.api.getInvestmentApprovals(investmentId).subscribe({
+      next: (data) => {
+        this.approvalList = data;
+        // Check if current user is an approver with pending decision
+        const currentMemberId = this.session.getMemberId();
+        this.myApproval = data.find(a => a.approverId === currentMemberId && a.decision === 'PENDING') || null;
+        this.loadingApprovals = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.approvalList = [];
+        this.myApproval = null;
+        this.loadingApprovals = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -285,7 +317,56 @@ export class InvestmentDetailComponent implements OnInit {
     });
   }
 
+  // Approval Modal
+  openApprovalModal(action: 'approve' | 'reject') {
+    this.approvalAction = action;
+    this.approvalComment = '';
+    this.showApprovalModal = true;
+    this.cdr.detectChanges();
+  }
+
+  closeApprovalModal() {
+    this.showApprovalModal = false;
+    this.cdr.detectChanges();
+  }
+
+  submitApproval() {
+    if (!this.investment) return;
+    if (this.approvalAction === 'reject' && !this.approvalComment.trim()) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+    this.saving = true;
+    const approve = this.approvalAction === 'approve';
+    this.api.submitInvestmentVote(this.investment.id, approve, this.approvalComment || undefined).subscribe({
+      next: () => {
+        this.saving = false;
+        this.showApprovalModal = false;
+        // Reload the investment to get updated status
+        this.loadInvestment(this.investment!.id);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.saving = false;
+        alert('Failed to submit vote');
+      }
+    });
+  }
+
   // Chart
+  // Format large numbers for Y-axis labels
+  formatYAxisLabel(value: number): string {
+    const absValue = Math.abs(value);
+    if (absValue >= 1000000000) {
+      return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+    } else if (absValue >= 1000000) {
+      return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    } else if (absValue >= 1000) {
+      return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    }
+    return value.toLocaleString();
+  }
+
   drawChart() {
     if (!this.chartCanvas?.nativeElement || this.valueHistory.length < 2) return;
     const canvas = this.chartCanvas.nativeElement;
@@ -298,9 +379,13 @@ export class InvestmentDetailComponent implements OnInit {
     canvas.height = rect.height * 2;
     ctx.scale(2, 2);
 
-    const padding = 50;
-    const width = rect.width - padding * 2;
-    const height = rect.height - padding * 2;
+    // Increased left padding for large number labels
+    const leftPadding = 70;
+    const rightPadding = 30;
+    const topPadding = 30;
+    const bottomPadding = 40;
+    const width = rect.width - leftPadding - rightPadding;
+    const height = rect.height - topPadding - bottomPadding;
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
@@ -313,46 +398,46 @@ export class InvestmentDetailComponent implements OnInit {
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 5; i++) {
-      const y = padding + (height * i / 5);
+      const y = topPadding + (height * i / 5);
       ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(rect.width - padding, y);
+      ctx.moveTo(leftPadding, y);
+      ctx.lineTo(rect.width - rightPadding, y);
       ctx.stroke();
       
-      // Y-axis labels
+      // Y-axis labels with formatted numbers
       const val = maxVal - (range * i / 5);
       ctx.fillStyle = '#6b7280';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(Math.round(val).toLocaleString(), padding - 8, y + 4);
+      ctx.fillText(this.formatYAxisLabel(Math.round(val)), leftPadding - 8, y + 4);
     }
 
     // X-axis labels
     const step = Math.max(1, Math.floor(this.valueHistory.length / 6));
     this.valueHistory.forEach((h, i) => {
       if (i % step === 0 || i === this.valueHistory.length - 1) {
-        const x = padding + (width * i / (this.valueHistory.length - 1));
+        const x = leftPadding + (width * i / (this.valueHistory.length - 1));
         ctx.fillStyle = '#6b7280';
         ctx.font = '11px sans-serif';
         ctx.textAlign = 'center';
         const date = new Date(h.valueDate);
-        ctx.fillText(date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), x, rect.height - padding + 20);
+        ctx.fillText(date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), x, rect.height - bottomPadding + 20);
       }
     });
 
     // Gradient fill
-    const gradient = ctx.createLinearGradient(0, padding, 0, rect.height - padding);
+    const gradient = ctx.createLinearGradient(0, topPadding, 0, rect.height - bottomPadding);
     gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
     gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
 
     ctx.beginPath();
-    ctx.moveTo(padding, rect.height - padding);
+    ctx.moveTo(leftPadding, rect.height - bottomPadding);
     this.valueHistory.forEach((h, i) => {
-      const x = padding + (width * i / (this.valueHistory.length - 1));
-      const y = padding + height - ((h.recordedValue - minVal) / range) * height;
+      const x = leftPadding + (width * i / (this.valueHistory.length - 1));
+      const y = topPadding + height - ((h.recordedValue - minVal) / range) * height;
       ctx.lineTo(x, y);
     });
-    ctx.lineTo(padding + width, rect.height - padding);
+    ctx.lineTo(leftPadding + width, rect.height - bottomPadding);
     ctx.closePath();
     ctx.fillStyle = gradient;
     ctx.fill();
@@ -364,8 +449,8 @@ export class InvestmentDetailComponent implements OnInit {
     ctx.lineCap = 'round';
     ctx.beginPath();
     this.valueHistory.forEach((h, i) => {
-      const x = padding + (width * i / (this.valueHistory.length - 1));
-      const y = padding + height - ((h.recordedValue - minVal) / range) * height;
+      const x = leftPadding + (width * i / (this.valueHistory.length - 1));
+      const y = topPadding + height - ((h.recordedValue - minVal) / range) * height;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -373,8 +458,8 @@ export class InvestmentDetailComponent implements OnInit {
 
     // Points
     this.valueHistory.forEach((h, i) => {
-      const x = padding + (width * i / (this.valueHistory.length - 1));
-      const y = padding + height - ((h.recordedValue - minVal) / range) * height;
+      const x = leftPadding + (width * i / (this.valueHistory.length - 1));
+      const y = topPadding + height - ((h.recordedValue - minVal) / range) * height;
       
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, Math.PI * 2);

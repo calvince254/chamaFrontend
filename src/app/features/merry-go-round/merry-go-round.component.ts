@@ -1,8 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { Member } from '../../core/models/models';
+import { Member, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
@@ -80,6 +80,8 @@ interface MgrContribution {
   status: string;
   isOverdue: boolean;
   hasFine: boolean;
+  hasPendingClaim?: boolean;
+  payableId?: number;
 }
 
 interface MgrFine {
@@ -92,6 +94,8 @@ interface MgrFine {
   paidDate?: string;
   status: string;
   autoImposed: boolean;
+  hasPendingClaim?: boolean;
+  payableId?: number;
 }
 
 interface MgrSummary {
@@ -127,6 +131,17 @@ export class MerryGoRoundComponent implements OnInit {
   activeTab: 'cycles' | 'details' | 'contributions' | 'fines' = 'cycles';
   showSummary = true;
 
+  // Member MGR contribution payment
+  showMgrPaymentModal = false;
+  contributionToPay: MgrContribution | null = null;
+  selectedMgrPaymentMethod: 'MANUAL' | 'STK_PUSH' | 'IN_APP_SMS' = 'MANUAL';
+  mgrPaymentReferenceCode = '';
+  mgrPaymentPhoneNumber = '';
+  submittingMgrPayment = signal(false);
+  mgrPaymentResponse: InitiatePaymentResponse | null = null;
+  mgrPaymentMethods: EnabledPaymentMethods | null = null;
+  loadingMgrPaymentMethods = signal(false);
+
   // Create Cycle Modal
   showCreateModal = false;
   saving = false;
@@ -158,6 +173,23 @@ export class MerryGoRoundComponent implements OnInit {
     amount: 0,
     memberIds: [] as number[]
   };
+
+  // Fine sub-tab (My Fines vs All Fines)
+  fineSubTab: 'my-fines' | 'all-fines' = 'my-fines';
+  myFines: MgrFine[] = [];
+  allFines: MgrFine[] = [];
+
+  // Member Fine Payment Modal
+  showFinePaymentModal = false;
+  fineToPay: MgrFine | null = null;
+  selectedFinePaymentMethod: 'MANUAL' | 'STK_PUSH' | 'IN_APP_SMS' = 'MANUAL';
+  finePaymentReferenceCode = '';
+  finePaymentPhoneNumber = '';
+  finePaymentAmount = 0;
+  submittingFinePayment = signal(false);
+  finePaymentResponse: InitiatePaymentResponse | null = null;
+  finePaymentMethods: EnabledPaymentMethods | null = null;
+  loadingFinePaymentMethods = signal(false);
 
   // Day names for display
   dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -469,10 +501,40 @@ export class MerryGoRoundComponent implements OnInit {
       error: () => this.contributions = []
     });
 
-    this.api.getMgrFinesByCycle(cycleId).subscribe({
-      next: (fines) => this.fines = fines,
-      error: () => this.fines = []
-    });
+    // Load fines based on permissions
+    this.loadFines(cycleId);
+  }
+
+  loadFines(cycleId: number) {
+    // Load my fines (everyone with VIEW_MY_MGR_FINES can see their own)
+    if (this.session.can('VIEW_MY_MGR_FINES') || this.session.can('VIEW_ALL_MGR_FINES')) {
+      this.api.getMyMgrFinesByCycle(cycleId).subscribe({
+        next: (fines) => this.myFines = fines,
+        error: () => this.myFines = []
+      });
+    }
+
+    // Load all fines (only those with VIEW_ALL_MGR_FINES)
+    if (this.session.can('VIEW_ALL_MGR_FINES')) {
+      this.api.getMgrFinesByCycle(cycleId).subscribe({
+        next: (fines) => {
+          this.allFines = fines;
+          this.fines = fines; // For backward compatibility
+        },
+        error: () => {
+          this.allFines = [];
+          this.fines = [];
+        }
+      });
+      // Default to all fines tab for admins
+      if (this.fineSubTab === 'my-fines' && !this.session.can('VIEW_MY_MGR_FINES')) {
+        this.fineSubTab = 'all-fines';
+      }
+    } else {
+      // For regular members, use my fines
+      this.fines = this.myFines;
+      this.fineSubTab = 'my-fines';
+    }
   }
 
   backToCycles() {
@@ -533,6 +595,120 @@ export class MerryGoRoundComponent implements OnInit {
 
   // ==================== CONTRIBUTION MANAGEMENT ====================
 
+  /**
+   * Check if current user owns this contribution
+   */
+  isOwnContribution(contribution: MgrContribution): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser ? contribution.memberId === currentUser.id : false;
+  }
+
+  /**
+   * Check if contribution can be paid (PENDING status)
+   */
+  canPayContribution(contribution: MgrContribution): boolean {
+    return contribution.status === 'PENDING';
+  }
+
+  /**
+   * Open MGR contribution payment modal (for member paying own contribution)
+   */
+  openMgrPaymentModal(contribution: MgrContribution) {
+    this.contributionToPay = contribution;
+    this.selectedMgrPaymentMethod = 'MANUAL';
+    this.mgrPaymentReferenceCode = '';
+    this.mgrPaymentPhoneNumber = '';
+    this.mgrPaymentResponse = null;
+    this.showMgrPaymentModal = true;
+    this.loadMgrPaymentMethods();
+  }
+
+  closeMgrPaymentModal() {
+    this.showMgrPaymentModal = false;
+    this.contributionToPay = null;
+    this.mgrPaymentResponse = null;
+  }
+
+  loadMgrPaymentMethods() {
+    this.loadingMgrPaymentMethods.set(true);
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.mgrPaymentMethods = methods;
+        if (methods.manualEnabled) {
+          this.selectedMgrPaymentMethod = 'MANUAL';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedMgrPaymentMethod = 'IN_APP_SMS';
+        } else if (methods.stkPushEnabled) {
+          this.selectedMgrPaymentMethod = 'STK_PUSH';
+        }
+        this.loadingMgrPaymentMethods.set(false);
+      },
+      error: () => {
+        this.loadingMgrPaymentMethods.set(false);
+      }
+    });
+  }
+
+  canSubmitMgrPayment(): boolean {
+    if (!this.contributionToPay) return false;
+    if (this.selectedMgrPaymentMethod === 'MANUAL' && !this.mgrPaymentReferenceCode.trim()) return false;
+    if (this.selectedMgrPaymentMethod === 'STK_PUSH' && !this.mgrPaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitMgrPayment() {
+    if (!this.contributionToPay) return;
+
+    if (this.selectedMgrPaymentMethod === 'MANUAL' && !this.mgrPaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedMgrPaymentMethod === 'STK_PUSH' && !this.mgrPaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingMgrPayment.set(true);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'MGR_CONTRIBUTION',
+      referenceId: this.contributionToPay.id,
+      payerMemberId: this.contributionToPay.memberId,
+      paymentMethod: this.selectedMgrPaymentMethod,
+      referenceCode: this.selectedMgrPaymentMethod === 'MANUAL' ? this.mgrPaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedMgrPaymentMethod === 'STK_PUSH' ? this.mgrPaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
+        this.submittingMgrPayment.set(false);
+        this.mgrPaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your MGR contribution has been submitted and is awaiting admin verification.');
+          this.closeMgrPaymentModal();
+          if (this.selectedCycle) {
+            this.loadCycleDetails(this.selectedCycle.id);
+          }
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your MGR contribution payment has been confirmed.');
+          this.closeMgrPaymentModal();
+          if (this.selectedCycle) {
+            this.loadCycleDetails(this.selectedCycle.id);
+          }
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingMgrPayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+      }
+    });
+  }
+
   markContributionPaid(contribution: MgrContribution) {
     this.api.markMgrContributionPaid(contribution.id).subscribe({
       next: () => {
@@ -544,6 +720,25 @@ export class MerryGoRoundComponent implements OnInit {
         }
       },
       error: (err) => this.toast.error('Error', err.error?.message || 'Failed to record payment')
+    });
+  }
+
+  /**
+   * Confirm a pending payment (admin action)
+   */
+  confirmPayment(payableId: number) {
+    this.api.confirmPayment(payableId).subscribe({
+      next: () => {
+        this.toast.success('Payment confirmed', '');
+        if (this.selectedCycle) {
+          this.loadCycleDetails(this.selectedCycle.id);
+        } else if (this.selectedRound) {
+          this.viewRound(this.selectedRound);
+        }
+      },
+      error: (err) => {
+        this.toast.error('Failed to confirm', err.error?.message || 'Please try again.');
+      }
     });
   }
 
@@ -647,6 +842,155 @@ export class MerryGoRoundComponent implements OnInit {
     });
   }
 
+  // ==================== FINE PAYMENT ====================
+
+  /**
+   * Check if the current user owns this fine
+   */
+  isOwnFine(fine: MgrFine): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser ? fine.memberId === currentUser.id : false;
+  }
+
+  /**
+   * Check if fine can be paid (PENDING status)
+   */
+  canPayFine(fine: MgrFine): boolean {
+    return fine.status === 'PENDING';
+  }
+
+  /**
+   * Open member fine payment modal (for paying own fine)
+   */
+  openFinePaymentModal(fine: MgrFine) {
+    this.fineToPay = fine;
+    this.selectedFinePaymentMethod = 'MANUAL';
+    this.finePaymentReferenceCode = '';
+    this.finePaymentPhoneNumber = '';
+    this.finePaymentAmount = fine.amount;
+    this.finePaymentResponse = null;
+    this.showFinePaymentModal = true;
+    this.loadFinePaymentMethods();
+  }
+
+  closeFinePaymentModal() {
+    this.showFinePaymentModal = false;
+    this.fineToPay = null;
+    this.finePaymentResponse = null;
+  }
+
+  loadFinePaymentMethods() {
+    this.loadingFinePaymentMethods.set(true);
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.finePaymentMethods = methods;
+        if (methods.manualEnabled) {
+          this.selectedFinePaymentMethod = 'MANUAL';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedFinePaymentMethod = 'IN_APP_SMS';
+        } else if (methods.stkPushEnabled) {
+          this.selectedFinePaymentMethod = 'STK_PUSH';
+        }
+        this.loadingFinePaymentMethods.set(false);
+      },
+      error: () => {
+        this.loadingFinePaymentMethods.set(false);
+      }
+    });
+  }
+
+  canSubmitFinePayment(): boolean {
+    if (!this.fineToPay) return false;
+    if (this.finePaymentAmount <= 0) return false;
+    if (this.selectedFinePaymentMethod === 'MANUAL' && !this.finePaymentReferenceCode.trim()) return false;
+    if (this.selectedFinePaymentMethod === 'STK_PUSH' && !this.finePaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitFinePayment() {
+    if (!this.fineToPay) return;
+
+    if (this.selectedFinePaymentMethod === 'MANUAL' && !this.finePaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedFinePaymentMethod === 'STK_PUSH' && !this.finePaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingFinePayment.set(true);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'MGR_FINE',
+      referenceId: this.fineToPay.id,
+      payerMemberId: this.fineToPay.memberId,
+      amount: this.finePaymentAmount,
+      paymentMethod: this.selectedFinePaymentMethod,
+      referenceCode: this.selectedFinePaymentMethod === 'MANUAL' ? this.finePaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedFinePaymentMethod === 'STK_PUSH' ? this.finePaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiateMgrFinePayment(this.fineToPay.id, request).subscribe({
+      next: (response) => {
+        this.submittingFinePayment.set(false);
+        this.finePaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your payment has been submitted and is awaiting admin confirmation.');
+          this.closeFinePaymentModal();
+          if (this.selectedCycle) {
+            this.loadCycleDetails(this.selectedCycle.id);
+          }
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your fine payment has been confirmed.');
+          this.closeFinePaymentModal();
+          if (this.selectedCycle) {
+            this.loadCycleDetails(this.selectedCycle.id);
+          }
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingFinePayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+      }
+    });
+  }
+
+  /**
+   * Admin records a direct payment for a fine
+   */
+  recordFinePayment(fine: MgrFine) {
+    this.api.recordMgrFinePayment(fine.id, fine.amount).subscribe({
+      next: () => {
+        this.toast.success('Fine Paid', `${fine.memberName}'s fine has been recorded as paid.`);
+        if (this.selectedCycle) {
+          this.loadCycleDetails(this.selectedCycle.id);
+        }
+      },
+      error: (err) => this.toast.error('Error', err.error?.message || 'Failed to record payment')
+    });
+  }
+
+  /**
+   * Confirm a pending fine payment claim
+   */
+  confirmFinePayment(payableId: number) {
+    this.api.confirmPayment(payableId).subscribe({
+      next: () => {
+        this.toast.success('Payment confirmed', 'The fine payment has been confirmed.');
+        if (this.selectedCycle) {
+          this.loadCycleDetails(this.selectedCycle.id);
+        }
+      },
+      error: (err) => this.toast.error('Error', err.error?.message || 'Failed to confirm payment')
+    });
+  }
+
   payFine(fine: MgrFine) {
     this.api.payMgrFine(fine.id).subscribe({
       next: () => {
@@ -730,6 +1074,28 @@ export class MerryGoRoundComponent implements OnInit {
 
   getPendingFinesCount(): number {
     return this.fines.filter(f => f.status === 'PENDING').length;
+  }
+
+  getMyPendingFinesCount(): number {
+    return this.myFines.filter(f => f.status === 'PENDING').length;
+  }
+
+  getAllPendingFinesCount(): number {
+    return this.allFines.filter(f => f.status === 'PENDING').length;
+  }
+
+  /**
+   * Get the fines to display based on current sub-tab
+   */
+  get displayedFines(): MgrFine[] {
+    return this.fineSubTab === 'my-fines' ? this.myFines : this.allFines;
+  }
+
+  /**
+   * Switch fine sub-tab
+   */
+  switchFineSubTab(tab: 'my-fines' | 'all-fines') {
+    this.fineSubTab = tab;
   }
 
   // Group contributions by round for display

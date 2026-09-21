@@ -66,6 +66,7 @@
         <tr>
           <th>Member</th>
           <th>Member no.</th>
+          <th>Email</th>
           <th>Role</th>
           @if (isRegFeeRequired()) {
             <th>Reg. Fee</th>
@@ -85,6 +86,7 @@
               <div class="member-phone">{{ m.phone }}</div>
             </td>
             <td class="member-no-cell">{{ m.memberNo }}</td>
+            <td class="member-email-cell">{{ m.email || '—' }}</td>
             <td>{{ m.role }}</td>
             @if (isRegFeeRequired()) {
               <td>
@@ -94,7 +96,7 @@
                       [class.badge-rejected]="m.regFeeStatus === 'REJECTED'">
                   {{ getRegFeeStatusLabel(m) }}
                 </span>
-                @if (canPayRegFee(m) && session.can('PAY_REGISTRATION_FEE')) {
+                @if (canPayRegFee(m)) {
                   <button class="btn btn-xs btn-outline" (click)="openRegFeePayModal(m); $event.stopPropagation()" title="Pay registration fee">
                     Pay
                   </button>
@@ -133,6 +135,11 @@
               @if (session.can('HARD_DELETE_MEMBER')) {
                 <button class="action-btn action-btn-danger" (click)="hardDelete(m)" title="Permanently delete member & all data">
                   <app-icon name="trash"></app-icon>
+                </button>
+              }
+              @if (session.can('RESET_PASSWORD')) {
+                <button class="action-btn action-btn-warning" (click)="openResetPasswordModal(m)" title="Reset password">
+                  <app-icon name="key"></app-icon>
                 </button>
               }
             </td>
@@ -221,11 +228,18 @@
             </div>
           }
           
-          <!-- Manual password field -->
-          @if (!editing.passwordMode) {
+          <!-- Password selection - only show when creating new member -->
+          @if (!editing.passwordMode && !editing.id) {
             <div class="form-field" [class.has-error]="formErrors()['password']">
-              <label>Password @if (!editing.id) { <span class="required">*</span> }</label>
-              <input type="password" [(ngModel)]="editing.password" name="password" [placeholder]="editing.id ? 'Leave blank to keep current' : 'Minimum 6 characters'" />
+              <label>Password <span class="required">*</span></label>
+              <select [(ngModel)]="editing.password" name="password">
+                <option value="">-- Select Password --</option>
+                <option value="12345678">12345678</option>
+                <option value="password123">password123</option>
+                <option value="Welcome@123">Welcome@123</option>
+                <option value="Chama@2024">Chama@2024</option>
+              </select>
+              <span class="form-hint">Member will be required to change password on first login</span>
               @if (formErrors()['password']) {
                 <span class="error-text">{{ formErrors()['password'] }}</span>
               }
@@ -509,7 +523,7 @@
 <!-- Registration Fee Payment Modal -->
 @if (showRegFeePayModal && regFeePayMember) {
   <div class="modal-backdrop" (click)="closeRegFeePayModal()">
-    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal modal-md" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>Pay Registration Fee</h3>
         <button class="icon-btn" (click)="closeRegFeePayModal()"><app-icon name="close"></app-icon></button>
@@ -524,17 +538,107 @@
             <span class="payment-label">Amount:</span>
             <span class="payment-value payment-amount">KES {{ registrationFeeInfo?.amount | number }}</span>
           </div>
+          @if (enabledPaymentMethods?.treasurerPhone) {
+            <div class="payment-row">
+              <span class="payment-label">Pay to:</span>
+              <span class="payment-value">{{ enabledPaymentMethods?.treasurerName || 'Treasurer' }} ({{ enabledPaymentMethods?.treasurerPhone }})</span>
+            </div>
+          }
         </div>
+        
+        <!-- Payment Method Selection -->
         <div class="form-field">
-          <label>Payment Reference Number <span class="required">*</span></label>
-          <input type="text" [(ngModel)]="regFeeReferenceNumber" placeholder="e.g. MPESA code, bank reference" />
-          <span class="form-hint">Enter the transaction reference from your payment method</span>
+          <label>Payment Method <span class="required">*</span></label>
+          <div class="payment-methods">
+            @if (isPaymentMethodEnabled('MANUAL')) {
+              <label class="payment-method-option" [class.selected]="selectedPaymentMethod === 'MANUAL'">
+                <input type="radio" name="paymentMethod" value="MANUAL" [(ngModel)]="selectedPaymentMethod" />
+                <div class="method-content">
+                  <app-icon name="edit-3"></app-icon>
+                  <div class="method-details">
+                    <span class="method-name">Manual Verification</span>
+                    <span class="method-desc">Enter M-PESA or bank reference</span>
+                  </div>
+                </div>
+              </label>
+            }
+            @if (isPaymentMethodEnabled('STK_PUSH')) {
+              <label class="payment-method-option" [class.selected]="selectedPaymentMethod === 'STK_PUSH'">
+                <input type="radio" name="paymentMethod" value="STK_PUSH" [(ngModel)]="selectedPaymentMethod" />
+                <div class="method-content">
+                  <app-icon name="smartphone"></app-icon>
+                  <div class="method-details">
+                    <span class="method-name">M-PESA STK Push</span>
+                    <span class="method-desc">Receive prompt on your phone</span>
+                  </div>
+                </div>
+              </label>
+            }
+            @if (isPaymentMethodEnabled('IN_APP_SMS')) {
+              <label class="payment-method-option" [class.selected]="selectedPaymentMethod === 'IN_APP_SMS'">
+                <input type="radio" name="paymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedPaymentMethod" />
+                <div class="method-content">
+                  <app-icon name="message-square"></app-icon>
+                  <div class="method-details">
+                    <span class="method-name">SMS Verification</span>
+                    <span class="method-desc">Capture confirmation SMS</span>
+                  </div>
+                </div>
+              </label>
+            }
+          </div>
         </div>
+        
+        <!-- Method-specific fields -->
+        @if (selectedPaymentMethod === 'MANUAL') {
+          <div class="form-field">
+            <label>Payment Reference Number <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="regFeeReferenceNumber" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+            <span class="form-hint">Enter the transaction reference from your M-PESA or bank payment</span>
+          </div>
+        }
+        
+        @if (selectedPaymentMethod === 'STK_PUSH') {
+          <div class="form-field">
+            <label>Phone Number <span class="required">*</span></label>
+            <input type="tel" [(ngModel)]="regFeePhoneNumber" placeholder="e.g. 0712345678" />
+            <span class="form-hint">M-PESA registered phone number to receive the payment prompt</span>
+          </div>
+        }
+        
+        @if (selectedPaymentMethod === 'IN_APP_SMS') {
+          <div class="payment-instructions">
+            <app-icon name="info"></app-icon>
+            <div>
+              <strong>Instructions:</strong>
+              <ol>
+                <li>Send KES {{ registrationFeeInfo?.amount | number }} to {{ enabledPaymentMethods?.treasurerPhone || 'the treasurer' }}</li>
+                <li>Wait for the M-PESA confirmation SMS</li>
+                <li>The system will automatically verify your payment</li>
+              </ol>
+            </div>
+          </div>
+        }
+        
+        <!-- Payment Response Status -->
+        @if (paymentResponse) {
+          <div class="payment-status" [class.status-success]="paymentResponse.status === 'MATCHED'" 
+               [class.status-pending]="paymentResponse.awaitingVerification || paymentResponse.status === 'STK_INITIATED'">
+            <app-icon [name]="paymentResponse.status === 'MATCHED' ? 'check-circle' : 'clock'"></app-icon>
+            <span>{{ paymentResponse.statusMessage }}</span>
+          </div>
+        }
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeRegFeePayModal()" [disabled]="submittingRegFee()">Cancel</button>
-        <button class="btn btn-primary" (click)="submitRegFeePayment()" [disabled]="submittingRegFee() || !regFeeReferenceNumber.trim()">
-          {{ submittingRegFee() ? 'Submitting...' : 'Submit Payment' }}
+        <button class="btn btn-primary" (click)="submitRegFeePayment()" [disabled]="submittingRegFee() || !canSubmitPayment()">
+          @if (submittingRegFee()) {
+            <span>Processing...</span>
+          } @else if (selectedPaymentMethod === 'STK_PUSH') {
+            <span>Send M-PESA Prompt</span>
+          } @else {
+            <span>Submit Payment</span>
+          }
         </button>
       </div>
     </div>
@@ -609,6 +713,43 @@
         <button class="btn btn-ghost" (click)="closeRejectModal()" [disabled]="verifyingAction()">Cancel</button>
         <button class="btn btn-danger" (click)="rejectPayment()" [disabled]="verifyingAction() || !rejectReason.trim()">
           {{ verifyingAction() ? 'Rejecting...' : 'Reject Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Reset Password Modal -->
+@if (showResetPasswordModal && resetPasswordMember) {
+  <div class="modal-backdrop" (click)="closeResetPasswordModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Reset Password</h3>
+        <button class="icon-btn" (click)="closeResetPasswordModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="reset-password-info">
+          <p>Reset password for <strong>{{ resetPasswordMember.name }}</strong></p>
+          <p class="text-muted">The member will be required to change their password on next login.</p>
+        </div>
+        <div class="form-field">
+          <label>Select New Password <span class="required">*</span></label>
+          <select [(ngModel)]="selectedResetPassword" class="form-control">
+            @for (pwd of resetPasswordOptions; track pwd) {
+              <option [value]="pwd">{{ pwd }}</option>
+            }
+          </select>
+          <span class="form-hint">Choose a temporary password for the member</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeResetPasswordModal()" [disabled]="resettingPassword()">Cancel</button>
+        <button class="btn btn-warning" (click)="confirmResetPassword()" [disabled]="resettingPassword()">
+          @if (resettingPassword()) {
+            <span>Resetting...</span>
+          } @else {
+            <span>Reset Password</span>
+          }
         </button>
       </div>
     </div>

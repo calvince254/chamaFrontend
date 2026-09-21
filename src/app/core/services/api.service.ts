@@ -9,7 +9,9 @@ import {
   ContributionType, Penalty, LoanProduct, LoanPenalty, LoanExtended, ShareSettings, ShareCalculation,
   Liquidity, Payout, PayoutPreview, CreatePayoutRequest, PayoutPreviewRequest, MemberFinancialSummary,
   PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, RecordPaymentRequest,
-  RegistrationFeePayment, RegistrationFeeInfo, Resource, AuditLog, ContributionTopUp, ContributionBalance
+  RegistrationFeePayment, RegistrationFeeInfo, Resource, AuditLog, ContributionTopUp, ContributionBalance,
+  PaymentSettings, EnabledPaymentMethods, TreasurerDevice, InitiatePaymentRequest, InitiatePaymentResponse,
+  GuarantorLiability
 } from '../models/models';
 
 /**
@@ -254,6 +256,13 @@ export class ApiService {
 
   hardDeleteMember(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/members/${id}/hard`);
+  }
+
+  resetMemberPassword(memberId: number, newPassword: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.baseUrl}/members/reset-password`, {
+      memberId,
+      newPassword
+    });
   }
 
   getMemberFinancialSummary(id: number): Observable<MemberFinancialSummary> {
@@ -527,7 +536,9 @@ export class ApiService {
           dueDate: c.dueDate,
           penaltyApplied: c.penaltyApplied || false,
           contributionTypeId: c.contributionTypeId,
-          contributionTypeName: c.contributionTypeName
+          contributionTypeName: c.contributionTypeName,
+          hasPendingClaim: c.hasPendingClaim || false,
+          payableId: c.payableId
         }))
       }))
     );
@@ -753,6 +764,10 @@ export class ApiService {
     return this.http.get<any[]>(`${this.baseUrl}/merry-go-round/cycles/${cycleId}/fines`);
   }
 
+  getMyMgrFinesByCycle(cycleId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/merry-go-round/cycles/${cycleId}/my-fines`);
+  }
+
   imposeMgrFine(request: { cycleId: number; reason: string; amount: number; memberIds: number[] }): Observable<any[]> {
     return this.http.post<any[]>(`${this.baseUrl}/merry-go-round/fines`, request);
   }
@@ -763,6 +778,14 @@ export class ApiService {
 
   payMgrFine(fineId: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/merry-go-round/fines/${fineId}/pay`, {});
+  }
+
+  initiateMgrFinePayment(fineId: number, request: InitiatePaymentRequest): Observable<InitiatePaymentResponse> {
+    return this.http.post<InitiatePaymentResponse>(`${this.baseUrl}/merry-go-round/fines/${fineId}/initiate-payment`, request);
+  }
+
+  recordMgrFinePayment(fineId: number, amount?: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/merry-go-round/fines/${fineId}/record-payment`, { amount });
   }
 
   waiveMgrFine(fineId: number, reason: string): Observable<any> {
@@ -813,6 +836,10 @@ export class ApiService {
   // ==================== PAYOUTS ====================
   getLiquidity(): Observable<Liquidity> {
     return this.http.get<Liquidity>(`${this.baseUrl}/payouts/liquidity`);
+  }
+
+  getGuarantorLiabilities(memberId: number): Observable<GuarantorLiability[]> {
+    return this.http.get<GuarantorLiability[]>(`${this.baseUrl}/payouts/guarantor-liabilities/${memberId}`);
   }
 
   previewPayout(request: PayoutPreviewRequest): Observable<PayoutPreview> {
@@ -1032,6 +1059,11 @@ export class ApiService {
     return this.http.get<any[]>(`${this.baseUrl}/investments/${id}/topups`);
   }
 
+  getInvestmentApprovals(id: number): Observable<InvestmentApproval[]> {
+    if (!this.isBrowser) return of([]);
+    return this.http.get<InvestmentApproval[]>(`${this.baseUrl}/investments/${id}/approvals`);
+  }
+
   // ==================== FINANCE ====================
   getFinanceSummary(): Observable<FinanceSummary> {
     return this.http.get<FinanceSummary>(`${this.baseUrl}/finance/summary`);
@@ -1099,12 +1131,13 @@ export class ApiService {
     return this.http.get<Penalty[]>(url);
   }
 
-  getPenaltiesPaginated(page: number = 0, size: number = 10, status?: string, memberId?: number): Observable<PageResponse<Penalty>> {
+  getPenaltiesPaginated(page: number = 0, size: number = 10, status?: string, memberId?: number, penaltyType?: string): Observable<PageResponse<Penalty>> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString());
     if (status) params = params.set('status', status);
     if (memberId) params = params.set('memberId', memberId.toString());
+    if (penaltyType) params = params.set('penaltyType', penaltyType);
     
     return this.http.get<PageResponse<Penalty>>(`${this.baseUrl}/penalties/paginated`, { params });
   }
@@ -1195,8 +1228,8 @@ export class ApiService {
     return this.http.post<LoanExtended>(`${this.baseUrl}/loans/${id}/approve-guarantor`, { comments });
   }
 
-  rejectLoanExtended(id: number, reason: string): Observable<LoanExtended> {
-    return this.http.post<LoanExtended>(`${this.baseUrl}/loans/${id}/reject`, { reason });
+  rejectLoanExtended(id: number, reason: string, asGuarantor: boolean = false): Observable<LoanExtended> {
+    return this.http.post<LoanExtended>(`${this.baseUrl}/loans/${id}/reject`, { reason, asGuarantor: asGuarantor.toString() });
   }
 
   disburseLoanExtended(id: number): Observable<LoanExtended> {
@@ -1223,22 +1256,10 @@ export class ApiService {
     );
   }
 
-  // ==================== LOAN PAYMENT VERIFICATION ====================
+  // ==================== LOAN PAYMENT ====================
   
   recordLoanPayment(loanId: number, request: RecordPaymentRequest): Observable<LoanPayment> {
     return this.http.post<LoanPayment>(`${this.baseUrl}/loans/${loanId}/payments/record`, request);
-  }
-
-  verifyLoanPayment(paymentId: number): Observable<LoanPayment> {
-    return this.http.post<LoanPayment>(`${this.baseUrl}/loans/payments/${paymentId}/verify`, {});
-  }
-
-  rejectLoanPayment(paymentId: number, reason: string): Observable<LoanPayment> {
-    return this.http.post<LoanPayment>(`${this.baseUrl}/loans/payments/${paymentId}/reject`, { reason });
-  }
-
-  getPendingLoanPayments(): Observable<LoanPayment[]> {
-    return this.http.get<LoanPayment[]>(`${this.baseUrl}/loans/payments/pending`);
   }
 
   getLoanPayments(loanId: number): Observable<LoanPayment[]> {
@@ -1247,10 +1268,6 @@ export class ApiService {
 
   getMyLoanPayments(): Observable<LoanPayment[]> {
     return this.http.get<LoanPayment[]>(`${this.baseUrl}/loans/payments/my-payments`);
-  }
-
-  getPendingPaymentsCount(): Observable<{ count: number }> {
-    return this.http.get<{ count: number }>(`${this.baseUrl}/loans/payments/pending/count`);
   }
 
   // ==================== LOAN PENALTIES ====================
@@ -1568,7 +1585,14 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/contribution-topups/${id}`);
   }
 
-  createContributionTopUp(data: { contributionTypeId: number; amount: number; paymentReference?: string; notes?: string }): Observable<any> {
+  createContributionTopUp(data: { 
+    contributionTypeId: number; 
+    amount: number; 
+    paymentReference?: string; 
+    notes?: string;
+    targetMonth?: string;
+    description?: string;
+  }): Observable<any> {
     return this.http.post(`${this.baseUrl}/contribution-topups`, data);
   }
 
@@ -1594,6 +1618,61 @@ export class ApiService {
     return this.http.get<{ contributionTypeId: number; contributionTypeName: string; balance: number }[]>(
       `${this.baseUrl}/welfare/member/${memberId}/contribution-balances`
     );
+  }
+
+  // ==================== PAYMENT SETTINGS ====================
+  
+  getPaymentSettings(): Observable<PaymentSettings> {
+    return this.http.get<PaymentSettings>(`${this.baseUrl}/payment-settings`);
+  }
+
+  updatePaymentSettings(settings: Partial<PaymentSettings>): Observable<PaymentSettings> {
+    return this.http.put<PaymentSettings>(`${this.baseUrl}/payment-settings`, settings);
+  }
+
+  getEnabledPaymentMethods(): Observable<EnabledPaymentMethods> {
+    return this.http.get<EnabledPaymentMethods>(`${this.baseUrl}/payment-settings/methods`);
+  }
+
+  // ==================== UNIFIED PAYMENT ====================
+
+  /**
+   * Initiate payment for any payable type (registration fee, fines, etc.)
+   * Unified endpoint that handles all payment methods: MANUAL, STK_PUSH, IN_APP_SMS
+   */
+  initiatePayment(request: InitiatePaymentRequest): Observable<InitiatePaymentResponse> {
+    return this.http.post<InitiatePaymentResponse>(`${this.baseUrl}/payments/initiate`, request);
+  }
+
+  /**
+   * Confirm a payment by payableId (admin action).
+   * This is the unified endpoint that works for ALL payment types.
+   */
+  confirmPayment(payableId: number): Observable<InitiatePaymentResponse> {
+    return this.http.post<InitiatePaymentResponse>(`${this.baseUrl}/payments/payables/${payableId}/confirm`, {});
+  }
+
+  /**
+   * Reject a payment by payableId (admin action).
+   * This is the unified endpoint that works for ALL payment types.
+   */
+  rejectPayment(payableId: number, reason: string): Observable<InitiatePaymentResponse> {
+    return this.http.post<InitiatePaymentResponse>(`${this.baseUrl}/payments/payables/${payableId}/reject`, { reason });
+  }
+
+  /**
+   * Get payment claim status (for polling)
+   */
+  getPaymentClaimStatus(claimId: number): Observable<InitiatePaymentResponse> {
+    return this.http.get<InitiatePaymentResponse>(`${this.baseUrl}/payments/claims/${claimId}/status`);
+  }
+
+  getTreasurerDevices(): Observable<TreasurerDevice[]> {
+    return this.http.get<TreasurerDevice[]>(`${this.baseUrl}/payments/devices`);
+  }
+
+  revokeTreasurerDevice(deviceId: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/payments/devices/${deviceId}`);
   }
 }
 

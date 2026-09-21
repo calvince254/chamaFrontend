@@ -24,6 +24,11 @@
       Share Calculation
     </button>
   }
+  @if (session.can('EDIT_TENANT_SETTINGS')) {
+    <button class="tab" [class.active]="activeTab === 'payments'" (click)="activeTab = 'payments'">
+      Payment Settings
+    </button>
+  }
   @if (session.currentUser()?.isSuperAdmin) {
     <button class="tab" [class.active]="activeTab === 'system'" (click)="activeTab = 'system'">
       System Settings
@@ -945,6 +950,225 @@
           </button>
         }
       </div>
+    }
+  </div>
+}
+
+<!-- Payment Settings Tab -->
+@if (activeTab === 'payments') {
+  <div class="payment-settings-container">
+    @if (loadingPaymentSettings()) {
+      <div class="loading-inline">
+        <div class="spinner-sm"></div>
+        <span>Loading payment settings...</span>
+      </div>
+    } @else {
+      <!-- Payment Methods Section -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3>Payment Methods</h3>
+            <p style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+              Configure which payment methods members can use in the mobile app.
+            </p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="payment-methods-grid">
+            <!-- STK Push -->
+            <div class="payment-method-card" [class.enabled]="paymentSettings.stkPushEnabled">
+              <div class="payment-method-header">
+                <div class="payment-method-info">
+                  <app-icon name="smartphone"></app-icon>
+                  <div>
+                    <strong>M-Pesa STK Push</strong>
+                    <p>Members receive an automatic payment prompt on their phone</p>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="paymentSettings.stkPushEnabled" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              @if (paymentSettings.stkPushEnabled) {
+                <div class="payment-method-config">
+                  <div class="form-grid" style="margin-top: 12px;">
+                    <div class="form-field">
+                      <label>Business Short Code <span class="required">*</span></label>
+                      <input type="text" [(ngModel)]="paymentSettings.businessShortCode" placeholder="174379" />
+                    </div>
+                    <div class="form-field">
+                      <label>Daraja Consumer Key <span class="required">*</span></label>
+                      <input type="password" [(ngModel)]="paymentSettings.darajaConsumerKey" placeholder="Your consumer key" />
+                    </div>
+                    <div class="form-field">
+                      <label>Daraja Consumer Secret <span class="required">*</span></label>
+                      <input type="password" [(ngModel)]="paymentSettings.darajaConsumerSecret" placeholder="Your consumer secret" />
+                    </div>
+                  </div>
+                  <p class="form-hint" style="margin-top: 8px;">
+                    Get your Daraja API credentials from the <a href="https://developer.safaricom.co.ke" target="_blank">Safaricom Developer Portal</a>.
+                  </p>
+                </div>
+              }
+            </div>
+
+            <!-- In-App SMS Verification -->
+            <div class="payment-method-card" [class.enabled]="paymentSettings.inAppSmsEnabled">
+              <div class="payment-method-header">
+                <div class="payment-method-info">
+                  <app-icon name="message-square"></app-icon>
+                  <div>
+                    <strong>In-App SMS Verification</strong>
+                    <p>Treasurer's phone captures M-Pesa confirmation SMS automatically</p>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="paymentSettings.inAppSmsEnabled" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              @if (paymentSettings.inAppSmsEnabled) {
+                <div class="payment-method-config">
+                  <div class="form-grid" style="margin-top: 12px;">
+                    <div class="form-field">
+                      <label>Treasurer Name <span class="required">*</span></label>
+                      <input type="text" [(ngModel)]="paymentSettings.treasurerName" placeholder="John Doe" />
+                    </div>
+                    <div class="form-field">
+                      <label>Treasurer Phone (M-Pesa) <span class="required">*</span></label>
+                      <input type="tel" [(ngModel)]="paymentSettings.treasurerPhone" placeholder="254712345678" />
+                    </div>
+                  </div>
+                  <p class="form-hint" style="margin-top: 8px;">
+                    Members will send money to this number. The treasurer's mobile app will auto-capture M-Pesa SMS confirmations.
+                  </p>
+                </div>
+              }
+            </div>
+
+            <!-- Manual Verification -->
+            <div class="payment-method-card" [class.enabled]="paymentSettings.manualEnabled">
+              <div class="payment-method-header">
+                <div class="payment-method-info">
+                  <app-icon name="edit-3"></app-icon>
+                  <div>
+                    <strong>Manual Verification</strong>
+                    <p>Members enter M-Pesa reference, treasurer verifies manually</p>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" [(ngModel)]="paymentSettings.manualEnabled" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              @if (paymentSettings.manualEnabled) {
+                <div class="payment-method-config">
+                  <p class="form-hint" style="margin-top: 12px;">
+                    This is the fallback method. Members enter their M-Pesa transaction code and a treasurer manually verifies it.
+                  </p>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Additional Settings -->
+          <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+            <div class="form-grid">
+              <div class="form-field">
+                <label>Default Payment Method</label>
+                <select [(ngModel)]="paymentSettings.defaultPaymentMethod">
+                  @if (paymentSettings.stkPushEnabled) {
+                    <option value="STK_PUSH">STK Push</option>
+                  }
+                  @if (paymentSettings.inAppSmsEnabled) {
+                    <option value="IN_APP_SMS">In-App SMS</option>
+                  }
+                  @if (paymentSettings.manualEnabled) {
+                    <option value="MANUAL">Manual Verification</option>
+                  }
+                </select>
+                <small style="color: var(--color-text-muted); font-size: 10px;">Pre-selected method in the mobile app.</small>
+              </div>
+              <div class="form-field">
+                <label>Payment Claim Expiry (minutes)</label>
+                <input type="number" [(ngModel)]="paymentSettings.claimExpiryMinutes" placeholder="30" min="5" max="1440" />
+                <small style="color: var(--color-text-muted); font-size: 10px;">How long a payment claim remains valid before expiring.</small>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 16px; text-align: right;">
+            <button class="btn btn-primary" (click)="savePaymentSettings()" [disabled]="savingPaymentSettings()">
+              {{ savingPaymentSettings() ? 'Saving...' : 'Save Payment Settings' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Registered Treasurer Devices -->
+      @if (paymentSettings.inAppSmsEnabled) {
+        <div class="card" style="margin-top: 16px;">
+          <div class="card-header">
+            <div>
+              <h3>Registered Treasurer Devices</h3>
+              <p style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">
+                Devices authorized to capture M-Pesa SMS confirmations.
+              </p>
+            </div>
+          </div>
+          <div class="card-body">
+            @if (loadingTreasurerDevices()) {
+              <div class="loading-inline">
+                <div class="spinner-sm"></div>
+                <span>Loading devices...</span>
+              </div>
+            } @else if (treasurerDevices.length === 0) {
+              <div class="empty-state-small">
+                <app-icon name="smartphone"></app-icon>
+                <p>No treasurer devices registered yet.</p>
+                <small style="color: var(--color-text-muted);">
+                  The treasurer needs to register their device from the mobile app.
+                </small>
+              </div>
+            } @else {
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Device</th>
+                    <th>Registered</th>
+                    <th>Last Active</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (device of treasurerDevices; track device.id) {
+                    <tr>
+                      <td>
+                        <div style="font-weight: 600;">{{ device.deviceName }}</div>
+                        <div style="font-size: 10px; color: var(--color-text-muted);">{{ device.deviceId }}</div>
+                      </td>
+                      <td>{{ device.registeredAt | date:'medium' }}</td>
+                      <td>{{ device.lastActiveAt | date:'medium' }}</td>
+                      <td>
+                        <span class="badge" [ngClass]="device.isActive ? 'badge-success' : 'badge-neutral'">
+                          {{ device.isActive ? 'Active' : 'Inactive' }}
+                        </span>
+                      </td>
+                      <td style="text-align: right;">
+                        <button class="btn btn-ghost btn-sm" (click)="revokeTreasurerDevice(device)" title="Revoke access">
+                          <app-icon name="trash"></app-icon>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+      }
     }
   </div>
 }

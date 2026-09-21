@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { WelfareEvent, WelfareContribution, Member, PageResponse, ContributionBalance } from '../../core/models/models';
+import { WelfareEvent, WelfareContribution, Member, PageResponse, ContributionBalance, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
@@ -48,6 +48,17 @@ export class WelfareComponent implements OnInit {
   contributions: WelfareContribution[] = [];
   loadingContributions = signal(false);
   updatingPayment = signal(false);
+
+  // Member welfare payment modal
+  showWelfarePaymentModal = false;
+  contributionToPay: WelfareContribution | null = null;
+  selectedWelfarePaymentMethod: 'MANUAL' | 'STK_PUSH' | 'IN_APP_SMS' = 'MANUAL';
+  welfarePaymentReferenceCode = '';
+  welfarePaymentPhoneNumber = '';
+  submittingWelfarePayment = signal(false);
+  welfarePaymentResponse: InitiatePaymentResponse | null = null;
+  welfarePaymentMethods: EnabledPaymentMethods | null = null;
+  loadingWelfarePaymentMethods = signal(false);
 
   constructor(private api: ApiService, public session: SessionService, private toast: ToastService) {}
 
@@ -152,8 +163,17 @@ export class WelfareComponent implements OnInit {
   }
 
   save() {
-    if (!this.editing.memberId || !this.editing.eventType) {
-      alert('Please fill in all required fields');
+    // Validate required fields
+    if (!this.editing.memberId) {
+      alert('Please select a beneficiary member');
+      return;
+    }
+    if (!this.editing.eventType) {
+      alert('Please select an event type');
+      return;
+    }
+    if (!this.editing.amountPerMember || this.editing.amountPerMember <= 0) {
+      alert('Please enter a valid amount per member');
       return;
     }
 
@@ -257,6 +277,126 @@ export class WelfareComponent implements OnInit {
     return this.contributions.filter(c => !c.paid);
   }
 
+  // ==================== MEMBER WELFARE PAYMENT (UNIFIED) ====================
+
+  /**
+   * Check if current user owns this contribution
+   */
+  isOwnContribution(contribution: WelfareContribution): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser ? contribution.memberId === currentUser.id : false;
+  }
+
+  /**
+   * Check if contribution can be paid (not fully paid)
+   */
+  canPayContribution(contribution: WelfareContribution): boolean {
+    return !contribution.paid && contribution.amountExpected > (contribution.amountPaid || 0);
+  }
+
+  /**
+   * Open welfare payment modal (for member paying own contribution)
+   */
+  openWelfarePaymentModal(contribution: WelfareContribution) {
+    this.contributionToPay = contribution;
+    this.selectedWelfarePaymentMethod = 'MANUAL';
+    this.welfarePaymentReferenceCode = '';
+    this.welfarePaymentPhoneNumber = '';
+    this.welfarePaymentResponse = null;
+    this.showWelfarePaymentModal = true;
+    this.loadWelfarePaymentMethods();
+  }
+
+  closeWelfarePaymentModal() {
+    this.showWelfarePaymentModal = false;
+    this.contributionToPay = null;
+    this.welfarePaymentResponse = null;
+  }
+
+  loadWelfarePaymentMethods() {
+    this.loadingWelfarePaymentMethods.set(true);
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.welfarePaymentMethods = methods;
+        if (methods.manualEnabled) {
+          this.selectedWelfarePaymentMethod = 'MANUAL';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedWelfarePaymentMethod = 'IN_APP_SMS';
+        } else if (methods.stkPushEnabled) {
+          this.selectedWelfarePaymentMethod = 'STK_PUSH';
+        }
+        this.loadingWelfarePaymentMethods.set(false);
+      },
+      error: () => {
+        this.loadingWelfarePaymentMethods.set(false);
+      }
+    });
+  }
+
+  canSubmitWelfarePayment(): boolean {
+    if (!this.contributionToPay) return false;
+    if (this.selectedWelfarePaymentMethod === 'MANUAL' && !this.welfarePaymentReferenceCode.trim()) return false;
+    if (this.selectedWelfarePaymentMethod === 'STK_PUSH' && !this.welfarePaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitWelfarePayment() {
+    if (!this.contributionToPay) return;
+
+    if (this.selectedWelfarePaymentMethod === 'MANUAL' && !this.welfarePaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedWelfarePaymentMethod === 'STK_PUSH' && !this.welfarePaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingWelfarePayment.set(true);
+
+    const balance = this.contributionToPay.amountExpected - (this.contributionToPay.amountPaid || 0);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'WELFARE_DUE',
+      referenceId: this.contributionToPay.id,
+      payerMemberId: this.contributionToPay.memberId,
+      amount: balance,
+      paymentMethod: this.selectedWelfarePaymentMethod,
+      referenceCode: this.selectedWelfarePaymentMethod === 'MANUAL' ? this.welfarePaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedWelfarePaymentMethod === 'STK_PUSH' ? this.welfarePaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
+        this.submittingWelfarePayment.set(false);
+        this.welfarePaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your welfare contribution has been submitted and is awaiting admin verification.');
+          this.closeWelfarePaymentModal();
+          if (this.selectedEvent) {
+            this.loadContributions(this.selectedEvent.id);
+          }
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your welfare contribution payment has been confirmed.');
+          this.closeWelfarePaymentModal();
+          if (this.selectedEvent) {
+            this.loadContributions(this.selectedEvent.id);
+          }
+          this.loadEvents();
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingWelfarePayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+      }
+    });
+  }
+
   // ==================== PAY FROM CONTRIBUTION FUND ====================
   showFundPaymentModal = false;
   selectedContribution: WelfareContribution | null = null;
@@ -272,6 +412,21 @@ export class WelfareComponent implements OnInit {
     this.paymentMethod = 'CASH';
     this.contributionBalances = [];
     this.showFundPaymentModal = true;
+  }
+
+  /**
+   * Confirm a pending payment (admin action)
+   */
+  confirmPayment(payableId: number) {
+    this.api.confirmPayment(payableId).subscribe({
+      next: () => {
+        this.toast.success('Payment confirmed', '');
+        this.loadContributions(this.selectedEvent!.id);
+      },
+      error: (err) => {
+        this.toast.error('Failed to confirm', err.error?.message || 'Please try again.');
+      }
+    });
   }
 
   openFundPaymentModal(contribution: WelfareContribution) {
@@ -317,7 +472,7 @@ export class WelfareComponent implements OnInit {
     return balance ? balance.balance >= this.selectedContribution.amountExpected : false;
   }
 
-  confirmPayment() {
+  submitFundPayment() {
     if (this.paymentMethod === 'CASH') {
       this.confirmCashPayment();
     } else {

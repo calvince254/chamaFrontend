@@ -3,7 +3,7 @@ import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Meeting, MeetingAttendee, Member, Fine, FineType } from '../../core/models/models';
+import { Meeting, MeetingAttendee, Member, Fine, FineType, EnabledPaymentMethods, PaymentMethod, InitiatePaymentRequest, InitiatePaymentResponse } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
@@ -50,6 +50,7 @@ export class MeetingDashboardComponent implements OnInit {
 
   // Impose fine modal
   showImposeFineModal = false;
+  showViewFinesModal = false;  // View-only fines modal
   selectedMemberForFine: MeetingAttendee | null = null;
   selectedFineTypeId: number | null = null;
   fineNotes = '';
@@ -60,6 +61,16 @@ export class MeetingDashboardComponent implements OnInit {
   selectedFineForPayment: Fine | null = null;
   paymentAmount: number = 0;
   recordingPayment = signal(false);
+  
+  // Member pay fine modal (with payment method selection)
+  showPayFineModal = false;
+  fineToPayMember: Fine | null = null;
+  selectedPaymentMethod: PaymentMethod = 'MANUAL';
+  finePaymentReferenceCode = '';
+  finePaymentPhoneNumber = '';
+  enabledPaymentMethods: EnabledPaymentMethods | null = null;
+  submittingFinePayment = signal(false);
+  finePaymentResponse: InitiatePaymentResponse | null = null;
 
   // Meeting Minutes
   uploadingMinutes = signal(false);
@@ -313,6 +324,19 @@ export class MeetingDashboardComponent implements OnInit {
     this.selectedMemberForFine = null;
   }
 
+  /**
+   * Open view-only fines modal (for users without MANAGE_MEETING_FINES permission)
+   */
+  openViewFinesModal(attendee: MeetingAttendee) {
+    this.selectedMemberForFine = attendee;
+    this.showViewFinesModal = true;
+  }
+
+  closeViewFinesModal() {
+    this.showViewFinesModal = false;
+    this.selectedMemberForFine = null;
+  }
+
   imposeFine() {
     if (!this.selectedMemberForFine || !this.selectedFineTypeId) {
       this.toast.warning('Select fine type', 'Please select a fine type to impose.');
@@ -384,6 +408,145 @@ export class MeetingDashboardComponent implements OnInit {
     });
   }
 
+  // ==================== Member Pay Fine (Unified Payment) ====================
+
+  /**
+   * Check if current user can pay this fine
+   * Members can only pay their own fines unless they have admin permission
+   */
+  canPayFine(fine: Fine): boolean {
+    if (fine.status === 'PAID' || fine.status === 'WAIVED') return false;
+    
+    const currentUser = this.session.currentUser();
+    if (!currentUser) return false;
+
+    // Admin can pay any fine (or use recordPayment for direct recording)
+    if (this.session.can('MANAGE_MEETING_FINES')) {
+      return true;
+    }
+
+    // Members can pay their own fines
+    return fine.memberId === currentUser.id;
+  }
+
+  /**
+   * Check if current user is the owner of this fine
+   */
+  isOwnFine(fine: Fine): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser !== null && fine.memberId === currentUser.id;
+  }
+
+  /**
+   * Open the pay fine modal for member payment flow
+   */
+  openPayFineModal(fine: Fine) {
+    this.fineToPayMember = fine;
+    this.selectedPaymentMethod = 'MANUAL';
+    this.finePaymentReferenceCode = '';
+    this.finePaymentPhoneNumber = '';
+    this.finePaymentResponse = null;
+    this.showPayFineModal = true;
+
+    // Load enabled payment methods
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.enabledPaymentMethods = methods;
+        if (methods.defaultMethod) {
+          this.selectedPaymentMethod = methods.defaultMethod;
+        } else if (methods.manualEnabled) {
+          this.selectedPaymentMethod = 'MANUAL';
+        } else if (methods.stkPushEnabled) {
+          this.selectedPaymentMethod = 'STK_PUSH';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedPaymentMethod = 'IN_APP_SMS';
+        }
+      },
+      error: () => {
+        this.enabledPaymentMethods = { manualEnabled: true, stkPushEnabled: false, inAppSmsEnabled: false };
+      }
+    });
+  }
+
+  closePayFineModal() {
+    this.showPayFineModal = false;
+    this.fineToPayMember = null;
+    this.finePaymentReferenceCode = '';
+    this.finePaymentPhoneNumber = '';
+    this.finePaymentResponse = null;
+  }
+
+  isPaymentMethodEnabled(method: PaymentMethod): boolean {
+    if (!this.enabledPaymentMethods) return method === 'MANUAL';
+    switch (method) {
+      case 'MANUAL': return this.enabledPaymentMethods.manualEnabled;
+      case 'STK_PUSH': return this.enabledPaymentMethods.stkPushEnabled;
+      case 'IN_APP_SMS': return this.enabledPaymentMethods.inAppSmsEnabled;
+      default: return false;
+    }
+  }
+
+  canSubmitFinePayment(): boolean {
+    if (!this.fineToPayMember) return false;
+    if (this.selectedPaymentMethod === 'MANUAL' && !this.finePaymentReferenceCode.trim()) return false;
+    if (this.selectedPaymentMethod === 'STK_PUSH' && !this.finePaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitFinePayment() {
+    if (!this.fineToPayMember) return;
+
+    // Validate based on method
+    if (this.selectedPaymentMethod === 'MANUAL' && !this.finePaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedPaymentMethod === 'STK_PUSH' && !this.finePaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingFinePayment.set(true);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'MEETING_FINE',
+      referenceId: this.fineToPayMember.id,
+      payerMemberId: this.fineToPayMember.memberId,
+      paymentMethod: this.selectedPaymentMethod,
+      referenceCode: this.selectedPaymentMethod === 'MANUAL' ? this.finePaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedPaymentMethod === 'STK_PUSH' ? this.finePaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
+        this.submittingFinePayment.set(false);
+        this.finePaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your payment has been submitted and is awaiting admin verification.');
+          this.closePayFineModal();
+          this.loadFines();
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your fine payment has been confirmed.');
+          this.closePayFineModal();
+          this.loadFines();
+          this.loadMeetingDetails();
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingFinePayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+        // Refresh fines to update hasPendingClaim status
+        this.closePayFineModal();
+        this.loadFines();
+      }
+    });
+  }
+
   async deleteFine(fine: Fine) {
     const confirmed = await this.confirmDialog.confirm({
       title: 'Delete fine?',
@@ -404,6 +567,22 @@ export class MeetingDashboardComponent implements OnInit {
         }
       });
     }
+  }
+
+  /**
+   * Confirm a pending payment (admin action)
+   */
+  confirmPayment(payableId: number) {
+    this.api.confirmPayment(payableId).subscribe({
+      next: () => {
+        this.toast.success('Payment confirmed', '');
+        this.loadFines();
+        this.loadMeetingDetails();
+      },
+      error: (err) => {
+        this.toast.error('Failed to confirm', err.error?.message || 'Please try again.');
+      }
+    });
   }
 
   // ==================== Computed Values ====================

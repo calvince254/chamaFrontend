@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { 
   ShareCalculation, MemberShare, Liquidity, Payout, PayoutPreview, 
-  CreatePayoutRequest, PayoutPreviewRequest, Member, PageResponse 
+  CreatePayoutRequest, PayoutPreviewRequest, Member, PageResponse, GuarantorLiability 
 } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
@@ -57,9 +57,17 @@ export class SharesComponent implements OnInit {
   payoutPreview: PayoutPreview | null = null;
   loadingPreview = signal(false);
   creatingPayout = signal(false);
+  
+  // Distribution options for partial/full
+  useOwnershipDistribution = true; // Default to ownership-based
+  distributionPercentage = 100; // Percentage of each member's value to distribute
 
   // Members for individual withdrawal
   members: Member[] = [];
+  
+  // Guarantor liabilities for selected member
+  guarantorLiabilities: GuarantorLiability[] = [];
+  totalGuarantorLiability = 0;
 
   private confirmDialog = inject(ConfirmDialogService);
   private toast = inject(ToastService);
@@ -74,6 +82,10 @@ export class SharesComponent implements OnInit {
     this.activeTab = tab;
     if (tab === 'payouts') {
       this.loadPayoutsData();
+      // Also load share calculation for member share info in individual withdrawals
+      if (!this.calculation) {
+        this.loadShareCalculation();
+      }
     }
   }
 
@@ -202,10 +214,13 @@ export class SharesComponent implements OnInit {
   openNewPayoutModal() {
     this.showNewPayoutModal = true;
     this.newPayoutType = 'PARTIAL_DIVIDEND';
-    this.newPayoutAmount = this.liquidity?.liquidCash || null;
+    this.newPayoutAmount = null;
     this.newPayoutDescription = '';
     this.newPayoutMemberId = null;
     this.payoutPreview = null;
+    this.useOwnershipDistribution = true;
+    this.distributionPercentage = 100;
+    this.updateCalculatedAmount();
   }
 
   closeNewPayoutModal() {
@@ -215,29 +230,150 @@ export class SharesComponent implements OnInit {
 
   onPayoutTypeChange() {
     this.payoutPreview = null;
-    if (this.newPayoutType === 'FULL_DISTRIBUTION') {
-      this.newPayoutAmount = this.liquidity?.liquidCash || 0;
-    } else if (this.newPayoutType === 'INDIVIDUAL_WITHDRAWAL') {
+    if (this.newPayoutType === 'INDIVIDUAL_WITHDRAWAL') {
       this.newPayoutMemberId = null;
+      this.newPayoutAmount = 0;
+      this.useOwnershipDistribution = false;
+    } else {
+      this.useOwnershipDistribution = true;
+      this.distributionPercentage = this.newPayoutType === 'FULL_DISTRIBUTION' ? 100 : 100;
+      this.updateCalculatedAmount();
     }
   }
 
+  onDistributionOptionChange() {
+    this.payoutPreview = null;
+    this.updateCalculatedAmount();
+  }
+
+  onDistributionPercentageChange() {
+    this.payoutPreview = null;
+    if (this.distributionPercentage < 0) this.distributionPercentage = 0;
+    if (this.distributionPercentage > 100) this.distributionPercentage = 100;
+    this.updateCalculatedAmount();
+  }
+
+  updateCalculatedAmount() {
+    if (this.useOwnershipDistribution && this.calculation && this.liquidity) {
+      // Calculate total distribution based on percentage of each member's value
+      const totalMemberValues = this.calculation.memberShares.reduce((sum, ms) => sum + (ms.memberValue || 0), 0);
+      const calculatedAmount = (totalMemberValues * this.distributionPercentage) / 100;
+      // Cap at liquid cash available
+      this.newPayoutAmount = Math.min(calculatedAmount, this.liquidity.liquidCash);
+    }
+  }
+
+  getEstimatedDistributionTotal(): number {
+    if (!this.calculation) return 0;
+    const totalMemberValues = this.calculation.memberShares.reduce((sum, ms) => sum + (ms.memberValue || 0), 0);
+    return (totalMemberValues * this.distributionPercentage) / 100;
+  }
+
+  onMemberSelectionChange() {
+    // Reset guarantor liabilities
+    this.guarantorLiabilities = [];
+    this.totalGuarantorLiability = 0;
+    this.payoutPreview = null;
+    
+    // When member is selected for individual withdrawal, load their guarantor liabilities
+    if (this.newPayoutMemberId) {
+      // Load guarantor liabilities
+      this.api.getGuarantorLiabilities(this.newPayoutMemberId).subscribe({
+        next: (liabilities) => {
+          this.guarantorLiabilities = liabilities;
+          this.totalGuarantorLiability = liabilities.reduce((sum, l) => sum + l.memberLiability, 0);
+          
+          // Set default amount after liabilities are loaded
+          if (this.calculation) {
+            const memberShare = this.calculation.memberShares.find((ms: MemberShare) => ms.memberId === this.newPayoutMemberId);
+            if (memberShare) {
+              this.newPayoutAmount = this.getMaxWithdrawable(memberShare);
+            }
+          }
+        },
+        error: () => {
+          this.guarantorLiabilities = [];
+          this.totalGuarantorLiability = 0;
+          
+          // Still set default amount
+          if (this.calculation) {
+            const memberShare = this.calculation.memberShares.find((ms: MemberShare) => ms.memberId === this.newPayoutMemberId);
+            if (memberShare) {
+              this.newPayoutAmount = this.getMaxWithdrawable(memberShare);
+            }
+          }
+        }
+      });
+    }
+  }
+
+  getMaxWithdrawable(memberShare: MemberShare): number {
+    // Max withdrawable is the minimum of:
+    // 1. Member's estimated value
+    // 2. Available liquid cash
+    // 3. Member's value minus their guarantor liabilities (must retain enough to cover guarantees)
+    const memberValue = memberShare.memberValue || 0;
+    const liquidCash = this.liquidity?.liquidCash || 0;
+    const maxAfterGuarantorLiability = Math.max(0, memberValue - this.totalGuarantorLiability);
+    
+    return Math.min(memberValue, liquidCash, maxAfterGuarantorLiability);
+  }
+
   previewPayout() {
-    if (!this.newPayoutAmount || this.newPayoutAmount <= 0) {
-      this.toast.error('Please enter a valid amount');
-      return;
+    // For ownership-based distribution, amount is calculated automatically
+    if (!this.useOwnershipDistribution || this.newPayoutType === 'INDIVIDUAL_WITHDRAWAL') {
+      if (!this.newPayoutAmount || this.newPayoutAmount <= 0) {
+        this.toast.error('Please enter a valid amount');
+        return;
+      }
     }
 
-    if (this.newPayoutType === 'INDIVIDUAL_WITHDRAWAL' && !this.newPayoutMemberId) {
-      this.toast.error('Please select a member');
-      return;
+    if (this.newPayoutType === 'INDIVIDUAL_WITHDRAWAL') {
+      if (!this.newPayoutMemberId) {
+        this.toast.error('Please select a member');
+        return;
+      }
+      
+      // Validate against member's estimated value
+      if (this.calculation) {
+        const memberShare = this.calculation.memberShares.find((ms: MemberShare) => ms.memberId === this.newPayoutMemberId);
+        if (memberShare) {
+          if (this.newPayoutAmount && this.newPayoutAmount > memberShare.memberValue) {
+            this.toast.error(`Amount exceeds member's estimated value (KES ${memberShare.memberValue.toLocaleString()})`);
+            return;
+          }
+          
+          // Validate against guarantor liabilities
+          if (this.totalGuarantorLiability > 0 && this.newPayoutAmount) {
+            const remainingAfterWithdrawal = memberShare.memberValue - this.newPayoutAmount;
+            if (remainingAfterWithdrawal < this.totalGuarantorLiability) {
+              const maxWithdrawable = Math.max(0, memberShare.memberValue - this.totalGuarantorLiability);
+              this.toast.error(
+                `Member is a guarantor for loans with total liability of KES ${this.totalGuarantorLiability.toLocaleString()}. ` +
+                `Maximum withdrawable is KES ${maxWithdrawable.toLocaleString()}.`
+              );
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // For non-ownership mode, validate against liquid cash
+    if (!this.useOwnershipDistribution && this.newPayoutType !== 'INDIVIDUAL_WITHDRAWAL') {
+      if (this.liquidity && this.newPayoutAmount && this.newPayoutAmount > this.liquidity.liquidCash) {
+        this.toast.error(`Amount exceeds available liquid cash (KES ${this.liquidity.liquidCash.toLocaleString()})`);
+        return;
+      }
     }
 
     this.loadingPreview.set(true);
     const request: PayoutPreviewRequest = {
       payoutType: this.newPayoutType,
-      amount: this.newPayoutAmount,
-      memberId: this.newPayoutMemberId || undefined
+      amount: this.newPayoutAmount || undefined,
+      memberId: this.newPayoutMemberId || undefined,
+      useOwnershipDistribution: this.useOwnershipDistribution,
+      distributionPercentage: this.useOwnershipDistribution ? this.distributionPercentage : undefined
     };
 
     this.api.previewPayout(request).subscribe({
@@ -263,7 +399,9 @@ export class SharesComponent implements OnInit {
       payoutType: this.newPayoutType,
       amount: this.newPayoutAmount!,
       description: this.newPayoutDescription || undefined,
-      memberId: this.newPayoutMemberId || undefined
+      memberId: this.newPayoutMemberId || undefined,
+      useOwnershipDistribution: this.useOwnershipDistribution,
+      distributionPercentage: this.useOwnershipDistribution ? this.distributionPercentage : undefined
     };
 
     this.api.createPayout(request).subscribe({

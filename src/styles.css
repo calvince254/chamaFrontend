@@ -3896,6 +3896,43 @@ table.data-table.compact td {
   font-weight: 600;
 }
 
+/* Sub-tabs (smaller inline tabs within cards) */
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.sub-tab {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sub-tab:hover {
+  background: #f5f7f6;
+  color: var(--color-text);
+}
+
+.sub-tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.sub-tab.active .badge {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
 /* Contribution Progress */
 .contribution-progress {
   font-size: 10px;
@@ -7174,6 +7211,11 @@ tr.overdue {
   color: #6b7280;
 }
 
+.status-badge.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .arrears-badge {
   display: inline-flex;
   align-items: center;
@@ -7214,6 +7256,11 @@ tr.overdue {
 .action-btn.action-btn-danger:hover {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.action-btn.action-btn-warning:hover {
+  background: #fef3c7;
+  color: #d97706;
 }
 
 .action-btn app-icon {
@@ -7533,6 +7580,28 @@ tr.overdue {
 
 .reject-info strong {
   color: var(--color-text);
+}
+
+/* Reset Password Info */
+.reset-password-info {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #fef3c7;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.reset-password-info p {
+  margin: 0 0 8px 0;
+}
+
+.reset-password-info p:last-child {
+  margin-bottom: 0;
+}
+
+.reset-password-info .text-muted {
+  color: #92400e;
+  font-size: 12px;
 }
 
 /* Success Button */
@@ -7855,28 +7924,28 @@ tr.overdue {
 /* Audit Filters */
 .audit-filters {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   margin-bottom: 12px;
 }
 
-.filter-group {
+.audit-filters .filter-group {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.filter-group label {
+.audit-filters .filter-group label {
   font-size: 8px;
   color: var(--color-text-muted);
 }
 
-.filter-group select,
-.filter-group input[type="date"] {
+.audit-filters .filter-group select,
+.audit-filters .filter-group input[type="date"] {
   padding: 5px 8px;
   font-size: 10px;
   border: 1px solid var(--color-border);
@@ -7885,13 +7954,13 @@ tr.overdue {
   min-width: 90px;
 }
 
-.filter-to {
+.audit-filters .filter-to {
   font-size: 10px;
   color: var(--color-text-muted);
-  padding-top: 12px;
+  padding-bottom: 6px;
 }
 
-.btn-reset-link {
+.audit-filters .btn-reset-link {
   background: none;
   border: none;
   color: var(--color-text-muted);
@@ -7901,7 +7970,7 @@ tr.overdue {
   margin-left: auto;
 }
 
-.btn-reset-link:hover {
+.audit-filters .btn-reset-link:hover {
   color: var(--color-text);
 }
 
@@ -8443,4 +8512,272 @@ tr.overdue {
   .changes-grid {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* ========================================
+   PAYMENT SETTINGS STYLES
+   ======================================== */
+
+.payment-settings-container {
+  max-width: 900px;
+}
+
+.payment-methods-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-method-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  background: var(--color-surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.payment-method-card.enabled {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.payment-method-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.payment-method-info {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.payment-method-info app-icon {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.payment-method-card.enabled .payment-method-info app-icon {
+  background: var(--color-primary);
+  color: white;
+}
+
+.payment-method-info strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.payment-method-info p {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.payment-method-config {
+  border-top: 1px solid var(--color-border);
+  margin-top: 12px;
+  padding-top: 4px;
+}
+
+.payment-method-config .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 22px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--color-primary);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(18px);
+}
+
+/* Treasurer Devices Table */
+.empty-state-small {
+  text-align: center;
+  padding: 24px;
+  color: var(--color-text-muted);
+}
+
+.empty-state-small app-icon {
+  font-size: 32px;
+  opacity: 0.5;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.empty-state-small p {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+}
+
+.empty-state-small small {
+  font-size: 10px;
+}
+
+
+/* Payment Method Selection */
+.payment-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.payment-method-option {
+  display: block;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  transition: all 0.15s ease;
+}
+
+.payment-method-option:hover {
+  border-color: var(--color-primary-light);
+  background: var(--color-bg);
+}
+
+.payment-method-option.selected {
+  border-color: var(--color-primary);
+  background: rgba(16, 124, 16, 0.05);
+}
+
+.payment-method-option input[type="radio"] {
+  display: none;
+}
+
+.payment-method-option .method-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.payment-method-option app-icon {
+  font-size: 20px;
+  color: var(--color-primary);
+}
+
+.payment-method-option .method-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.payment-method-option .method-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+.payment-method-option .method-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* Payment Instructions */
+.payment-instructions {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #e0f2fe;
+  border-radius: var(--radius-md);
+  border: 1px solid #7dd3fc;
+}
+
+.payment-instructions app-icon {
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+.payment-instructions strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #0369a1;
+  font-size: 11px;
+}
+
+.payment-instructions ol {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 11px;
+  color: #0369a1;
+}
+
+.payment-instructions ol li {
+  margin-bottom: 2px;
+}
+
+/* Payment Status in Modal */
+.payment-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.payment-status.status-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.payment-status.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.payment-status app-icon {
+  font-size: 18px;
 }

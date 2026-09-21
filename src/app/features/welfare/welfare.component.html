@@ -59,9 +59,7 @@
             <th>Collection</th>
             <th>Members Paid</th>
             <th>Status</th>
-            @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
-              <th>Actions</th>
-            }
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -85,13 +83,11 @@
                 }
               </td>
               <td><span class="badge" [ngClass]="e.status === 'CLOSED' ? 'badge-success' : 'badge-warning'">{{ e.status }}</span></td>
-              @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
-                <td>
-                  <button class="btn btn-sm btn-ghost" (click)="openPaymentsModal(e)" onclick="console.log()">
-                    <app-icon name="users"></app-icon> Payments
-                  </button>
-                </td>
-              }
+              <td>
+                <button class="btn btn-sm btn-ghost" (click)="openPaymentsModal(e)">
+                  <app-icon name="users"></app-icon> Payments
+                </button>
+              </td>
             </tr>
           }
         </tbody>
@@ -152,7 +148,7 @@
           </div>
           <div class="form-field">
             <label>Amount Per Member (KES) *</label>
-            <input type="number" [(ngModel)]="editing.amountPerMember" name="amountPerMember" />
+            <input type="number" [(ngModel)]="editing.amountPerMember" name="amountPerMember" required min="1" placeholder="Enter amount" />
           </div>
           <div class="form-field full-width">
             <label>Description</label>
@@ -188,7 +184,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="close()" [disabled]="saving()">Cancel</button>
-        <button class="btn btn-primary" (click)="save()" [disabled]="saving()">
+        <button class="btn btn-primary" (click)="save()" [disabled]="saving() || !editing.memberId || !editing.eventType || !editing.amountPerMember || editing.amountPerMember <= 0">
           {{ saving() ? 'Saving...' : 'Report Event' }}
         </button>
       </div>
@@ -199,7 +195,7 @@
 <!-- Payments Tracking Modal -->
 @if (showPaymentsModal && selectedEvent) {
   <div class="modal-backdrop" (click)="closePaymentsModal()">
-    <div class="modal modal-lg" (click)="$event.stopPropagation()">
+    <div class="modal modal-xl" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div>
           <h3>Payment Tracking</h3>
@@ -238,10 +234,10 @@
             <p>No contributions found for this event.</p>
           </div>
         } @else {
-          <!-- Mark All Paid Button -->
-          @if (unpaidContributions.length > 0) {
+          <!-- Mark All Paid Button (Admin only) -->
+          @if (unpaidContributions.length > 0 && session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
             <div class="action-bar">
-              <button class="btn btn-sm btn-primary" (click)="markAllPaid()" [disabled]="updatingPayment()" onclick="console.log()">
+              <button class="btn btn-sm btn-primary" (click)="markAllPaid()" [disabled]="updatingPayment()">
                 <app-icon name="check"></app-icon> Mark All as Paid
               </button>
             </div>
@@ -268,6 +264,8 @@
                   <td>
                     @if (c.paid) {
                       <span class="badge badge-success">Paid</span>
+                    } @else if (c.hasPendingClaim) {
+                      <span class="badge badge-info">Awaiting Confirmation</span>
                     } @else {
                       <span class="badge badge-warning">Pending</span>
                     }
@@ -281,22 +279,40 @@
                   </td>
                   <td>
                     @if (c.paid) {
-                      <button 
-                        class="btn btn-sm btn-ghost"
-                        (click)="togglePayment(c)" 
-                        [disabled]="updatingPayment()">
-                        <app-icon name="close"></app-icon> Mark Unpaid
-                      </button>
+                      @if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
+                        <button 
+                          class="btn btn-sm btn-ghost"
+                          (click)="togglePayment(c)" 
+                          [disabled]="updatingPayment()">
+                          <app-icon name="close"></app-icon> Mark Unpaid
+                        </button>
+                      }
                       @if (c.paidFromContribution) {
                         <span class="badge badge-info" style="margin-left: 4px; font-size: 8px;">From {{ c.sourceContributionTypeName }}</span>
                       }
-                    } @else {
+                    } @else if (c.hasPendingClaim) {
+                      @if (session.can('VERIFY_PAYMENTS') && c.payableId) {
+                        <button class="btn btn-sm btn-success" (click)="confirmPayment(c.payableId!)">
+                          <app-icon name="check"></app-icon> Confirm
+                        </button>
+                      } @else {
+                        <span class="text-muted">Awaiting Confirmation</span>
+                      }
+                    } @else if (isOwnContribution(c)) {
+                      <button 
+                        class="btn btn-sm btn-primary"
+                        (click)="openWelfarePaymentModal(c)">
+                        <app-icon name="check"></app-icon> Pay
+                      </button>
+                    } @else if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
                       <button 
                         class="btn btn-sm btn-success"
                         (click)="openPaymentMethodModal(c)" 
                         [disabled]="updatingPayment()">
-                        <app-icon name="check"></app-icon> Mark Paid
+                        <app-icon name="check"></app-icon> Record
                       </button>
+                    } @else {
+                      <span class="text-muted">—</span>
                     }
                   </td>
                 </tr>
@@ -422,9 +438,116 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeFundPaymentModal()" [disabled]="processingFundPayment()">Cancel</button>
         <button class="btn btn-primary" 
-                (click)="confirmPayment()" 
+                (click)="submitFundPayment()" 
                 [disabled]="processingFundPayment() || (paymentMethod === 'CONTRIBUTION_FUND' && (!selectedContributionTypeId || !hasSufficientBalance()))">
           {{ processingFundPayment() ? 'Processing...' : 'Confirm Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Member Welfare Payment Modal (Unified Payment) -->
+@if (showWelfarePaymentModal && contributionToPay) {
+  <div class="modal-backdrop" (click)="closeWelfarePaymentModal()">
+    <div class="modal" style="max-width: 480px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay Welfare Contribution</h3>
+        <button class="icon-btn" (click)="closeWelfarePaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Payment Info -->
+        <div class="payment-info">
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Event Type:</span>
+            <span style="font-weight: 600;">{{ selectedEvent?.eventType }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Beneficiary:</span>
+            <span style="font-weight: 500;">{{ selectedEvent?.memberName }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Amount Due:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ (contributionToPay.amountExpected - (contributionToPay.amountPaid || 0)) | number }}</span>
+          </div>
+        </div>
+
+        @if (loadingWelfarePaymentMethods()) {
+          <div style="text-align: center; padding: 12px;">
+            <div class="spinner-sm"></div>
+          </div>
+        } @else if (welfarePaymentMethods) {
+          <!-- Payment Method Selection -->
+          <div class="form-field">
+            <label>Payment Method *</label>
+            <div class="payment-methods">
+              @if (welfarePaymentMethods.manualEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'MANUAL'">
+                  <input type="radio" name="welfarePaymentMethod" value="MANUAL" [(ngModel)]="selectedWelfarePaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="file-text"></app-icon>
+                    <div>
+                      <div class="method-title">Manual Verification</div>
+                      <div class="method-desc">Enter M-PESA or bank reference</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (welfarePaymentMethods.inAppSmsEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'IN_APP_SMS'">
+                  <input type="radio" name="welfarePaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedWelfarePaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="message-square"></app-icon>
+                    <div>
+                      <div class="method-title">SMS Verification</div>
+                      <div class="method-desc">Capture confirmation SMS</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (welfarePaymentMethods.stkPushEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'STK_PUSH'">
+                  <input type="radio" name="welfarePaymentMethod" value="STK_PUSH" [(ngModel)]="selectedWelfarePaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="smartphone"></app-icon>
+                    <div>
+                      <div class="method-title">M-PESA STK Push</div>
+                      <div class="method-desc">Receive prompt on your phone</div>
+                    </div>
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Reference code for MANUAL method -->
+          @if (selectedWelfarePaymentMethod === 'MANUAL') {
+            <div class="form-field">
+              <label>Payment Reference Number *</label>
+              <input type="text" [(ngModel)]="welfarePaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+            </div>
+          }
+          
+          <!-- Phone number for STK Push -->
+          @if (selectedWelfarePaymentMethod === 'STK_PUSH') {
+            <div class="form-field">
+              <label>Phone Number *</label>
+              <input type="tel" [(ngModel)]="welfarePaymentPhoneNumber" placeholder="e.g., 254712345678" />
+              <small style="color: var(--color-text-muted);">M-PESA registered phone number</small>
+            </div>
+          }
+        }
+
+        <div class="info-box" style="margin-top: 16px; padding: 12px; background: var(--color-info-subtle); border-radius: 8px; font-size: 12px;">
+          <app-icon name="info" style="margin-right: 6px; color: var(--color-info);"></app-icon>
+          Your payment will be submitted for admin verification before being marked as paid.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeWelfarePaymentModal()" [disabled]="submittingWelfarePayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitWelfarePayment()" [disabled]="!canSubmitWelfarePayment() || submittingWelfarePayment()">
+          {{ submittingWelfarePayment() ? 'Submitting...' : 'Submit Payment' }}
         </button>
       </div>
     </div>

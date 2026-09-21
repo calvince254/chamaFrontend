@@ -52,22 +52,25 @@ export class SessionService {
         this.user.set(restored.user);
         this.permissionCodes.set(new Set(restored.codes));
         this._sessionTimeoutMinutes.set(restored.sessionTimeoutMinutes);
+        this._mustChangePassword.set(restored.mustChangePassword);
       }
     }
   }
 
-  private restore(): { user: CurrentUser; codes: string[]; sessionTimeoutMinutes: number } | null {
+  private restore(): { user: CurrentUser; codes: string[]; sessionTimeoutMinutes: number; mustChangePassword: boolean } | null {
     if (!isPlatformBrowser(this.platformId)) return null;
     try {
       const raw = localStorage.getItem('chama.currentUser');
       const token = localStorage.getItem('chama.token');
       const codesRaw = localStorage.getItem('chama.permissionCodes');
       const timeoutRaw = localStorage.getItem('chama.sessionTimeoutMinutes');
+      const mustChangeRaw = localStorage.getItem('chama.mustChangePassword');
       if (raw && token) {
         const user = JSON.parse(raw) as CurrentUser;
         const codes = codesRaw ? JSON.parse(codesRaw) as string[] : [];
         const sessionTimeoutMinutes = timeoutRaw ? parseInt(timeoutRaw, 10) : 0;
-        return { user, codes, sessionTimeoutMinutes };
+        const mustChangePassword = mustChangeRaw === 'true';
+        return { user, codes, sessionTimeoutMinutes, mustChangePassword };
       }
     } catch (e) {
       console.error('Failed to restore session:', e);
@@ -75,7 +78,7 @@ export class SessionService {
     return null;
   }
 
-  private persist(user: CurrentUser | null, token?: string, codes?: string[], sessionTimeoutMinutes?: number) {
+  private persist(user: CurrentUser | null, token?: string, codes?: string[], sessionTimeoutMinutes?: number, mustChangePassword?: boolean) {
     if (!isPlatformBrowser(this.platformId)) return;
     try {
       if (user && token) {
@@ -83,11 +86,13 @@ export class SessionService {
         localStorage.setItem('chama.token', token);
         localStorage.setItem('chama.permissionCodes', JSON.stringify(codes || []));
         localStorage.setItem('chama.sessionTimeoutMinutes', String(sessionTimeoutMinutes || 0));
+        localStorage.setItem('chama.mustChangePassword', String(mustChangePassword || false));
       } else {
         localStorage.removeItem('chama.currentUser');
         localStorage.removeItem('chama.token');
         localStorage.removeItem('chama.permissionCodes');
         localStorage.removeItem('chama.sessionTimeoutMinutes');
+        localStorage.removeItem('chama.mustChangePassword');
       }
     } catch (e) {
       console.error('Failed to persist session:', e);
@@ -120,11 +125,12 @@ export class SessionService {
         
         const codes = response.permissionCodes || [];
         const timeout = response.sessionTimeoutMinutes || 0;
+        const mustChange = response.mustChangePassword || false;
         this.user.set(user);
         this.permissionCodes.set(new Set(codes));
-        this._mustChangePassword.set(response.mustChangePassword || false);
+        this._mustChangePassword.set(mustChange);
         this._sessionTimeoutMinutes.set(timeout);
-        this.persist(user, response.token, codes, timeout);
+        this.persist(user, response.token, codes, timeout, mustChange);
       }),
       map(() => true),
       catchError(error => {
@@ -157,6 +163,10 @@ export class SessionService {
     }).pipe(
       tap(() => {
         this._mustChangePassword.set(false);
+        // Update localStorage to clear the flag
+        if (isPlatformBrowser(this.platformId)) {
+          localStorage.setItem('chama.mustChangePassword', 'false');
+        }
       }),
       map(() => true),
       catchError(error => {
@@ -261,6 +271,14 @@ export class SessionService {
 
   isLoggedIn(): boolean {
     return !!this.user() && !!this.getToken();
+  }
+
+  /**
+   * Get the current user's member ID
+   */
+  getMemberId(): number | null {
+    const u = this.user();
+    return u ? u.id : null;
   }
 
   /**

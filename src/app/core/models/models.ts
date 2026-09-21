@@ -137,6 +137,8 @@ export interface Contribution {
   penaltyApplied?: boolean;
   contributionTypeId?: number;
   contributionTypeName?: string;
+  hasPendingClaim?: boolean; // True if there's a payment claim awaiting admin confirmation
+  payableId?: number; // ID of the Payable record for confirming payments
 }
 
 export interface Loan {
@@ -150,6 +152,8 @@ export interface Loan {
   guarantors: string[];
   disbursedOn: string | null;
   nextDueDate: string | null;
+  hasPendingClaim?: boolean;
+  payableId?: number; // ID of the Payable record for confirming payments
 }
 
 export interface MerryGoRoundRound {
@@ -208,6 +212,9 @@ export interface WelfareContribution {
   sourceContributionTypeName?: string;
   sourceContributionId?: number;
   paymentMethod?: 'CASH' | 'CONTRIBUTION_FUND';
+  // Payment tracking
+  hasPendingClaim?: boolean;
+  payableId?: number; // ID of the Payable record for confirming payments
 }
 
 export interface Investment {
@@ -304,6 +311,9 @@ export interface RegistrationFeePayment {
   rejectionReason?: string;
   rejectedAt?: string;
   rejectedByName?: string;
+  // Payment tracking (for unified payment flow)
+  hasPendingClaim?: boolean;
+  payableId?: number;
 }
 
 export interface RegistrationFeeInfo {
@@ -339,6 +349,8 @@ export interface Fine {
   imposedByName?: string;
   paidAt?: string;
   paidAmount?: number;
+  hasPendingClaim?: boolean; // True if there's a payment claim awaiting admin confirmation
+  payableId?: number; // ID of the Payable record for confirming payments
 }
 
 export interface ImposeFineRequest {
@@ -370,7 +382,7 @@ export interface Penalty {
   memberId: number;
   memberName: string;
   memberNo: string;
-  penaltyType: 'MEETING_ABSENT' | 'LATE_PAYMENT';
+  penaltyType: 'MEETING_ABSENT' | 'MEETING_LATE_ARRIVAL' | 'CONTRIBUTION_LATE_PAYMENT' | 'LATE_PAYMENT';
   reason: string;
   amount: number;
   paidAmount: number;
@@ -383,6 +395,8 @@ export interface Penalty {
   periodMonth?: string;
   imposedAt: string;
   paidAt?: string;
+  hasPendingClaim?: boolean; // True if there's a payment claim awaiting admin confirmation
+  payableId?: number; // ID of the Payable record for confirming payments
 }
 
 // ==================== Loan Products & Approval Levels ====================
@@ -449,6 +463,8 @@ export interface LoanPenalty {
   waivedAt?: string;
   waivedByName?: string;
   waiveReason?: string;
+  hasPendingClaim?: boolean; // True if there's a payment claim awaiting admin confirmation
+  payableId?: number; // ID of the Payable record for confirming payments
 }
 
 // ==================== Loan Eligibility ====================
@@ -570,6 +586,9 @@ export interface LoanExtended {
   processingFeePaid?: number;
   netDisbursementAmount?: number;
   processingFeeDeductionType?: 'UPFRONT' | 'ON_REPAYMENT';
+  hasPendingClaim?: boolean;
+  payableId?: number; // ID of the Payable record for confirming payments
+  pendingPaymentAmount?: number; // Amount awaiting confirmation
 }
 
 export interface LoanApprovalHistory {
@@ -635,6 +654,16 @@ export interface Liquidity {
   calculatedAt: string;
 }
 
+export interface GuarantorLiability {
+  loanId: number;
+  borrowerName: string;
+  loanAmount: number;
+  balanceOutstanding: number;
+  memberLiability: number; // This member's share of the outstanding balance
+  guarantorCount: number;
+  loanStatus: string;
+}
+
 export interface PayoutMemberPreview {
   memberId: number;
   memberName: string;
@@ -694,12 +723,16 @@ export interface CreatePayoutRequest {
   amount: number;
   description?: string;
   memberId?: number;
+  useOwnershipDistribution?: boolean;
+  distributionPercentage?: number;
 }
 
 export interface PayoutPreviewRequest {
   payoutType: 'FULL_DISTRIBUTION' | 'PARTIAL_DIVIDEND' | 'INDIVIDUAL_WITHDRAWAL';
   amount?: number;
   memberId?: number;
+  useOwnershipDistribution?: boolean;
+  distributionPercentage?: number;
 }
 
 
@@ -848,6 +881,8 @@ export interface ContributionTopUp {
   rejectionReason?: string;
   paymentReference?: string;
   notes?: string;
+  targetMonth?: string;  // Format: YYYY-MM
+  description?: string;  // Description for the top-up
 }
 
 // ==================== Contribution Balance (for welfare fund payment) ====================
@@ -856,4 +891,100 @@ export interface ContributionBalance {
   contributionTypeId: number;
   contributionTypeName: string;
   balance: number;
+}
+
+
+// ==================== Payment Settings ====================
+
+export type PaymentMethod = 'IN_APP_SMS' | 'STK_PUSH' | 'MANUAL';
+
+export interface PaymentSettings {
+  id?: number;
+  tenantId?: number;
+  
+  // Payment method toggles
+  inAppSmsEnabled: boolean;
+  stkPushEnabled: boolean;
+  manualEnabled: boolean;
+  
+  // STK Push (Daraja) Configuration
+  darajaConsumerKey?: string;
+  darajaConsumerSecret?: string;
+  businessShortCode?: string;
+  lipaNaMpesaPasskey?: string;
+  accountReference?: string;
+  transactionDesc?: string;
+  callbackUrl?: string;
+  
+  // In-App SMS Configuration
+  treasurerPhone?: string;
+  treasurerName?: string;
+  claimExpiryMinutes: number;
+  fallbackMatchWindowMinutes: number;
+  
+  // General Settings
+  smsNotificationsEnabled: boolean;
+  pushNotificationsEnabled: boolean;
+  defaultPaymentMethod?: PaymentMethod;
+}
+
+export interface EnabledPaymentMethods {
+  inAppSmsEnabled: boolean;
+  stkPushEnabled: boolean;
+  manualEnabled: boolean;
+  treasurerPhone?: string;
+  treasurerName?: string;
+  defaultMethod?: PaymentMethod;
+}
+
+export interface TreasurerDevice {
+  id: number;
+  tenantId: number;
+  memberId: number;
+  memberName?: string;
+  deviceId?: string;
+  deviceName?: string;
+  phoneNumber?: string;
+  isActive: boolean;
+  registeredAt: string;
+  lastActiveAt?: string;
+  lastSeenAt?: string;
+  revokedAt?: string;
+  revocationReason?: string;
+}
+
+// ==================== Unified Payment ====================
+
+export interface InitiatePaymentRequest {
+  payableId?: number;
+  paymentType?: 'REGISTRATION_FEE' | 'MEETING_FINE' | 'MGR_FINE' | 'PENALTY' | 'LOAN_PENALTY' | 'CONTRIBUTION' | 'LOAN_REPAYMENT' | 'MGR_CONTRIBUTION' | 'WELFARE_DUE';
+  referenceId?: number;
+  payerMemberId?: number;
+  paymentMethod: PaymentMethod;
+  phoneNumber?: string;
+  referenceCode?: string;
+  amount?: number;
+}
+
+export interface InitiatePaymentResponse {
+  payableId: number;
+  claimId: number;
+  paymentMethod: string;
+  status: string;
+  statusMessage: string;
+  amount: number;
+  checkoutRequestId?: string;
+  merchantRequestId?: string;
+  awaitingVerification: boolean;
+  referenceCode?: string;
+  expiresInSeconds: number;
+}
+
+export interface PaymentMethodOption {
+  code: PaymentMethod;
+  name: string;
+  description: string;
+  icon: string;
+  requiresPhone: boolean;
+  requiresReference: boolean;
 }

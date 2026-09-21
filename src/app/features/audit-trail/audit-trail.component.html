@@ -18,7 +18,7 @@
     <div class="audit-stats-right">
       <div class="stat-label-small">BY MODULE</div>
       @if (statistics.byModule) {
-        <div class="module-bars">
+        <div class="module-bars" style="max-height: 120px; overflow-y: auto;">
           @for (item of getModuleStats(); track item.key) {
             <div class="module-bar-row">
               <span class="module-name">{{ item.key }}</span>
@@ -64,10 +64,12 @@
     </select>
   </div>
   <div class="filter-group">
+    <label>From</label>
     <input type="date" [(ngModel)]="filterStartDate" (ngModelChange)="onFilterChange()" />
   </div>
   <span class="filter-to">to</span>
   <div class="filter-group">
+    <label>To</label>
     <input type="date" [(ngModel)]="filterEndDate" (ngModelChange)="onFilterChange()" />
   </div>
   <button class="btn-reset-link" (click)="clearFilters()">Reset</button>

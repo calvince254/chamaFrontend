@@ -17,21 +17,36 @@
       </div>
     </div>
     <div class="header-actions">
+      <!-- Approve/Reject buttons for pending approvals -->
+      @if (investment.approvalStatus === 'PENDING' && myApproval) {
+        <button type="button" class="btn btn-success" (click)="openApprovalModal('approve')">
+          <app-icon name="check"></app-icon> Approve
+        </button>
+        <button type="button" class="btn btn-danger" (click)="openApprovalModal('reject')">
+          <app-icon name="x"></app-icon> Reject
+        </button>
+      }
       @if (investment.status === 'ACTIVE' && investment.approvalStatus === 'APPROVED') {
         @if (session.can('TOPUP_INVESTMENT')) {
           <button type="button" class="btn btn-secondary" onclick="console.log('topup')" (click)="openTopupModal()">
             <app-icon name="plus-circle"></app-icon> Add Principal
           </button>
         }
-        <button type="button" class="btn btn-secondary" onclick="console.log('update')" (click)="openUpdateValueModal()">
-          <app-icon name="edit-2"></app-icon> Update Value
-        </button>
-        <button type="button" class="btn btn-primary" onclick="console.log('sell')" (click)="openSellModal()">
-          <app-icon name="dollar-sign"></app-icon> Sell
-        </button>
-        <button type="button" class="btn btn-danger" onclick="console.log('writeoff')" (click)="openWriteOffModal()">
-          <app-icon name="x-circle"></app-icon> Write Off
-        </button>
+        @if (session.can('UPDATE_INVESTMENT_VALUE')) {
+          <button type="button" class="btn btn-secondary" onclick="console.log('update')" (click)="openUpdateValueModal()">
+            <app-icon name="edit-2"></app-icon> Update Value
+          </button>
+        }
+        @if (session.can('SELL_INVESTMENT')) {
+          <button type="button" class="btn btn-primary" onclick="console.log('sell')" (click)="openSellModal()">
+            <app-icon name="dollar-sign"></app-icon> Sell
+          </button>
+        }
+        @if (session.can('WRITE_OFF_INVESTMENT')) {
+          <button type="button" class="btn btn-danger" onclick="console.log('writeoff')" (click)="openWriteOffModal()">
+            <app-icon name="x-circle"></app-icon> Write Off
+          </button>
+        }
       }
       @if (session.can('DELETE_INVESTMENT')) {
         <button type="button" class="btn btn-ghost text-danger" onclick="console.log('delete')" (click)="openDeleteModal()">
@@ -241,6 +256,36 @@
           </div>
         </div>
       </div>
+
+      <!-- Approver Votes (for pending approvals) -->
+      @if (investment.approvalStatus === 'PENDING' && approvalList.length > 0) {
+        <div class="card">
+          <div class="card-header">
+            <h3>Approver Votes</h3>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div style="padding:12px;">
+              @for (a of approvalList; track a.id) {
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f2f1;">
+                  <span>{{ a.approverName }}</span>
+                  <span class="badge" [ngClass]="{
+                    'badge-warning': a.decision === 'PENDING',
+                    'badge-success': a.decision === 'APPROVED',
+                    'badge-danger': a.decision === 'REJECTED'
+                  }">{{ a.decision }}</span>
+                </div>
+              }
+            </div>
+            @if (myApproval) {
+              <div style="padding:12px;background:#fffbeb;border-top:1px solid #fef3c7;">
+                <p style="margin:0;color:#92400e;font-size:13px;">
+                  <strong>Your vote is pending.</strong> Use the Approve/Reject buttons above to submit your decision.
+                </p>
+              </div>
+            }
+          </div>
+        </div>
+      }
 
       <!-- Sold/Written Off Info (if applicable) -->
       @if (investment.status === 'SOLD' && investment.soldDate) {
@@ -453,6 +498,51 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeTopupModal()">Cancel</button>
         <button type="submit" class="btn btn-primary" [disabled]="saving || topupForm.amount <= 0">{{ saving ? 'Processing...' : 'Add Principal' }}</button>
+      </div>
+    </form>
+  </div>
+</div>
+}
+
+<!-- APPROVAL MODAL -->
+@if (showApprovalModal && investment) {
+<div class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>{{ approvalAction === 'approve' ? 'Approve' : 'Reject' }} Investment</h3>
+      <button type="button" class="icon-btn" (click)="closeApprovalModal()"><app-icon name="close"></app-icon></button>
+    </div>
+    <form (ngSubmit)="submitApproval()">
+      <div class="modal-body">
+        <p><strong>{{ investment.name }}</strong></p>
+        <p class="text-muted">Amount: KES {{ investment.amountInvested | number }}</p>
+        @if (approvalAction === 'approve') {
+          <div class="alert alert-info" style="margin-bottom:16px;">
+            You are about to approve this investment proposal.
+          </div>
+        } @else {
+          <div class="alert alert-warning" style="margin-bottom:16px;">
+            You are about to reject this investment proposal. Please provide a reason.
+          </div>
+        }
+        <div class="form-field">
+          <label>{{ approvalAction === 'approve' ? 'Comment (optional)' : 'Reason for rejection' }} {{ approvalAction === 'reject' ? '*' : '' }}</label>
+          <textarea [(ngModel)]="approvalComment" name="comment" rows="3" 
+            [placeholder]="approvalAction === 'approve' ? 'Optional comment about your approval' : 'Please explain why you are rejecting this investment'"
+            [required]="approvalAction === 'reject'"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" (click)="closeApprovalModal()">Cancel</button>
+        @if (approvalAction === 'approve') {
+          <button type="submit" class="btn btn-success" [disabled]="saving">
+            {{ saving ? 'Processing...' : 'Confirm Approval' }}
+          </button>
+        } @else {
+          <button type="submit" class="btn btn-danger" [disabled]="saving || !approvalComment.trim()">
+            {{ saving ? 'Processing...' : 'Confirm Rejection' }}
+          </button>
+        }
       </div>
     </form>
   </div>

@@ -58,6 +58,12 @@ export class LoginComponent implements OnInit {
             this.idleService.startWatching(timeout);
           }
           
+          // Check if user must change password (first login or admin reset)
+          if (this.session.mustChangePassword()) {
+            this.router.navigate(['/change-password'], { queryParams: { required: 'true' } });
+            return;
+          }
+          
           // Route based on role
           const user = this.session.currentUser();
           console.log('Logged in user:', user);

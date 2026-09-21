@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Contribution, Member, ContributionType, Penalty, PageResponse, ContributionTopUp } from '../../core/models/models';
+import { Contribution, Member, ContributionType, Penalty, PageResponse, ContributionTopUp, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
@@ -139,7 +139,7 @@ interface AvailableMember {
 
     /* Table enhancements */
     .col-amount { text-align: right !important; }
-    .col-action { text-align: right !important; width: 110px; }
+    .col-action { text-align: right !important; width: 220px; white-space: nowrap; }
     .member-name { font-weight: 500; font-size: 10.5px; }
     .member-no { font-size: 9px; color: var(--color-text-muted); }
     .text-danger { color: var(--color-danger) !important; }
@@ -232,15 +232,38 @@ export class ContributionsComponent implements OnInit {
   saving = signal(false);
   generating = signal(false);
   
-  // Payment form
+  // Payment form (admin record payment)
   showPaymentForm = false;
   payingContribution: Contribution | null = null;
   paymentAmount: number = 0;
+  
+  // Member contribution payment (with payment method selection)
+  showMemberContributionPaymentModal = false;
+  contributionToPayMember: Contribution | null = null;
+  selectedContributionPaymentMethod: 'MANUAL' | 'STK_PUSH' | 'IN_APP_SMS' = 'MANUAL';
+  contributionPaymentReferenceCode = '';
+  contributionPaymentPhoneNumber = '';
+  contributionPaymentAmount = 0;
+  submittingContributionPayment = signal(false);
+  contributionPaymentResponse: InitiatePaymentResponse | null = null;
+  contributionPaymentMethods: EnabledPaymentMethods | null = null;
+  loadingContributionPaymentMethods = signal(false);
   
   // Penalty payment
   showPenaltyPaymentForm = false;
   payingPenalty: Penalty | null = null;
   penaltyPaymentAmount: number = 0;
+  
+  // Member penalty payment (with payment method selection)
+  showMemberPenaltyPaymentModal = false;
+  penaltyToPayMember: Penalty | null = null;
+  selectedPenaltyPaymentMethod: 'MANUAL' | 'STK_PUSH' | 'IN_APP_SMS' = 'MANUAL';
+  penaltyPaymentReferenceCode = '';
+  penaltyPaymentPhoneNumber = '';
+  submittingPenaltyPayment = signal(false);
+  penaltyPaymentResponse: InitiatePaymentResponse | null = null;
+  penaltyPaymentMethods: EnabledPaymentMethods | null = null;
+  loadingPenaltyPaymentMethods = signal(false);
 
   // Generate modal
   showGenerateModal = false;
@@ -268,9 +291,15 @@ export class ContributionsComponent implements OnInit {
     contributionTypeId: null as number | null,
     amount: 0,
     paymentReference: '',
-    notes: ''
+    notes: '',
+    targetMonth: '',
+    description: ''
   };
   submittingTopUp = signal(false);
+
+  // Track available members count for current filter month (to control Generate button visibility)
+  availableMembersForFilterMonth = signal(0);
+  loadingAvailableMembersCount = signal(false);
 
   constructor(
     private api: ApiService,
@@ -354,12 +383,19 @@ export class ContributionsComponent implements OnInit {
     
     this.api.getContributionsPaginated(this.currentPage, this.pageSize, this.selectedContributionTypeId, this.selectedMonth, status).subscribe({
       next: (response: PageResponse<Contribution>) => {
+        console.log('=== Contributions API Response ===');
+        console.log('Total:', response.totalElements);
+        response.content.forEach(c => {
+          console.log(`  ${c.memberName}: hasPendingClaim=${c.hasPendingClaim}, payableId=${c.payableId}, status=${c.status}`);
+        });
         this.contributions = response.content;
         this.totalElements = response.totalElements;
         this.totalPages = response.totalPages;
         this.isFirst = response.first;
         this.isLast = response.last;
         this.loading.set(false);
+        // Also check available members count for this month
+        this.loadAvailableMembersCount();
       },
       error: (err) => {
         this.loading.set(false);
@@ -368,6 +404,41 @@ export class ContributionsComponent implements OnInit {
         }
       }
     });
+  }
+
+  /**
+   * Load the count of members who don't have contributions for the current filter month.
+   * This determines whether the "Generate" button should be visible.
+   */
+  loadAvailableMembersCount() {
+    if (!this.selectedContributionTypeId) {
+      this.availableMembersForFilterMonth.set(0);
+      return;
+    }
+    
+    this.loadingAvailableMembersCount.set(true);
+    this.api.getAvailableMembersForContribution(this.selectedContributionTypeId, this.selectedMonth).subscribe({
+      next: (members) => {
+        this.availableMembersForFilterMonth.set(members.length);
+        this.loadingAvailableMembersCount.set(false);
+      },
+      error: () => {
+        this.availableMembersForFilterMonth.set(0);
+        this.loadingAvailableMembersCount.set(false);
+      }
+    });
+  }
+
+  /**
+   * Check if the Generate button should be visible:
+   * - User has permission
+   * - A contribution type is selected
+   * - There are members without contributions for the selected month
+   */
+  canShowGenerateButton(): boolean {
+    return this.session.can('GENERATE_CONTRIBUTIONS') 
+        && this.selectedContributionTypeId !== null 
+        && this.availableMembersForFilterMonth() > 0;
   }
 
   onFilterChange() {
@@ -457,7 +528,8 @@ export class ContributionsComponent implements OnInit {
     this.loadingPenalties.set(true);
     const status = this.penaltyStatusFilter === 'ALL' ? undefined : this.penaltyStatusFilter;
     
-    this.api.getPenaltiesPaginated(this.penaltyPage, this.pageSize, status).subscribe({
+    // Only load CONTRIBUTION_LATE_PAYMENT penalties in the Contributions page
+    this.api.getPenaltiesPaginated(this.penaltyPage, this.pageSize, status, undefined, 'CONTRIBUTION_LATE_PAYMENT').subscribe({
       next: (response: PageResponse<Penalty>) => {
         this.penalties = response.content;
         this.penaltyTotalElements = response.totalElements;
@@ -619,7 +691,11 @@ export class ContributionsComponent implements OnInit {
       next: (res) => {
         this.generating.set(false);
         this.closeGenerateModal();
-        this.toast.success('Generated', `${res.created} contribution records created for ${this.generateMonth}`);
+        if (res.created === 0) {
+          this.toast.info('Already generated', `Contributions for ${this.generateMonth} already exist for all selected members. No new records created.`);
+        } else {
+          this.toast.success('Generated', `${res.created} contribution records created for ${this.generateMonth}`);
+        }
         // Update the filter to show the generated month
         this.selectedMonth = this.generateMonth;
         this.loadContributions();
@@ -632,6 +708,124 @@ export class ContributionsComponent implements OnInit {
   }
 
   // ==================== Payment Recording ====================
+  
+  /**
+   * Check if current user owns this contribution
+   */
+  isOwnContribution(c: Contribution): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser && c.memberId ? c.memberId === currentUser.id : false;
+  }
+
+  /**
+   * Check if contribution can be paid (not PAID)
+   */
+  canPayContribution(c: Contribution): boolean {
+    return c.status !== 'PAID';
+  }
+
+  /**
+   * Open member contribution payment modal
+   */
+  openMemberContributionPaymentModal(c: Contribution) {
+    this.contributionToPayMember = c;
+    this.selectedContributionPaymentMethod = 'MANUAL';
+    this.contributionPaymentReferenceCode = '';
+    this.contributionPaymentPhoneNumber = '';
+    this.contributionPaymentAmount = c.amountDue - c.amountPaid;
+    this.contributionPaymentResponse = null;
+    this.showMemberContributionPaymentModal = true;
+    this.loadContributionPaymentMethods();
+  }
+
+  closeMemberContributionPaymentModal() {
+    this.showMemberContributionPaymentModal = false;
+    this.contributionToPayMember = null;
+    this.contributionPaymentResponse = null;
+  }
+
+  loadContributionPaymentMethods() {
+    this.loadingContributionPaymentMethods.set(true);
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.contributionPaymentMethods = methods;
+        if (methods.manualEnabled) {
+          this.selectedContributionPaymentMethod = 'MANUAL';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedContributionPaymentMethod = 'IN_APP_SMS';
+        } else if (methods.stkPushEnabled) {
+          this.selectedContributionPaymentMethod = 'STK_PUSH';
+        }
+        this.loadingContributionPaymentMethods.set(false);
+      },
+      error: () => {
+        this.loadingContributionPaymentMethods.set(false);
+      }
+    });
+  }
+
+  canSubmitContributionPayment(): boolean {
+    if (!this.contributionToPayMember) return false;
+    if (this.contributionPaymentAmount <= 0) return false;
+    if (this.selectedContributionPaymentMethod === 'MANUAL' && !this.contributionPaymentReferenceCode.trim()) return false;
+    if (this.selectedContributionPaymentMethod === 'STK_PUSH' && !this.contributionPaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitMemberContributionPayment() {
+    if (!this.contributionToPayMember) return;
+
+    if (this.selectedContributionPaymentMethod === 'MANUAL' && !this.contributionPaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedContributionPaymentMethod === 'STK_PUSH' && !this.contributionPaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingContributionPayment.set(true);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'CONTRIBUTION',
+      referenceId: this.contributionToPayMember.id,
+      payerMemberId: this.contributionToPayMember.memberId!,
+      amount: this.contributionPaymentAmount,
+      paymentMethod: this.selectedContributionPaymentMethod,
+      referenceCode: this.selectedContributionPaymentMethod === 'MANUAL' ? this.contributionPaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedContributionPaymentMethod === 'STK_PUSH' ? this.contributionPaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
+        console.log('=== initiatePayment response ===', response);
+        console.log('awaitingVerification:', response.awaitingVerification);
+        console.log('status:', response.status);
+        this.submittingContributionPayment.set(false);
+        this.contributionPaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your payment has been submitted and is awaiting admin verification.');
+          this.closeMemberContributionPaymentModal();
+          this.loadContributions();
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your contribution payment has been confirmed.');
+          this.closeMemberContributionPaymentModal();
+          this.loadContributions();
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingContributionPayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+      }
+    });
+  }
+
+  // Admin direct payment recording
   openPaymentForm(c: Contribution) {
     this.payingContribution = c;
     this.paymentAmount = c.amountDue - c.amountPaid;
@@ -666,6 +860,119 @@ export class ContributionsComponent implements OnInit {
   }
 
   // ==================== Penalty Management ====================
+  
+  /**
+   * Check if current user owns this penalty
+   */
+  isOwnPenalty(penalty: Penalty): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser ? penalty.memberId === currentUser.id : false;
+  }
+
+  /**
+   * Check if penalty can be paid (not PAID or WAIVED)
+   */
+  canPayPenalty(penalty: Penalty): boolean {
+    return penalty.status !== 'PAID' && penalty.status !== 'WAIVED';
+  }
+
+  /**
+   * Open member payment modal (for paying own penalty)
+   */
+  openMemberPenaltyPaymentModal(p: Penalty) {
+    this.penaltyToPayMember = p;
+    this.selectedPenaltyPaymentMethod = 'MANUAL';
+    this.penaltyPaymentReferenceCode = '';
+    this.penaltyPaymentPhoneNumber = '';
+    this.penaltyPaymentResponse = null;
+    this.showMemberPenaltyPaymentModal = true;
+    this.loadPenaltyPaymentMethods();
+  }
+
+  closeMemberPenaltyPaymentModal() {
+    this.showMemberPenaltyPaymentModal = false;
+    this.penaltyToPayMember = null;
+    this.penaltyPaymentResponse = null;
+  }
+
+  loadPenaltyPaymentMethods() {
+    this.loadingPenaltyPaymentMethods.set(true);
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.penaltyPaymentMethods = methods;
+        // Set default method based on what's enabled
+        if (methods.manualEnabled) {
+          this.selectedPenaltyPaymentMethod = 'MANUAL';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedPenaltyPaymentMethod = 'IN_APP_SMS';
+        } else if (methods.stkPushEnabled) {
+          this.selectedPenaltyPaymentMethod = 'STK_PUSH';
+        }
+        this.loadingPenaltyPaymentMethods.set(false);
+      },
+      error: () => {
+        this.loadingPenaltyPaymentMethods.set(false);
+      }
+    });
+  }
+
+  canSubmitPenaltyPayment(): boolean {
+    if (!this.penaltyToPayMember) return false;
+    if (this.selectedPenaltyPaymentMethod === 'MANUAL' && !this.penaltyPaymentReferenceCode.trim()) return false;
+    if (this.selectedPenaltyPaymentMethod === 'STK_PUSH' && !this.penaltyPaymentPhoneNumber.trim()) return false;
+    return true;
+  }
+
+  submitMemberPenaltyPayment() {
+    if (!this.penaltyToPayMember) return;
+
+    if (this.selectedPenaltyPaymentMethod === 'MANUAL' && !this.penaltyPaymentReferenceCode.trim()) {
+      this.toast.warning('Reference required', 'Please enter a payment reference number.');
+      return;
+    }
+    if (this.selectedPenaltyPaymentMethod === 'STK_PUSH' && !this.penaltyPaymentPhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+
+    this.submittingPenaltyPayment.set(true);
+
+    const request: InitiatePaymentRequest = {
+      paymentType: 'PENALTY',
+      referenceId: this.penaltyToPayMember.id,
+      payerMemberId: this.penaltyToPayMember.memberId,
+      paymentMethod: this.selectedPenaltyPaymentMethod,
+      referenceCode: this.selectedPenaltyPaymentMethod === 'MANUAL' ? this.penaltyPaymentReferenceCode.trim() : undefined,
+      phoneNumber: this.selectedPenaltyPaymentMethod === 'STK_PUSH' ? this.penaltyPaymentPhoneNumber.trim() : undefined
+    };
+
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
+        this.submittingPenaltyPayment.set(false);
+        this.penaltyPaymentResponse = response;
+
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your payment has been submitted and is awaiting admin verification.');
+          this.closeMemberPenaltyPaymentModal();
+          this.loadPenalties();
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent. Complete the payment.');
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your penalty payment has been confirmed.');
+          this.closeMemberPenaltyPaymentModal();
+          this.loadPenalties();
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
+        }
+      },
+      error: (err) => {
+        this.submittingPenaltyPayment.set(false);
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
+      }
+    });
+  }
+
+  // Admin direct payment recording
   openPenaltyPaymentForm(p: Penalty) {
     this.payingPenalty = p;
     this.penaltyPaymentAmount = p.balance;
@@ -720,6 +1027,22 @@ export class ContributionsComponent implements OnInit {
     }
   }
 
+  /**
+   * Confirm a pending payment (admin action)
+   */
+  confirmPayment(payableId: number) {
+    this.api.confirmPayment(payableId).subscribe({
+      next: () => {
+        this.toast.success('Payment confirmed', '');
+        this.loadContributions();
+        this.loadPenalties();
+      },
+      error: (err) => {
+        this.toast.error('Failed to confirm', err.error?.message || 'Please try again.');
+      }
+    });
+  }
+
   // ==================== Helpers ====================
   getStatusBadgeClass(status: string): string {
     switch (status) {
@@ -737,7 +1060,9 @@ export class ContributionsComponent implements OnInit {
   getPenaltyTypeLabel(type: string): string {
     switch (type) {
       case 'MEETING_ABSENT': return 'Meeting Absence';
-      case 'LATE_PAYMENT': return 'Late Payment';
+      case 'MEETING_LATE_ARRIVAL': return 'Late Arrival';
+      case 'CONTRIBUTION_LATE_PAYMENT': return 'Late Payment';
+      case 'LATE_PAYMENT': return 'Late Payment'; // Legacy support
       default: return type;
     }
   }
@@ -850,7 +1175,9 @@ export class ContributionsComponent implements OnInit {
       contributionTypeId: this.contributionTypes.length > 0 ? this.contributionTypes[0].id : null,
       amount: 0,
       paymentReference: '',
-      notes: ''
+      notes: '',
+      targetMonth: this.selectedMonth, // Default to currently selected month
+      description: ''
     };
     this.showTopUpForm = true;
   }
@@ -865,12 +1192,19 @@ export class ContributionsComponent implements OnInit {
       return;
     }
 
+    if (!this.topUpFormData.targetMonth) {
+      this.toast.warning('Month required', 'Please select the month for this top-up');
+      return;
+    }
+
     this.submittingTopUp.set(true);
     this.api.createContributionTopUp({
       contributionTypeId: this.topUpFormData.contributionTypeId,
       amount: this.topUpFormData.amount,
       paymentReference: this.topUpFormData.paymentReference || undefined,
-      notes: this.topUpFormData.notes || undefined
+      notes: this.topUpFormData.notes || undefined,
+      targetMonth: this.topUpFormData.targetMonth,
+      description: this.topUpFormData.description || undefined
     }).subscribe({
       next: () => {
         this.submittingTopUp.set(false);

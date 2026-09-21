@@ -22,24 +22,33 @@
         <span class="badge badge-danger" style="margin-left: 6px; font-size: 10px;">{{ myPendingApprovalCount }}</span>
       }
     </button>
+  }
+  @if (session.can('VIEW_ALL_LOANS')) {
     <button class="tab" [class.active]="activeTab === 'all'" (click)="onTabChange('all')">
       All Loans
     </button>
   }
-  <button class="tab" [class.active]="activeTab === 'penalties'" (click)="onTabChange('penalties')">
-    Loan Penalties
+  @if (session.can('VERIFY_PAYMENTS')) {
+    <button class="tab" [class.active]="activeTab === 'awaiting-confirmation'" (click)="onTabChange('awaiting-confirmation')">
+      Awaiting Confirmation
+    </button>
+  }
+  @if (session.can('DISBURSE_LOAN')) {
+    <button class="tab" [class.active]="activeTab === 'awaiting-disbursement'" (click)="onTabChange('awaiting-disbursement')">
+      Awaiting Disbursement
+    </button>
+  }
+  <button class="tab" [class.active]="activeTab === 'my-penalties'" (click)="onTabChange('my-penalties')">
+    My Loan Penalties
   </button>
+  @if (session.can('VIEW_LOAN_PENALTIES')) {
+    <button class="tab" [class.active]="activeTab === 'penalties'" (click)="onTabChange('penalties')">
+      All Loan Penalties
+    </button>
+  }
   @if (session.can('VIEW_ALL_LOANS')) {
     <button class="tab" [class.active]="activeTab === 'income'" (click)="onTabChange('income')">
       Loan Income
-    </button>
-  }
-  @if (session.can('VERIFY_LOAN_PAYMENT')) {
-    <button class="tab" [class.active]="activeTab === 'pending-payments'" (click)="onTabChange('pending-payments')">
-      Pending Payments
-      @if (pendingPayments.length > 0) {
-        <span class="badge">{{ pendingPayments.length }}</span>
-      }
     </button>
   }
 </div>
@@ -69,7 +78,7 @@
   }
 
   <!-- Loans Table -->
-  @if (activeTab !== 'penalties' && activeTab !== 'income' && activeTab !== 'pending-payments') {
+  @if (activeTab !== 'penalties' && activeTab !== 'income') {
     @if (currentLoans.length === 0) {
       <div class="empty-state-card">
         <app-icon name="credit-card" class="empty-icon"></app-icon>
@@ -84,6 +93,12 @@
         } @else if (activeTab === 'pending') {
           <h3>No pending approvals</h3>
           <p>There are no loan applications waiting for your approval.</p>
+        } @else if (activeTab === 'awaiting-confirmation') {
+          <h3>No pending confirmations</h3>
+          <p>There are no loan payments awaiting confirmation.</p>
+        } @else if (activeTab === 'awaiting-disbursement') {
+          <h3>No loans awaiting disbursement</h3>
+          <p>There are no approved loans waiting to be disbursed.</p>
         } @else {
           <h3>No loans yet</h3>
           <p>No loan applications have been submitted.</p>
@@ -154,6 +169,15 @@
                   <span class="badge" [ngClass]="getStatusBadgeClass(loan.status)">
                     {{ loan.status | titlecase }}
                   </span>
+                  @if (loan.status === 'PENDING_GUARANTORS' && loan.pendingGuarantorNames && loan.pendingGuarantorNames.length > 0) {
+                    <div style="font-size: 9px; color: var(--color-text-muted); margin-top: 3px;">
+                      Waiting: {{ loan.pendingGuarantorNames.join(', ') }}
+                    </div>
+                  } @else if ((loan.status === 'PENDING' || loan.status === 'PENDING_APPROVAL') && loan.pendingApprovalRole) {
+                    <div style="font-size: 9px; color: var(--color-text-muted); margin-top: 3px;">
+                      Waiting: {{ loan.pendingApprovalRole }}
+                    </div>
+                  }
                 </td>
                 @if (activeTab === 'pending') {
                   <td>
@@ -192,15 +216,38 @@
                         <app-icon name="close"></app-icon>
                       </button>
                     }
-                    @if (canDisburse(loan)) {
-                      <button class="btn btn-sm btn-primary" (click)="openDisbursementModal(loan)" title="Disburse">
-                        Disburse
-                      </button>
-                    }
-                    @if (canRecordPayment(loan)) {
-                      <button class="btn btn-sm btn-outline" (click)="openRecordPaymentModal(loan)" title="Record Payment">
-                        Pay
-                      </button>
+                    @if (activeTab === 'awaiting-disbursement') {
+                      <!-- Awaiting Disbursement tab: show Disburse button -->
+                      @if (loan.status === 'APPROVED' && session.can('DISBURSE_LOAN')) {
+                        <button class="btn btn-sm btn-primary" (click)="openDisbursementModal(loan)" title="Disburse">
+                          Disburse
+                        </button>
+                      }
+                    } @else if (activeTab === 'awaiting-confirmation') {
+                      <!-- Awaiting Confirmation tab: show Confirm button -->
+                      @if (loan.hasPendingClaim && loan.payableId) {
+                        <button class="btn btn-sm btn-success" (click)="confirmPayment(loan.payableId)">Confirm</button>
+                      }
+                    } @else {
+                      <!-- Other tabs: show normal actions -->
+                      @if (canDisburse(loan)) {
+                        <button class="btn btn-sm btn-primary" (click)="openDisbursementModal(loan)" title="Disburse">
+                          Disburse
+                        </button>
+                      }
+                      @if (canPayLoan(loan)) {
+                        @if (loan.hasPendingClaim) {
+                          <span class="badge badge-warning" title="Payment awaiting admin confirmation">Awaiting Confirmation</span>
+                        } @else if (isOwnLoan(loan)) {
+                          <button class="btn btn-sm btn-outline" (click)="openLoanRepaymentPaymentModal(loan)" title="Pay Loan">
+                            Pay
+                          </button>
+                        } @else if (session.can('RECORD_LOAN_REPAYMENT')) {
+                          <button class="btn btn-sm btn-outline" (click)="openRepaymentModal(loan)" title="Record Payment">
+                            Record
+                          </button>
+                        }
+                      }
                     }
                   </div>
                 </td>
@@ -230,8 +277,8 @@
     }
   }
 
-  <!-- Penalties Tab -->
-  @if (activeTab === 'penalties') {
+  <!-- Penalties Tab (both my-penalties and all penalties) -->
+  @if (activeTab === 'penalties' || activeTab === 'my-penalties') {
     @if (loadingPenalties()) {
       <div class="loading-state">
         <div class="spinner"></div>
@@ -241,14 +288,14 @@
       <div class="empty-state-card">
         <app-icon name="check" class="empty-icon"></app-icon>
         <h3>No penalties</h3>
-        <p>{{ isAdmin() ? 'No loan penalties have been imposed.' : 'You have no loan penalties.' }}</p>
+        <p>{{ activeTab === 'penalties' ? 'No loan penalties have been imposed.' : 'You have no loan penalties.' }}</p>
       </div>
     } @else {
       <div class="card">
         <table class="data-table">
           <thead>
             <tr>
-              @if (isAdmin()) {
+              @if (activeTab === 'penalties') {
                 <th>Member</th>
               }
               <th>Loan Product</th>
@@ -264,7 +311,7 @@
           <tbody>
             @for (penalty of loanPenalties; track penalty.id) {
               <tr>
-                @if (isAdmin()) {
+                @if (activeTab === 'penalties') {
                   <td>
                     <div style="font-weight: 600;">{{ penalty.memberName }}</div>
                     <div style="font-size: 10px; color: var(--color-text-muted);">{{ penalty.memberNo }}</div>
@@ -288,7 +335,18 @@
                 </td>
                 <td>{{ penalty.imposedAt | date:'d MMM yyyy' }}</td>
                 <td style="text-align: right;">
-                  @if (penalty.status !== 'PAID' && penalty.status !== 'WAIVED' && isAdmin()) {
+                  @if (penalty.status === 'PAID' || penalty.status === 'WAIVED') {
+                    <span style="font-size: 11px; color: var(--color-text-muted);">{{ penalty.status === 'WAIVED' ? 'Waived' : 'Settled' }}</span>
+                  } @else if (penalty.hasPendingClaim) {
+                    <span class="badge badge-warning">Awaiting Confirmation</span>
+                    @if (session.can('VERIFY_PAYMENTS') && penalty.payableId) {
+                      <button class="btn btn-success btn-sm ms-1" (click)="confirmPayment(penalty.payableId)">Confirm</button>
+                    }
+                  } @else if (isOwnLoanPenalty(penalty)) {
+                    <!-- Member can pay their own penalty -->
+                    <button class="btn btn-primary btn-sm" (click)="openLoanPenaltyPaymentModal(penalty)">Pay</button>
+                  } @else if (isAdmin()) {
+                    <!-- Admin can waive -->
                     <button class="btn btn-ghost btn-sm" (click)="waivePenalty(penalty)" title="Waive Penalty">
                       Waive
                     </button>
@@ -409,87 +467,6 @@
           </div>
         </div>
       }
-    }
-  }
-}
-
-<!-- Pending Payments Tab -->
-@if (activeTab === 'pending-payments') {
-  @if (loadingPayments()) {
-    <div class="loading-state">
-      <div class="spinner"></div>
-      <p>Loading pending payments...</p>
-    </div>
-  } @else {
-    @if (pendingPayments.length === 0) {
-      <div class="empty-state-card">
-        <app-icon name="check-circle" style="font-size: 48px; color: var(--success);"></app-icon>
-        <h3>No Pending Payments</h3>
-        <p>All payments have been verified. There are no payments waiting for verification.</p>
-      </div>
-    } @else {
-      <div class="card">
-        <div class="card-header">
-          <h3>Payments Awaiting Verification</h3>
-          <span class="badge badge-warning">{{ pendingPayments.length }} pending</span>
-        </div>
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Loan</th>
-                <th>Amount</th>
-                <th>Payment Method</th>
-                <th>Reference</th>
-                <th>Submitted</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (payment of pendingPayments; track payment.id) {
-                <tr>
-                  <td>
-                    <div class="member-info">
-                      <strong>{{ payment.memberName }}</strong>
-                      @if (payment.memberNo) {
-                        <small class="text-muted">{{ payment.memberNo }}</small>
-                      }
-                    </div>
-                  </td>
-                  <td>
-                    <div>
-                      <span>{{ payment.loanProductName || 'Loan' }}</span>
-                      <small class="text-muted">Balance: KES {{ payment.loanBalance | number }}</small>
-                    </div>
-                  </td>
-                  <td><strong class="text-success">KES {{ payment.amount | number }}</strong></td>
-                  <td>{{ payment.paymentMethod || '-' }}</td>
-                  <td>{{ payment.transactionReference || '-' }}</td>
-                  <td>
-                    <div>
-                      <span>{{ payment.recordedAt | date:'mediumDate' }}</span>
-                      @if (payment.recordedByName) {
-                        <small class="text-muted">by {{ payment.recordedByName }}</small>
-                      }
-                    </div>
-                  </td>
-                  <td>
-                    <div class="action-buttons">
-                      <button class="btn btn-sm btn-success" (click)="verifyPayment(payment)" title="Verify payment">
-                        <app-icon name="check"></app-icon> Verify
-                      </button>
-                      <button class="btn btn-sm btn-danger" (click)="openRejectPaymentModal(payment)" title="Reject payment">
-                        <app-icon name="close"></app-icon> Reject
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
     }
   }
 }
@@ -1074,7 +1051,16 @@
           <button class="btn btn-primary" (click)="openDisbursementModal(selectedLoan)">Disburse</button>
         }
         @if (selectedLoan.status === 'ACTIVE') {
-          <button class="btn btn-primary" (click)="openRecordPaymentModal(selectedLoan)">Record Payment</button>
+          @if (selectedLoan.hasPendingClaim) {
+            <span class="badge badge-warning">Payment Awaiting Confirmation</span>
+            @if (session.can('VERIFY_PAYMENTS') && selectedLoan.payableId) {
+              <button class="btn btn-success ms-2" (click)="confirmPayment(selectedLoan.payableId)">Confirm</button>
+            }
+          } @else if (isOwnLoan(selectedLoan)) {
+            <button class="btn btn-primary" (click)="openLoanRepaymentPaymentModal(selectedLoan)">Pay Loan</button>
+          } @else if (session.can('RECORD_LOAN_REPAYMENT')) {
+            <button class="btn btn-primary" (click)="openRepaymentModal(selectedLoan)">Record Payment</button>
+          }
         }
       </div>
     </div>
@@ -1245,6 +1231,9 @@
         <div class="form-field">
           <label>Payment Amount (KES) <span class="required">*</span></label>
           <input type="number" [(ngModel)]="paymentForm.amount" min="0" [max]="selectedLoan.balanceOutstanding" />
+          @if (paymentForm.amount > (selectedLoan?.balanceOutstanding || 0)) {
+            <small style="color: var(--color-danger);">Amount cannot exceed outstanding balance of KES {{ selectedLoan?.balanceOutstanding | number }}</small>
+          }
         </div>
         
         <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 16px;">
@@ -1283,7 +1272,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeRecordPaymentModal()">Cancel</button>
-        <button class="btn btn-primary" (click)="submitPayment()" [disabled]="!paymentForm.amount">
+        <button class="btn btn-primary" (click)="submitPayment()" [disabled]="!paymentForm.amount || paymentForm.amount > (selectedLoan?.balanceOutstanding || 0)">
           Submit for Verification
         </button>
       </div>
@@ -1291,35 +1280,229 @@
   </div>
 }
 
-<!-- Reject Payment Modal -->
-@if (showRejectPaymentModal && selectedPayment) {
-  <div class="modal-backdrop" (click)="closeRejectPaymentModal()">
-    <div class="modal" style="max-width: 450px;" (click)="$event.stopPropagation()">
+<!-- Member Loan Repayment Modal (Unified Payment) -->
+@if (showLoanRepaymentPaymentModal && loanForRepayment) {
+  <div class="modal-backdrop" (click)="closeLoanRepaymentPaymentModal()">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>Reject Payment</h3>
-        <button class="icon-btn" (click)="closeRejectPaymentModal()"><app-icon name="close"></app-icon></button>
+        <h3>Pay Loan</h3>
+        <button class="btn btn-ghost btn-sm" (click)="closeLoanRepaymentPaymentModal()"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
-        <div style="margin-bottom: 16px; padding: 12px; background: var(--color-surface-raised); border-radius: 6px;">
-          <p><strong>Member:</strong> {{ selectedPayment.memberName }}</p>
-          <p><strong>Amount:</strong> KES {{ selectedPayment.amount | number }}</p>
-          @if (selectedPayment.paymentMethod) {
-            <p><strong>Method:</strong> {{ selectedPayment.paymentMethod }}</p>
-          }
-          @if (selectedPayment.transactionReference) {
-            <p><strong>Reference:</strong> {{ selectedPayment.transactionReference }}</p>
+        <!-- Loan Info -->
+        <div class="payment-info">
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Loan Product:</span>
+            <span style="font-weight: 600;">{{ loanForRepayment.loanProductName || 'Custom Loan' }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Outstanding Balance:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ loanForRepayment.balanceOutstanding | number }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Monthly Payment:</span>
+            <span style="font-weight: 500;">KES {{ loanForRepayment.monthlyPayment | number }}</span>
+          </div>
+        </div>
+
+        <!-- Payment Amount -->
+        <div class="form-field">
+          <label>Payment Amount (KES) *</label>
+          <input type="number" [(ngModel)]="loanRepaymentAmount" min="1" [max]="loanForRepayment.balanceOutstanding" />
+          @if (loanRepaymentAmount > (loanForRepayment.balanceOutstanding || 0)) {
+            <small style="color: var(--color-danger);">Amount cannot exceed outstanding balance of KES {{ loanForRepayment.balanceOutstanding | number }}</small>
+          } @else {
+            <small style="color: var(--color-text-muted);">Enter full or partial payment amount</small>
           }
         </div>
-        
-        <div class="form-field">
-          <label>Reason for Rejection <span class="required">*</span></label>
-          <textarea [(ngModel)]="rejectionReason" rows="3" placeholder="Please explain why this payment is being rejected..."></textarea>
+
+        <div style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 16px;">
+          <button class="btn btn-outline btn-sm" (click)="loanRepaymentAmount = loanForRepayment.monthlyPayment || 0">
+            Monthly ({{ loanForRepayment.monthlyPayment | number }})
+          </button>
+          <button class="btn btn-outline btn-sm" (click)="loanRepaymentAmount = loanForRepayment.balanceOutstanding || 0">
+            Full Balance
+          </button>
+        </div>
+
+        <!-- Payment Method Selection -->
+        @if (loadingLoanRepaymentMethods()) {
+          <div style="text-align: center; padding: 12px;">
+            <div class="spinner-sm"></div>
+          </div>
+        } @else if (loanRepaymentPaymentMethods) {
+          <div class="form-field">
+            <label>Payment Method *</label>
+            <div class="payment-methods">
+              @if (loanRepaymentPaymentMethods.manualEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedLoanRepaymentMethod === 'MANUAL'">
+                  <input type="radio" name="loanRepaymentMethod" value="MANUAL" [(ngModel)]="selectedLoanRepaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="file-text"></app-icon>
+                    <div>
+                      <div class="method-title">Manual Verification</div>
+                      <div class="method-desc">Enter M-PESA or bank reference</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (loanRepaymentPaymentMethods.inAppSmsEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedLoanRepaymentMethod === 'IN_APP_SMS'">
+                  <input type="radio" name="loanRepaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedLoanRepaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="message-square"></app-icon>
+                    <div>
+                      <div class="method-title">SMS Verification</div>
+                      <div class="method-desc">Capture confirmation SMS</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (loanRepaymentPaymentMethods.stkPushEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedLoanRepaymentMethod === 'STK_PUSH'">
+                  <input type="radio" name="loanRepaymentMethod" value="STK_PUSH" [(ngModel)]="selectedLoanRepaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="smartphone"></app-icon>
+                    <div>
+                      <div class="method-title">M-PESA STK Push</div>
+                      <div class="method-desc">Receive prompt on your phone</div>
+                    </div>
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Reference code for MANUAL method -->
+          @if (selectedLoanRepaymentMethod === 'MANUAL') {
+            <div class="form-field">
+              <label>Payment Reference Number *</label>
+              <input type="text" [(ngModel)]="loanRepaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+            </div>
+          }
+
+          <!-- Phone number for STK Push -->
+          @if (selectedLoanRepaymentMethod === 'STK_PUSH') {
+            <div class="form-field">
+              <label>Phone Number *</label>
+              <input type="tel" [(ngModel)]="loanRepaymentPhoneNumber" placeholder="e.g. 0712345678" />
+              <small style="color: var(--color-text-muted);">The M-PESA prompt will be sent to this number</small>
+            </div>
+          }
+        }
+
+        <div class="form-hint info" style="margin-top: 12px;">
+          <strong>Note:</strong> Your payment will be submitted for admin verification before being applied to your loan.
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" (click)="closeRejectPaymentModal()">Cancel</button>
-        <button class="btn btn-danger" (click)="confirmRejectPayment()" [disabled]="!rejectionReason.trim()">
-          Reject Payment
+        <button class="btn btn-ghost" (click)="closeLoanRepaymentPaymentModal()" [disabled]="submittingLoanRepayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitLoanRepayment()" [disabled]="!canSubmitLoanRepayment() || submittingLoanRepayment()">
+          {{ submittingLoanRepayment() ? 'Processing...' : 'Submit Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+
+<!-- Pay Loan Penalty Modal (Member) -->
+@if (showLoanPenaltyPaymentModal && penaltyToPay) {
+  <div class="modal-backdrop" (click)="closeLoanPenaltyPaymentModal()">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay Loan Penalty</h3>
+        <button class="icon-btn" (click)="closeLoanPenaltyPaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Penalty Info -->
+        <div style="background: var(--color-surface-raised); padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Loan Product:</span>
+            <span style="font-weight: 600;">{{ penaltyToPay.loanProductName || '—' }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Reason:</span>
+            <span style="font-weight: 500; max-width: 200px; text-align: right;">{{ penaltyToPay.reason }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--color-text-muted);">Amount:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ penaltyToPay.balance | number }}</span>
+          </div>
+        </div>
+
+        <!-- Payment Method Selection -->
+        @if (loadingLoanPenaltyPaymentMethods()) {
+          <div style="text-align: center; padding: 12px;">
+            <div class="spinner-sm"></div>
+          </div>
+        } @else if (loanPenaltyPaymentMethods) {
+          <div class="form-field">
+            <label>Payment Method *</label>
+            <div class="payment-methods">
+              @if (loanPenaltyPaymentMethods.manualEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedLoanPenaltyPaymentMethod === 'MANUAL'">
+                  <input type="radio" name="loanPenaltyPaymentMethod" value="MANUAL" [(ngModel)]="selectedLoanPenaltyPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="file-text"></app-icon>
+                    <div>
+                      <div class="method-title">Manual Verification</div>
+                      <div class="method-desc">Enter M-PESA or bank reference</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (loanPenaltyPaymentMethods.inAppSmsEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedLoanPenaltyPaymentMethod === 'IN_APP_SMS'">
+                  <input type="radio" name="loanPenaltyPaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedLoanPenaltyPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="message-square"></app-icon>
+                    <div>
+                      <div class="method-title">SMS Verification</div>
+                      <div class="method-desc">Capture confirmation SMS</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (loanPenaltyPaymentMethods.stkPushEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedLoanPenaltyPaymentMethod === 'STK_PUSH'">
+                  <input type="radio" name="loanPenaltyPaymentMethod" value="STK_PUSH" [(ngModel)]="selectedLoanPenaltyPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="smartphone"></app-icon>
+                    <div>
+                      <div class="method-title">M-PESA STK Push</div>
+                      <div class="method-desc">Receive prompt on your phone</div>
+                    </div>
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Reference code for MANUAL method -->
+          @if (selectedLoanPenaltyPaymentMethod === 'MANUAL') {
+            <div class="form-field">
+              <label>Payment Reference Number *</label>
+              <input type="text" [(ngModel)]="loanPenaltyPaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+            </div>
+          }
+
+          <!-- Phone number for STK Push -->
+          @if (selectedLoanPenaltyPaymentMethod === 'STK_PUSH') {
+            <div class="form-field">
+              <label>Phone Number *</label>
+              <input type="tel" [(ngModel)]="loanPenaltyPaymentPhoneNumber" placeholder="e.g. 0712345678" />
+              <small style="color: var(--color-text-muted);">The M-PESA prompt will be sent to this number</small>
+            </div>
+          }
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeLoanPenaltyPaymentModal()" [disabled]="submittingLoanPenaltyPayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitLoanPenaltyPayment()" [disabled]="submittingLoanPenaltyPayment() || !canSubmitLoanPenaltyPayment()">
+          {{ submittingLoanPenaltyPayment() ? 'Processing...' : 'Submit Payment' }}
         </button>
       </div>
     </div>

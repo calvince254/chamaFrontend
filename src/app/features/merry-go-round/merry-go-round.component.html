@@ -354,12 +354,21 @@
                         </td>
                         <td class="action-cell">
                           @if (contrib.status === 'PENDING' || contrib.status === 'LATE') {
-                            @if (session.can('RECORD_MGR_CONTRIBUTION') || session.can('FULL_ACCESS')) {
+                            @if (contrib.hasPendingClaim) {
+                              <span class="badge badge-warning" title="Payment awaiting admin confirmation">Awaiting Confirmation</span>
+                              @if (session.can('VERIFY_PAYMENTS') && contrib.payableId) {
+                                <button class="btn btn-sm btn-success ms-1" (click)="confirmPayment(contrib.payableId)">Confirm</button>
+                              }
+                            } @else if (isOwnContribution(contrib)) {
+                              <button class="btn btn-sm btn-primary" (click)="openMgrPaymentModal(contrib)">
+                                Pay
+                              </button>
+                            } @else if (session.can('RECORD_MGR_CONTRIBUTION') || session.can('FULL_ACCESS')) {
                               <button class="btn btn-sm btn-primary" (click)="markContributionPaid(contrib)">
-                                Record payment
+                                Record
                               </button>
                             }
-                            @if (!contrib.hasFine && (session.can('IMPOSE_MGR_FINE') || session.can('FULL_ACCESS'))) {
+                            @if (!contrib.hasFine && !contrib.hasPendingClaim && (session.can('IMPOSE_MGR_FINE') || session.can('FULL_ACCESS'))) {
                               <button class="btn btn-sm btn-outline" (click)="imposeFineForContribution(contrib)">
                                 Fine
                               </button>
@@ -381,16 +390,43 @@
       <!-- Fines -->
       <div class="card">
         <div class="card-header">
-          <h3>Fines</h3>
-          @if (session.can('RECORD_FINE')) {
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <h3>Fines</h3>
+            <!-- Sub-tabs for My Fines / All Fines -->
+            <div class="sub-tabs" style="display: flex; gap: 8px;">
+              @if (session.can('VIEW_MY_MGR_FINES') || session.can('VIEW_ALL_MGR_FINES')) {
+                <button class="sub-tab" [class.active]="fineSubTab === 'my-fines'" (click)="switchFineSubTab('my-fines')">
+                  My Fines
+                  @if (getMyPendingFinesCount() > 0) {
+                    <span class="badge badge-warning" style="margin-left: 4px;">{{ getMyPendingFinesCount() }}</span>
+                  }
+                </button>
+              }
+              @if (session.can('VIEW_ALL_MGR_FINES')) {
+                <button class="sub-tab" [class.active]="fineSubTab === 'all-fines'" (click)="switchFineSubTab('all-fines')">
+                  All Fines
+                  @if (getAllPendingFinesCount() > 0) {
+                    <span class="badge badge-warning" style="margin-left: 4px;">{{ getAllPendingFinesCount() }}</span>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+          @if (session.can('IMPOSE_MGR_FINE')) {
             <button class="btn btn-sm btn-primary" (click)="openFineModal()">
               <app-icon name="plus"></app-icon> Impose Fine
             </button>
           }
         </div>
         <div class="card-body" style="padding: 0;">
-          @if (fines.length === 0) {
-            <div class="empty-state" style="padding: 24px;">No fines imposed.</div>
+          @if (displayedFines.length === 0) {
+            <div class="empty-state" style="padding: 24px;">
+              @if (fineSubTab === 'my-fines') {
+                You have no fines. Great job! 🎉
+              } @else {
+                No fines imposed.
+              }
+            </div>
           } @else {
             <table class="data-table">
               <thead>
@@ -404,7 +440,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (fine of fines; track fine.id) {
+                @for (fine of displayedFines; track fine.id) {
                   <tr>
                     <td>{{ fine.memberName }}</td>
                     <td>
@@ -417,15 +453,39 @@
                     <td>{{ fine.imposedDate | date:'d MMM y' }}</td>
                     <td>
                       <span class="badge" [ngClass]="getStatusClass(fine.status)">{{ fine.status }}</span>
+                      @if (fine.hasPendingClaim) {
+                        <span class="badge badge-warning" style="margin-left: 4px;">Awaiting Confirmation</span>
+                      }
                     </td>
                     <td>
                       @if (fine.status === 'PENDING') {
-                        <button class="btn btn-sm btn-outline" (click)="payFine(fine)" style="margin-right: 4px;">
-                          Pay
-                        </button>
-                        <button class="btn btn-sm btn-ghost" (click)="waiveFine(fine)">
-                          Waive
-                        </button>
+                        <!-- Member paying their own fine -->
+                        @if (isOwnFine(fine) && !fine.hasPendingClaim) {
+                          <button class="btn btn-sm btn-primary" (click)="openFinePaymentModal(fine)" style="margin-right: 4px;">
+                            Pay
+                          </button>
+                        }
+                        
+                        <!-- Admin confirming pending payment -->
+                        @if (fine.hasPendingClaim && fine.payableId && session.can('CONFIRM_MGR_FINE_PAYMENT')) {
+                          <button class="btn btn-sm btn-success" (click)="confirmFinePayment(fine.payableId)" style="margin-right: 4px;">
+                            Confirm
+                          </button>
+                        }
+                        
+                        <!-- Admin recording payment directly -->
+                        @if (!isOwnFine(fine) && !fine.hasPendingClaim && session.can('RECORD_MGR_FINE_PAYMENT')) {
+                          <button class="btn btn-sm btn-outline" (click)="recordFinePayment(fine)" style="margin-right: 4px;">
+                            Record
+                          </button>
+                        }
+                        
+                        <!-- Admin waiving fine -->
+                        @if (session.can('WAIVE_MGR_FINE')) {
+                          <button class="btn btn-sm btn-ghost" (click)="waiveFine(fine)">
+                            Waive
+                          </button>
+                        }
                       }
                     </td>
                   </tr>
@@ -703,6 +763,112 @@
   </div>
 }
 
+<!-- Member MGR Contribution Payment Modal -->
+@if (showMgrPaymentModal && contributionToPay) {
+  <div class="modal-backdrop" (click)="closeMgrPaymentModal()">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay MGR Contribution</h3>
+        <button class="btn btn-ghost btn-sm" (click)="closeMgrPaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Contribution Info -->
+        <div class="payment-info">
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Round:</span>
+            <span style="font-weight: 600;">#{{ contributionToPay.roundPosition }} - {{ contributionToPay.roundRecipientName }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Amount:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ contributionToPay.amount | number }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Due Date:</span>
+            <span style="font-weight: 500;">{{ contributionToPay.dueDate | date:'d MMM yyyy' }}</span>
+          </div>
+        </div>
+
+        <!-- Payment Method Selection -->
+        @if (loadingMgrPaymentMethods()) {
+          <div style="text-align: center; padding: 12px;">
+            <div class="spinner-sm"></div>
+          </div>
+        } @else if (mgrPaymentMethods) {
+          <div class="form-field">
+            <label>Payment Method *</label>
+            <div class="payment-methods">
+              @if (mgrPaymentMethods.manualEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedMgrPaymentMethod === 'MANUAL'">
+                  <input type="radio" name="mgrPaymentMethod" value="MANUAL" [(ngModel)]="selectedMgrPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="file-text"></app-icon>
+                    <div>
+                      <div class="method-title">Manual Verification</div>
+                      <div class="method-desc">Enter M-PESA or bank reference</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (mgrPaymentMethods.inAppSmsEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedMgrPaymentMethod === 'IN_APP_SMS'">
+                  <input type="radio" name="mgrPaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedMgrPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="message-square"></app-icon>
+                    <div>
+                      <div class="method-title">SMS Verification</div>
+                      <div class="method-desc">Capture confirmation SMS</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (mgrPaymentMethods.stkPushEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedMgrPaymentMethod === 'STK_PUSH'">
+                  <input type="radio" name="mgrPaymentMethod" value="STK_PUSH" [(ngModel)]="selectedMgrPaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="smartphone"></app-icon>
+                    <div>
+                      <div class="method-title">M-PESA STK Push</div>
+                      <div class="method-desc">Receive prompt on your phone</div>
+                    </div>
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Reference code for MANUAL method -->
+          @if (selectedMgrPaymentMethod === 'MANUAL') {
+            <div class="form-field">
+              <label>Payment Reference Number *</label>
+              <input type="text" [(ngModel)]="mgrPaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+            </div>
+          }
+
+          <!-- Phone number for STK Push -->
+          @if (selectedMgrPaymentMethod === 'STK_PUSH') {
+            <div class="form-field">
+              <label>Phone Number *</label>
+              <input type="tel" [(ngModel)]="mgrPaymentPhoneNumber" placeholder="e.g. 0712345678" />
+              <small style="color: var(--color-text-muted);">The M-PESA prompt will be sent to this number</small>
+            </div>
+          }
+        }
+
+        <div class="alert alert-info" style="margin-top: 12px; font-size: 12px;">
+          <strong>Note:</strong> Your payment will be submitted for admin verification before being marked as paid.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeMgrPaymentModal()" [disabled]="submittingMgrPayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitMgrPayment()" [disabled]="!canSubmitMgrPayment() || submittingMgrPayment()">
+          {{ submittingMgrPayment() ? 'Processing...' : 'Submit Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 <!-- Impose Fine Modal -->
 @if (showFineModal && selectedCycle) {
   <div class="modal-backdrop" (click)="closeFineModal()">
@@ -740,6 +906,112 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+}
+
+<!-- Member Fine Payment Modal -->
+@if (showFinePaymentModal && fineToPay) {
+  <div class="modal-backdrop" (click)="closeFinePaymentModal()">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay Fine</h3>
+        <button class="btn btn-ghost btn-sm" (click)="closeFinePaymentModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <!-- Fine Info -->
+        <div class="payment-info">
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Reason:</span>
+            <span style="font-weight: 500;">{{ fineToPay.reason }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Amount:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ fineToPay.amount | number }}</span>
+          </div>
+          <div class="row" style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--color-text-muted);">Imposed Date:</span>
+            <span style="font-weight: 500;">{{ fineToPay.imposedDate | date:'d MMM yyyy' }}</span>
+          </div>
+        </div>
+
+        <!-- Payment Method Selection -->
+        @if (loadingFinePaymentMethods()) {
+          <div style="text-align: center; padding: 12px;">
+            <div class="spinner-sm"></div>
+          </div>
+        } @else if (finePaymentMethods) {
+          <div class="form-field">
+            <label>Payment Method *</label>
+            <div class="payment-methods">
+              @if (finePaymentMethods.manualEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedFinePaymentMethod === 'MANUAL'">
+                  <input type="radio" name="finePaymentMethod" value="MANUAL" [(ngModel)]="selectedFinePaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="file-text"></app-icon>
+                    <div>
+                      <div class="method-title">Manual Verification</div>
+                      <div class="method-desc">Enter M-PESA or bank reference</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (finePaymentMethods.inAppSmsEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedFinePaymentMethod === 'IN_APP_SMS'">
+                  <input type="radio" name="finePaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedFinePaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="message-square"></app-icon>
+                    <div>
+                      <div class="method-title">SMS Verification</div>
+                      <div class="method-desc">Capture confirmation SMS</div>
+                    </div>
+                  </div>
+                </label>
+              }
+              @if (finePaymentMethods.stkPushEnabled) {
+                <label class="payment-method-option" [class.selected]="selectedFinePaymentMethod === 'STK_PUSH'">
+                  <input type="radio" name="finePaymentMethod" value="STK_PUSH" [(ngModel)]="selectedFinePaymentMethod" />
+                  <div class="method-content">
+                    <app-icon name="smartphone"></app-icon>
+                    <div>
+                      <div class="method-title">M-PESA STK Push</div>
+                      <div class="method-desc">Receive prompt on your phone</div>
+                    </div>
+                  </div>
+                </label>
+              }
+            </div>
+          </div>
+
+          <!-- Reference code for MANUAL method -->
+          @if (selectedFinePaymentMethod === 'MANUAL') {
+            <div class="form-field">
+              <label>Payment Reference Number *</label>
+              <input type="text" [(ngModel)]="finePaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+            </div>
+          }
+
+          <!-- Phone number for STK Push -->
+          @if (selectedFinePaymentMethod === 'STK_PUSH') {
+            <div class="form-field">
+              <label>Phone Number *</label>
+              <input type="tel" [(ngModel)]="finePaymentPhoneNumber" placeholder="e.g. 0712345678" />
+              <small style="color: var(--color-text-muted);">The M-PESA prompt will be sent to this number</small>
+            </div>
+          }
+        }
+
+        <div class="alert alert-info" style="margin-top: 12px; font-size: 12px;">
+          <strong>Note:</strong> Your payment will be submitted for admin verification before being marked as paid.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeFinePaymentModal()" [disabled]="submittingFinePayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitFinePayment()" [disabled]="!canSubmitFinePayment() || submittingFinePayment()">
+          {{ submittingFinePayment() ? 'Processing...' : 'Submit Payment' }}
+        </button>
+      </div>
     </div>
   </div>
 }

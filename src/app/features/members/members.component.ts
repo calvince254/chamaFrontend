@@ -1,8 +1,10 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
-import { Member, MemberFinancialSummary, PageResponse, RegistrationFeePayment, RegistrationFeeInfo } from '../../core/models/models';
+import { Member, MemberFinancialSummary, PageResponse, RegistrationFeePayment, RegistrationFeeInfo, EnabledPaymentMethods, PaymentMethod, InitiatePaymentRequest, InitiatePaymentResponse } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
@@ -66,14 +68,29 @@ export class MembersComponent implements OnInit {
   showRegFeePayModal = false;
   regFeePayMember: MemberWithRegFee | null = null;
   regFeeReferenceNumber = '';
+  regFeePhoneNumber = '';
+  selectedPaymentMethod: PaymentMethod = 'MANUAL';
+  enabledPaymentMethods: EnabledPaymentMethods | null = null;
   submittingRegFee = signal(false);
+  paymentResponse: InitiatePaymentResponse | null = null;
+  
+  // Pending payment claims (for admin to verify)
+  pendingPaymentClaims: InitiatePaymentResponse[] = [];
   
   // Verification modal
   showVerificationModal = false;
   verifyingPayment: RegistrationFeePayment | null = null;
+  verifyingClaim: InitiatePaymentResponse | null = null;
   rejectReason = '';
   verifyingAction = signal(false);
   showRejectModal = false;
+
+  // Reset password modal
+  showResetPasswordModal = false;
+  resetPasswordMember: MemberWithRegFee | null = null;
+  selectedResetPassword = '12345678';
+  resetPasswordOptions = ['12345678', 'password123', 'Welcome@123', 'Chama@2024'];
+  resettingPassword = signal(false);
 
   constructor(
     private api: ApiService, 
@@ -83,8 +100,77 @@ export class MembersComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadRegistrationFeeInfo();
-    this.loadMembers();
+    this.initializeData();
+  }
+
+  /**
+   * Initialize data - loads reg fee info, payments, and members together
+   * to ensure reg fee status is properly displayed without needing refresh
+   */
+  initializeData() {
+    this.loading.set(true);
+    
+    // First, load registration fee info to know if we need payments
+    this.api.getRegistrationFeeInfo().pipe(
+      catchError(() => of(null))
+    ).subscribe({
+      next: (info) => {
+        this.registrationFeeInfo = info;
+        
+        if (info?.required && info?.amount > 0) {
+          // Load members and payments together
+          this.loadMembersWithPayments();
+          if (this.session.can('VERIFY_REGISTRATION_FEE')) {
+            this.loadAwaitingVerification();
+          }
+        } else {
+          // No reg fee required, just load members
+          this.loadMembers();
+        }
+      }
+    });
+  }
+
+  /**
+   * Load members and registration fee payments together using forkJoin
+   * This ensures both are available before updating the UI
+   */
+  loadMembersWithPayments() {
+    this.loading.set(true);
+    const status = this.statusFilter === 'ALL' ? undefined : this.statusFilter;
+    const searchTerm = this.search.trim() || undefined;
+
+    forkJoin({
+      members: this.api.getMembersPaginated(this.currentPage, this.pageSize, searchTerm, status),
+      payments: this.api.getAllRegistrationFeePayments().pipe(catchError(() => of([] as RegistrationFeePayment[])))
+    }).subscribe({
+      next: ({ members, payments }) => {
+        // Update members
+        this.members = members.content as MemberWithRegFee[];
+        this.totalElements = members.totalElements;
+        this.totalPages = members.totalPages;
+        this.isFirst = members.first;
+        this.isLast = members.last;
+
+        // Update payments map
+        this.registrationFeePayments.clear();
+        payments.forEach(p => {
+          this.registrationFeePayments.set(p.memberId, p);
+        });
+
+        // Now update member statuses - both data sources are ready
+        this.updateMembersRegFeeStatus();
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        if (err.status !== 403) {
+          this.error.set('Failed to load members. Please check if the backend is running.');
+          this.toast.error('Failed to load members', 'Please check your connection and try again.');
+          console.error('Failed to load members:', err);
+        }
+      }
+    });
   }
 
   loadRegistrationFeeInfo() {
@@ -92,6 +178,7 @@ export class MembersComponent implements OnInit {
       next: (info) => {
         this.registrationFeeInfo = info;
         if (info.required && info.amount > 0) {
+          // Load payments, which will update member statuses when complete
           this.loadAllRegistrationFeePayments();
           if (this.session.can('VERIFY_REGISTRATION_FEE')) {
             this.loadAwaitingVerification();
@@ -108,11 +195,16 @@ export class MembersComponent implements OnInit {
   loadAllRegistrationFeePayments() {
     this.api.getAllRegistrationFeePayments().subscribe({
       next: (payments) => {
+        console.log('=== Registration Fee Payments loaded ===');
+        console.log('Payments:', payments);
+        payments.forEach(p => {
+          console.log(`Member ${p.memberId}: status=${p.status}, hasPendingClaim=${p.hasPendingClaim}, payableId=${p.payableId}`);
+        });
         this.registrationFeePayments.clear();
         payments.forEach(p => {
           this.registrationFeePayments.set(p.memberId, p);
         });
-        // Update member registration fee status
+        // Update member registration fee status - this will update even if members loaded first
         this.updateMembersRegFeeStatus();
       }
     });
@@ -164,43 +256,158 @@ export class MembersComponent implements OnInit {
     return '';
   }
 
+  /**
+   * Check if the given member is the currently logged-in user
+   */
+  isCurrentUser(member: MemberWithRegFee): boolean {
+    const currentUser = this.session.currentUser();
+    return currentUser !== null && currentUser.id === member.id;
+  }
+
+  /**
+   * Check if the current user can pay registration fee for this member.
+   * - PAY_ALL_REGISTRATION_FEE: Can pay for ANY member
+   * - PAY_REGISTRATION_FEE: Can ONLY pay for their own
+   */
   canPayRegFee(member: MemberWithRegFee): boolean {
     if (!this.isRegFeeRequired()) return false;
     const status = member.regFeeStatus;
-    return !status || status === 'PENDING' || status === 'REJECTED';
+    const isUnpaid = !status || status === 'PENDING' || status === 'REJECTED';
+    if (!isUnpaid) return false;
+
+    // Check permissions
+    if (this.session.can('PAY_ALL_REGISTRATION_FEE')) {
+      return true; // Admin can pay for anyone
+    }
+    if (this.session.can('PAY_REGISTRATION_FEE') && this.isCurrentUser(member)) {
+      return true; // Regular member can only pay their own
+    }
+    return false;
   }
 
   openRegFeePayModal(member: MemberWithRegFee) {
     this.regFeePayMember = member;
     this.regFeeReferenceNumber = '';
+    this.regFeePhoneNumber = member.phone || '';
+    this.selectedPaymentMethod = 'MANUAL';
+    this.paymentResponse = null;
     this.showRegFeePayModal = true;
+    
+    // Load enabled payment methods
+    this.api.getEnabledPaymentMethods().subscribe({
+      next: (methods) => {
+        this.enabledPaymentMethods = methods;
+        // Set default method if available
+        if (methods.defaultMethod) {
+          this.selectedPaymentMethod = methods.defaultMethod;
+        } else if (methods.manualEnabled) {
+          this.selectedPaymentMethod = 'MANUAL';
+        } else if (methods.stkPushEnabled) {
+          this.selectedPaymentMethod = 'STK_PUSH';
+        } else if (methods.inAppSmsEnabled) {
+          this.selectedPaymentMethod = 'IN_APP_SMS';
+        }
+      },
+      error: () => {
+        // Default to MANUAL if can't load methods
+        this.enabledPaymentMethods = { manualEnabled: true, stkPushEnabled: false, inAppSmsEnabled: false };
+      }
+    });
   }
 
   closeRegFeePayModal() {
     this.showRegFeePayModal = false;
     this.regFeePayMember = null;
     this.regFeeReferenceNumber = '';
+    this.regFeePhoneNumber = '';
+    this.paymentResponse = null;
+  }
+
+  getPaymentMethodLabel(method: PaymentMethod): string {
+    switch (method) {
+      case 'MANUAL': return 'Manual (Enter Reference)';
+      case 'STK_PUSH': return 'M-PESA STK Push';
+      case 'IN_APP_SMS': return 'In-App SMS Verification';
+      default: return method;
+    }
+  }
+
+  getPaymentMethodDescription(method: PaymentMethod): string {
+    switch (method) {
+      case 'MANUAL': return 'Pay via M-PESA or bank transfer, then enter the transaction reference for admin verification.';
+      case 'STK_PUSH': return 'Receive an M-PESA prompt on your phone to complete payment automatically.';
+      case 'IN_APP_SMS': return 'Complete payment and capture the confirmation SMS for automatic verification.';
+      default: return '';
+    }
+  }
+
+  isPaymentMethodEnabled(method: PaymentMethod): boolean {
+    if (!this.enabledPaymentMethods) return method === 'MANUAL';
+    switch (method) {
+      case 'MANUAL': return this.enabledPaymentMethods.manualEnabled;
+      case 'STK_PUSH': return this.enabledPaymentMethods.stkPushEnabled;
+      case 'IN_APP_SMS': return this.enabledPaymentMethods.inAppSmsEnabled;
+      default: return false;
+    }
+  }
+
+  canSubmitPayment(): boolean {
+    if (!this.regFeePayMember) return false;
+    if (this.selectedPaymentMethod === 'MANUAL' && !this.regFeeReferenceNumber.trim()) return false;
+    if (this.selectedPaymentMethod === 'STK_PUSH' && !this.regFeePhoneNumber.trim()) return false;
+    return true;
   }
 
   submitRegFeePayment() {
-    if (!this.regFeePayMember || !this.regFeeReferenceNumber.trim()) {
+    if (!this.regFeePayMember) return;
+    
+    // Validate based on method
+    if (this.selectedPaymentMethod === 'MANUAL' && !this.regFeeReferenceNumber.trim()) {
       this.toast.warning('Reference required', 'Please enter a payment reference number.');
       return;
     }
+    if (this.selectedPaymentMethod === 'STK_PUSH' && !this.regFeePhoneNumber.trim()) {
+      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+      return;
+    }
+    
     this.submittingRegFee.set(true);
-    this.api.submitRegistrationFeePayment(this.regFeePayMember.id, this.regFeeReferenceNumber.trim()).subscribe({
-      next: (payment) => {
+    
+    const request: InitiatePaymentRequest = {
+      paymentType: 'REGISTRATION_FEE',
+      referenceId: this.regFeePayMember.id,
+      payerMemberId: this.regFeePayMember.id,
+      paymentMethod: this.selectedPaymentMethod,
+      referenceCode: this.selectedPaymentMethod === 'MANUAL' ? this.regFeeReferenceNumber.trim() : undefined,
+      phoneNumber: this.selectedPaymentMethod === 'STK_PUSH' ? this.regFeePhoneNumber.trim() : undefined
+    };
+    
+    this.api.initiatePayment(request).subscribe({
+      next: (response) => {
         this.submittingRegFee.set(false);
-        this.toast.success('Payment submitted', 'Your registration fee payment has been submitted for verification.');
-        this.closeRegFeePayModal();
-        this.loadAllRegistrationFeePayments();
-        if (this.session.can('VERIFY_REGISTRATION_FEE')) {
-          this.loadAwaitingVerification();
+        this.paymentResponse = response;
+        
+        if (response.awaitingVerification) {
+          this.toast.success('Payment submitted', 'Your payment has been submitted and is awaiting admin verification.');
+          this.closeRegFeePayModal();
+          this.loadAllRegistrationFeePayments();
+          if (this.session.can('VERIFY_REGISTRATION_FEE')) {
+            this.loadAwaitingVerification();
+          }
+        } else if (response.status === 'STK_INITIATED') {
+          this.toast.info('Check your phone', 'An M-PESA prompt has been sent to your phone. Complete the payment.');
+          // Keep modal open to show status, could poll for completion
+        } else if (response.status === 'MATCHED') {
+          this.toast.success('Payment confirmed!', 'Your registration fee payment has been confirmed.');
+          this.closeRegFeePayModal();
+          this.loadAllRegistrationFeePayments();
+        } else {
+          this.toast.info('Payment processing', response.statusMessage);
         }
       },
       error: (err) => {
         this.submittingRegFee.set(false);
-        this.toast.error('Payment failed', err.error?.message || 'Failed to submit payment.');
+        this.toast.error('Payment failed', err.error?.message || 'Failed to process payment.');
       }
     });
   }
@@ -270,6 +477,12 @@ export class MembersComponent implements OnInit {
   }
 
   loadMembers() {
+    // If reg fee is required, use the combined loading method to ensure status is correct
+    if (this.isRegFeeRequired()) {
+      this.loadMembersWithPayments();
+      return;
+    }
+
     this.loading.set(true);
     this.error.set(null);
     const status = this.statusFilter === 'ALL' ? undefined : this.statusFilter;
@@ -283,8 +496,6 @@ export class MembersComponent implements OnInit {
         this.isFirst = response.first;
         this.isLast = response.last;
         this.loading.set(false);
-        // Update registration fee status for loaded members
-        this.updateMembersRegFeeStatus();
       },
       error: (err) => {
         this.loading.set(false);
@@ -556,5 +767,37 @@ export class MembersComponent implements OnInit {
     this.showDetailModal = false;
     this.selectedMember = null;
     this.memberSummary = null;
+  }
+
+  // ==================== RESET PASSWORD ====================
+
+  openResetPasswordModal(m: MemberWithRegFee) {
+    this.resetPasswordMember = m;
+    this.selectedResetPassword = '12345678';
+    this.showResetPasswordModal = true;
+  }
+
+  closeResetPasswordModal() {
+    this.showResetPasswordModal = false;
+    this.resetPasswordMember = null;
+    this.selectedResetPassword = '12345678';
+  }
+
+  confirmResetPassword() {
+    if (!this.resetPasswordMember || !this.selectedResetPassword) return;
+    
+    this.resettingPassword.set(true);
+    this.api.resetMemberPassword(this.resetPasswordMember.id, this.selectedResetPassword).subscribe({
+      next: (response) => {
+        this.resettingPassword.set(false);
+        this.toast.success('Password Reset', `${this.resetPasswordMember?.name}'s password has been reset. They will be required to change it on next login.`);
+        this.closeResetPasswordModal();
+      },
+      error: (err) => {
+        this.resettingPassword.set(false);
+        const message = err.error?.message || err.error?.error || 'Failed to reset password';
+        this.toast.error('Reset Failed', message);
+      }
+    });
   }
 }

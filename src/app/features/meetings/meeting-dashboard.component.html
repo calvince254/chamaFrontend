@@ -128,7 +128,9 @@
               <th>RSVP</th>
               <th>Attended</th>
               <th>Fines</th>
-              <th class="text-right">Actions</th>
+              @if (session.can('MANAGE_MEETING_FINES')) {
+                <th class="text-right">Actions</th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -164,23 +166,23 @@
                 </td>
                 <td>
                   @if (getMemberFines(a.memberId).length > 0) {
-                    <span class="fines-badge" (click)="openImposeFineModal(a)">
+                    <span class="fines-badge" (click)="openViewFinesModal(a)">
                       {{ getMemberFines(a.memberId).length }} · KES {{ getMemberFinesTotal(a.memberId) | number }}
                     </span>
                   } @else {
                     <span class="no-fines">—</span>
                   }
                 </td>
-                <td class="text-right">
-                  @if (session.can('MANAGE_MEETING_FINES')) {
+                @if (session.can('MANAGE_MEETING_FINES')) {
+                  <td class="text-right">
                     <button class="icon-btn-sm" (click)="openImposeFineModal(a)" title="Manage Fines">
-                      <app-icon name="eye"></app-icon>
+                      <app-icon name="edit"></app-icon>
                     </button>
                     <button class="icon-btn-sm" (click)="removeMember(a)" title="Remove">
                       <app-icon name="trash"></app-icon>
                     </button>
-                  }
-                </td>
+                  </td>
+                }
               </tr>
             }
           </tbody>
@@ -235,10 +237,22 @@
                   <span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span>
                 </td>
                 <td class="text-right">
-                  @if (session.can('MANAGE_MEETING_FINES')) {
-                    @if (f.status !== 'PAID' && f.status !== 'WAIVED') {
-                      <button class="btn btn-primary btn-sm" (click)="openPaymentModal(f)">Pay</button>
+                  @if (f.status !== 'PAID' && f.status !== 'WAIVED') {
+                    @if (f.hasPendingClaim) {
+                      <!-- Payment claim pending admin confirmation -->
+                      <span class="status-badge status-pending">Awaiting Confirmation</span>
+                      @if (session.can('VERIFY_PAYMENTS') && f.payableId) {
+                        <button class="btn btn-success btn-sm ms-1" (click)="confirmPayment(f.payableId)">Confirm</button>
+                      }
+                    } @else if (isOwnFine(f)) {
+                      <!-- Member can pay their own fine -->
+                      <button class="btn btn-primary btn-sm" (click)="openPayFineModal(f)">Pay</button>
+                    } @else if (session.can('MANAGE_MEETING_FINES')) {
+                      <!-- Admin can record payment directly -->
+                      <button class="btn btn-primary btn-sm" (click)="openPaymentModal(f)">Record</button>
                     }
+                  }
+                  @if (session.can('MANAGE_MEETING_FINES')) {
                     <button class="icon-btn-sm" (click)="deleteFine(f)" title="Delete">
                       <app-icon name="trash"></app-icon>
                     </button>
@@ -409,6 +423,66 @@
   </div>
 }
 
+<!-- View Fines Modal (Read-only with Pay option for own fines) -->
+@if (showViewFinesModal && selectedMemberForFine) {
+  <div class="modal-backdrop" (click)="closeViewFinesModal()">
+    <div class="modal" style="max-width: 500px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Fines - {{ selectedMemberForFine.memberName }}</h3>
+          <p style="font-size: 11px; color: var(--color-text-muted);">{{ selectedMemberForFine.memberNo }}</p>
+        </div>
+        <button class="icon-btn" (click)="closeViewFinesModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        @if (selectedMemberFines.length === 0) {
+          <div class="empty-state-small">
+            <p>No fines for this member.</p>
+          </div>
+        } @else {
+          <table class="meeting-table compact">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th class="text-right">Amount</th>
+                <th class="text-right">Paid</th>
+                <th class="text-right">Balance</th>
+                <th>Status</th>
+                @if (selectedMemberFines.some(f => canPayFine(f) && isOwnFine(f))) {
+                  <th></th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (f of selectedMemberFines; track f.id) {
+                <tr>
+                  <td>{{ f.fineTypeName }}</td>
+                  <td class="text-right">KES {{ f.amount | number }}</td>
+                  <td class="text-right text-success">KES {{ f.paidAmount || 0 | number }}</td>
+                  <td class="text-right text-danger">KES {{ f.amount - (f.paidAmount || 0) | number }}</td>
+                  <td><span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span></td>
+                  @if (canPayFine(f) && isOwnFine(f)) {
+                    <td class="text-right">
+                      @if (f.hasPendingClaim) {
+                        <span class="status-badge status-pending">Awaiting Confirmation</span>
+                      } @else {
+                        <button class="btn btn-primary btn-sm" (click)="closeViewFinesModal(); openPayFineModal(f)">Pay</button>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closeViewFinesModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
 <!-- Manage Fines Modal -->
 @if (showImposeFineModal && selectedMemberForFine) {
   <div class="modal-backdrop" (click)="closeImposeFineModal()">
@@ -443,9 +517,19 @@
                     <td class="text-right">KES {{ f.amount | number }}</td>
                     <td class="text-right text-success">KES {{ f.paidAmount || 0 | number }}</td>
                     <td class="text-right text-danger">KES {{ f.amount - (f.paidAmount || 0) | number }}</td>
-                    <td><span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span></td>
+                    <td>
+                      @if (f.hasPendingClaim) {
+                        <span class="status-badge status-pending">Awaiting Confirmation</span>
+                      } @else {
+                        <span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span>
+                      }
+                    </td>
                     <td class="text-right" style="white-space: nowrap;">
-                      @if (f.status !== 'PAID' && f.status !== 'WAIVED') {
+                      @if (f.hasPendingClaim && f.payableId) {
+                        @if (session.can('VERIFY_PAYMENTS')) {
+                          <button class="btn btn-success btn-sm" (click)="confirmPayment(f.payableId)">Confirm</button>
+                        }
+                      } @else if (f.status !== 'PAID' && f.status !== 'WAIVED') {
                         <button class="btn btn-primary btn-sm" (click)="openPaymentModal(f)">Pay</button>
                       }
                       <button class="icon-btn-sm" (click)="deleteFine(f)">
@@ -495,7 +579,7 @@
   </div>
 }
 
-<!-- Record Payment Modal -->
+<!-- Record Payment Modal (Admin direct recording) -->
 @if (showPaymentModal && selectedFineForPayment) {
   <div class="modal-backdrop" (click)="closePaymentModal()">
     <div class="modal" style="max-width: 360px;" (click)="$event.stopPropagation()">
@@ -538,6 +622,135 @@
         <button class="btn btn-ghost" (click)="closePaymentModal()" [disabled]="recordingPayment()">Cancel</button>
         <button class="btn btn-primary" (click)="recordPayment()" [disabled]="recordingPayment() || !paymentAmount || paymentAmount <= 0">
           {{ recordingPayment() ? 'Recording...' : 'Record Payment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Pay Fine Modal (Member payment with method selection) -->
+@if (showPayFineModal && fineToPayMember) {
+  <div class="modal-backdrop" (click)="closePayFineModal()">
+    <div class="modal modal-md" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Pay Fine</h3>
+        <button class="icon-btn" (click)="closePayFineModal()"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="payment-info">
+          <div class="payment-row">
+            <span class="payment-label">Fine Type:</span>
+            <span class="payment-value">{{ fineToPayMember.fineTypeName }}</span>
+          </div>
+          <div class="payment-row">
+            <span class="payment-label">Member:</span>
+            <span class="payment-value">{{ fineToPayMember.memberName }}</span>
+          </div>
+          <div class="payment-row">
+            <span class="payment-label">Amount:</span>
+            <span class="payment-value payment-amount">KES {{ fineToPayMember.amount - (fineToPayMember.paidAmount || 0) | number }}</span>
+          </div>
+          @if (enabledPaymentMethods?.treasurerPhone) {
+            <div class="payment-row">
+              <span class="payment-label">Pay to:</span>
+              <span class="payment-value">{{ enabledPaymentMethods?.treasurerName || 'Treasurer' }} ({{ enabledPaymentMethods?.treasurerPhone }})</span>
+            </div>
+          }
+        </div>
+
+        <!-- Payment Method Selection -->
+        <div class="form-field">
+          <label>Payment Method <span class="required">*</span></label>
+          <div class="payment-methods">
+            @if (isPaymentMethodEnabled('MANUAL')) {
+              <label class="payment-method-option" [class.selected]="selectedPaymentMethod === 'MANUAL'">
+                <input type="radio" name="finePaymentMethod" value="MANUAL" [(ngModel)]="selectedPaymentMethod" />
+                <div class="method-content">
+                  <app-icon name="edit-3"></app-icon>
+                  <div class="method-details">
+                    <span class="method-name">Manual Verification</span>
+                    <span class="method-desc">Enter M-PESA or bank reference</span>
+                  </div>
+                </div>
+              </label>
+            }
+            @if (isPaymentMethodEnabled('STK_PUSH')) {
+              <label class="payment-method-option" [class.selected]="selectedPaymentMethod === 'STK_PUSH'">
+                <input type="radio" name="finePaymentMethod" value="STK_PUSH" [(ngModel)]="selectedPaymentMethod" />
+                <div class="method-content">
+                  <app-icon name="smartphone"></app-icon>
+                  <div class="method-details">
+                    <span class="method-name">M-PESA STK Push</span>
+                    <span class="method-desc">Receive prompt on your phone</span>
+                  </div>
+                </div>
+              </label>
+            }
+            @if (isPaymentMethodEnabled('IN_APP_SMS')) {
+              <label class="payment-method-option" [class.selected]="selectedPaymentMethod === 'IN_APP_SMS'">
+                <input type="radio" name="finePaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedPaymentMethod" />
+                <div class="method-content">
+                  <app-icon name="message-square"></app-icon>
+                  <div class="method-details">
+                    <span class="method-name">SMS Verification</span>
+                    <span class="method-desc">Capture confirmation SMS</span>
+                  </div>
+                </div>
+              </label>
+            }
+          </div>
+        </div>
+
+        <!-- Method-specific fields -->
+        @if (selectedPaymentMethod === 'MANUAL') {
+          <div class="form-field">
+            <label>Payment Reference Number <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="finePaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+            <span class="form-hint">Enter the transaction reference from your M-PESA or bank payment</span>
+          </div>
+        }
+
+        @if (selectedPaymentMethod === 'STK_PUSH') {
+          <div class="form-field">
+            <label>Phone Number <span class="required">*</span></label>
+            <input type="tel" [(ngModel)]="finePaymentPhoneNumber" placeholder="e.g. 0712345678" />
+            <span class="form-hint">M-PESA registered phone number to receive the payment prompt</span>
+          </div>
+        }
+
+        @if (selectedPaymentMethod === 'IN_APP_SMS') {
+          <div class="payment-instructions">
+            <app-icon name="info"></app-icon>
+            <div>
+              <strong>Instructions:</strong>
+              <ol>
+                <li>Send KES {{ fineToPayMember.amount - (fineToPayMember.paidAmount || 0) | number }} to {{ enabledPaymentMethods?.treasurerPhone || 'the treasurer' }}</li>
+                <li>Wait for the M-PESA confirmation SMS</li>
+                <li>The system will automatically verify your payment</li>
+              </ol>
+            </div>
+          </div>
+        }
+
+        <!-- Payment Response Status -->
+        @if (finePaymentResponse) {
+          <div class="payment-status" [class.status-success]="finePaymentResponse.status === 'MATCHED'" 
+               [class.status-pending]="finePaymentResponse.awaitingVerification || finePaymentResponse.status === 'STK_INITIATED'">
+            <app-icon [name]="finePaymentResponse.status === 'MATCHED' ? 'check-circle' : 'clock'"></app-icon>
+            <span>{{ finePaymentResponse.statusMessage }}</span>
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="closePayFineModal()" [disabled]="submittingFinePayment()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitFinePayment()" [disabled]="submittingFinePayment() || !canSubmitFinePayment()">
+          @if (submittingFinePayment()) {
+            <span>Processing...</span>
+          } @else if (selectedPaymentMethod === 'STK_PUSH') {
+            <span>Send M-PESA Prompt</span>
+          } @else {
+            <span>Submit Payment</span>
+          }
         </button>
       </div>
     </div>
