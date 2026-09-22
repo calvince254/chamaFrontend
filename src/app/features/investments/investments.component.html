@@ -212,9 +212,17 @@
           </div>
         }
       </div>
+      
+      <!-- Error Message -->
+      @if (createError) {
+        <div class="error-banner" style="margin: 0 16px 16px; padding: 12px; background: var(--color-danger-bg); border: 1px solid var(--color-danger); border-radius: 6px; color: var(--color-danger); font-size: 12px;">
+          <strong>Error:</strong> {{ createError }}
+        </div>
+      }
+      
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeCreateModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" [disabled]="saving || createInvestmentForm.invalid">
+        <button type="submit" class="btn btn-primary" [disabled]="saving || createInvestmentForm.invalid || isAmountOverLiquidCash">
           {{ saving ? 'Saving...' : 'Create Investment' }}
         </button>
       </div>

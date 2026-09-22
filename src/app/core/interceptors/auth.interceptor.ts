@@ -57,6 +57,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
  */
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const platformId = inject(PLATFORM_ID);
+  const router = inject(Router);
   const isBrowser = isPlatformBrowser(platformId);
   
   // Only inject toast in browser (not in SSR)
@@ -88,13 +89,19 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         // Unauthorized - session expired (handled by authInterceptor, but show message)
         toast?.warning('Session Expired', 'Please log in again.');
       } else if (error.status === 403) {
-        // Forbidden - user is logged in but lacks permission for this action
-        // Silently fail for ALL GET requests (data loading)
-        // Only show toast for POST/PUT/DELETE (user-initiated actions)
-        if (req.method !== 'GET') {
-          toast?.warning('Access Denied', 'You do not have permission to perform this action.');
+        // Forbidden - check if user has a token
+        const token = localStorage.getItem('chama.token');
+        if (!token) {
+          // No token - redirect to login
+          router.navigate(['/login']);
+        } else {
+          // User has token but lacks permission for this action
+          // Silently fail for ALL GET requests (data loading)
+          // Only show toast for POST/PUT/DELETE (user-initiated actions)
+          if (req.method !== 'GET') {
+            toast?.warning('Access Denied', 'You do not have permission to perform this action.');
+          }
         }
-        // GET requests fail silently - no toast notification
       } else if (error.status === 404) {
         // Not found
         toast?.error('Not Found', `The requested resource (${endpoint}) was not found.`);

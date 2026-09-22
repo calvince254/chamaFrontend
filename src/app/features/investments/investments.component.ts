@@ -19,6 +19,9 @@ export class InvestmentsComponent implements OnInit {
   pendingApprovals: InvestmentApproval[] = [];
   loading = true;
   saving = false;
+  
+  // Error message for create modal
+  createError = '';
 
   // Liquidity info
   liquidity: Liquidity | null = null;
@@ -222,6 +225,7 @@ export class InvestmentsComponent implements OnInit {
 
   // Create Modal
   openCreateModal() {
+    this.createError = '';
     this.createForm = {
       name: '',
       category: 'MONEY_MARKET',
@@ -276,6 +280,7 @@ export class InvestmentsComponent implements OnInit {
 
   submitCreate() {
     this.saving = true;
+    this.createError = '';
     const payload = {
       ...this.createForm,
       requiresApproval: this.createForm.requiresApproval && this.createForm.approverIds.length > 0
@@ -284,12 +289,14 @@ export class InvestmentsComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.showCreateModal = false;
+        this.createError = '';
         this.loadInvestments();
         this.cdr.detectChanges();
       },
-      error: () => {
+      error: (err) => {
         this.saving = false;
-        alert('Failed to create investment');
+        this.createError = err?.error?.message || err?.message || 'Failed to create investment';
+        this.cdr.detectChanges();
       }
     });
   }
@@ -315,7 +322,7 @@ export class InvestmentsComponent implements OnInit {
         this.loadPendingApprovalCount();
         this.loadInvestments();
       },
-      error: () => alert('Failed to submit vote')
+      error: (err) => alert(err?.error?.message || 'Failed to submit vote')
     });
   }
 
