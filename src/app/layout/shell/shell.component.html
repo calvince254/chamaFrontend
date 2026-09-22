@@ -87,6 +87,12 @@
               <app-icon name="user"></app-icon>
               <span>My Profile</span>
             </button>
+            @if (user()?.isSuperAdmin) {
+              <button class="dropdown-item" (click)="openPlatformSettings()">
+                <app-icon name="settings"></app-icon>
+                <span>Platform Settings</span>
+              </button>
+            }
             <button class="dropdown-item" (click)="openChangePasswordModal()">
               <app-icon name="lock"></app-icon>
               <span>Change Password</span>
@@ -285,6 +291,68 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" (click)="closeProfileModal()">Close</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Platform Settings Modal (Super Admin Only) -->
+@if (showPlatformSettingsModal()) {
+  <div class="modal-backdrop" (click)="closePlatformSettingsModal()">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <app-icon name="settings"></app-icon>
+          Platform Settings
+        </h3>
+        <button class="modal-close" (click)="closePlatformSettingsModal()">
+          <app-icon name="close"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (platformSettingsError()) {
+          <div class="error-banner">{{ platformSettingsError() }}</div>
+        }
+        @if (platformSettingsSuccess()) {
+          <div class="success-banner">{{ platformSettingsSuccess() }}</div>
+        }
+
+        <p class="form-help-text">This contact information is displayed on the login page for new chama onboarding inquiries.</p>
+
+        <div class="form-field">
+          <label>Contact Phone <span class="required">*</span></label>
+          <input 
+            type="tel" 
+            [(ngModel)]="platformSettingsForm.contactPhone" 
+            placeholder="+254 7XX XXX XXX"
+            [disabled]="platformSettingsSaving()" />
+        </div>
+
+        <div class="form-field">
+          <label>Contact Email</label>
+          <input 
+            type="email" 
+            [(ngModel)]="platformSettingsForm.contactEmail" 
+            placeholder="admin@example.com"
+            [disabled]="platformSettingsSaving()" />
+        </div>
+
+        <div class="form-field">
+          <label>Contact Name</label>
+          <input 
+            type="text" 
+            [(ngModel)]="platformSettingsForm.contactName" 
+            placeholder="Platform Admin"
+            [disabled]="platformSettingsSaving()" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closePlatformSettingsModal()" [disabled]="platformSettingsSaving()">
+          Cancel
+        </button>
+        <button class="btn btn-primary" (click)="savePlatformSettings()" [disabled]="platformSettingsSaving()">
+          {{ platformSettingsSaving() ? 'Saving...' : 'Save Settings' }}
+        </button>
       </div>
     </div>
   </div>

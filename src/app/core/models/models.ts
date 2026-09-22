@@ -68,6 +68,7 @@ export interface Member {
   joinDate: string;
   status: 'ACTIVE' | 'SUSPENDED' | 'EXITED';
   role: string;
+  roleId?: number;
   totalSavings: number;
   totalShares: number;
   outstandingLoan: number;
@@ -250,6 +251,16 @@ export interface Investment {
   soldBy?: string;
   soldNotes?: string;
   finalGain?: number;
+  // Partial sale tracking
+  totalUnits?: number;
+  remainingUnits?: number;
+  totalAmountSold?: number;
+  totalPrincipalSold?: number;
+  realizedGain?: number;
+  unrealizedGain?: number;
+  remainingPrincipal?: number;
+  soldPercentage?: number;
+  hasPartialSales?: boolean;
 }
 
 export interface InvestmentApproval {

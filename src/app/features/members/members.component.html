@@ -260,6 +260,23 @@
               <option value="EXITED">Exited</option>
             </select>
           </div>
+          
+          <!-- Role Selection (only when editing existing member) -->
+          @if (editing.id && session.can('MANAGE_ROLE_PERMISSIONS')) {
+            <div class="form-field">
+              <label>Role</label>
+              @if (loadingRoles()) {
+                <select disabled><option>Loading roles...</option></select>
+              } @else {
+                <select [(ngModel)]="editing.roleId" name="roleId">
+                  @for (role of roles; track role.id) {
+                    <option [value]="role.id">{{ role.name }}</option>
+                  }
+                </select>
+              }
+              <span class="form-hint">Assign a role to control what this member can do in the system</span>
+            </div>
+          }
         </div>
       </div>
       <div class="modal-footer">

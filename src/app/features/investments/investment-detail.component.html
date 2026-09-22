@@ -39,7 +39,7 @@
         }
         @if (session.can('SELL_INVESTMENT')) {
           <button type="button" class="btn btn-primary" onclick="console.log('sell')" (click)="openSellModal()">
-            <app-icon name="dollar-sign"></app-icon> Sell
+            <app-icon name="dollar-sign"></app-icon> {{ actionTerm }}
           </button>
         }
         @if (session.can('WRITE_OFF_INVESTMENT')) {
@@ -47,11 +47,6 @@
             <app-icon name="x-circle"></app-icon> Write Off
           </button>
         }
-      }
-      @if (session.can('DELETE_INVESTMENT')) {
-        <button type="button" class="btn btn-ghost text-danger" onclick="console.log('delete')" (click)="openDeleteModal()">
-          <app-icon name="trash"></app-icon> Delete
-        </button>
       }
     </div>
   </div>
@@ -68,18 +63,25 @@
         <div class="card-body">
           <div class="stat-grid stat-grid-4">
             <div class="stat-card">
-              <div class="stat-label">Amount Invested</div>
+              <div class="stat-label">{{ investment.hasPartialSales ? 'Remaining Principal' : 'Total Invested' }}</div>
               <div class="stat-value">KES {{ investment.amountInvested | number }}</div>
+              @if (investment.hasPartialSales && investment.totalPrincipalSold) {
+                <small class="text-muted">({{ actionTermPast }}: KES {{ investment.totalPrincipalSold | number }})</small>
+              }
             </div>
             <div class="stat-card">
               <div class="stat-label">Current Value</div>
               <div class="stat-value">KES {{ investment.currentValue | number }}</div>
+              @if (investment.hasPartialSales) {
+                <small class="text-muted">(After withdrawals)</small>
+              }
             </div>
             <div class="stat-card">
-              <div class="stat-label">Net Gain/Loss</div>
-              <div class="stat-value" [class.text-success]="(investment.netGain || 0) >= 0" [class.text-danger]="(investment.netGain || 0) < 0">
-                {{ (investment.netGain || 0) >= 0 ? '+' : '' }}KES {{ investment.netGain | number }}
+              <div class="stat-label">Unrealized Gain/Loss</div>
+              <div class="stat-value" [class.text-success]="(investment.unrealizedGain || investment.netGain || 0) >= 0" [class.text-danger]="(investment.unrealizedGain || investment.netGain || 0) < 0">
+                {{ (investment.unrealizedGain || investment.netGain || 0) >= 0 ? '+' : '' }}KES {{ investment.unrealizedGain || investment.netGain | number }}
               </div>
+              <small class="text-muted">(Paper profit - not yet {{ actionTermLower }})</small>
             </div>
             <div class="stat-card">
               <div class="stat-label">Return %</div>
@@ -88,6 +90,34 @@
               </div>
             </div>
           </div>
+
+          <!-- Withdrawal Summary - Show if has partial sales -->
+          @if (investment.hasPartialSales || (investment.totalAmountSold && investment.totalAmountSold > 0)) {
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+              <h4 style="margin: 0 0 12px 0; font-size: 0.95em; color: var(--color-text-muted);">{{ amountTerm }} Summary</h4>
+              <div class="stat-grid stat-grid-4">
+                <div class="stat-card">
+                  <div class="stat-label">{{ actionTermPast }}</div>
+                  <div class="stat-value">{{ investment.soldPercentage | number:'1.0-1' }}%</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Total {{ actionTermPast }}</div>
+                  <div class="stat-value">KES {{ investment.totalAmountSold | number }}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Principal {{ actionTermPast }}</div>
+                  <div class="stat-value text-muted">KES {{ investment.totalPrincipalSold | number }}</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Realized Gain</div>
+                  <div class="stat-value" [class.text-success]="(investment.realizedGain || 0) >= 0" [class.text-danger]="(investment.realizedGain || 0) < 0">
+                    {{ (investment.realizedGain || 0) >= 0 ? '+' : '' }}KES {{ investment.realizedGain | number }}
+                  </div>
+                  <small class="text-success">(Recorded as income)</small>
+                </div>
+              </div>
+            </div>
+          }
         </div>
       </div>
 
@@ -180,6 +210,51 @@
                     <td><strong>{{ t.newPrincipal | number }}</strong></td>
                     <td>{{ t.recordedByName || '—' }}</td>
                     <td>{{ t.notes || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      <!-- Sale History -->
+      @if (saleHistory.length > 0) {
+        <div class="card">
+          <div class="card-header">
+            <h3>Sale History</h3>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Units Sold</th>
+                  <th>Sale Amount</th>
+                  <th>Cost Basis</th>
+                  <th>Realized Gain/Loss</th>
+                  <th>Sold By</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of saleHistory; track s.id) {
+                  <tr>
+                    <td>{{ s.saleDate | date:'d MMM yyyy' }}</td>
+                    <td>
+                      {{ s.unitsSold | number:'1.0-4' }}
+                      @if (s.isFullSale) {
+                        <span class="badge badge-success" style="margin-left: 4px; font-size: 0.7em;">FULL</span>
+                      }
+                    </td>
+                    <td><strong>KES {{ s.totalSaleAmount | number }}</strong></td>
+                    <td class="text-muted">KES {{ s.principalPortion | number }}</td>
+                    <td [class.text-success]="s.realizedGain >= 0" [class.text-danger]="s.realizedGain < 0">
+                      <strong>{{ s.realizedGain >= 0 ? '+' : '' }}KES {{ s.realizedGain | number }}</strong>
+                      <small>({{ s.gainPercentage | number:'1.0-1' }}%)</small>
+                    </td>
+                    <td>{{ s.soldBy || '—' }}</td>
+                    <td>{{ s.notes || '—' }}</td>
                   </tr>
                 }
               </tbody>
@@ -376,31 +451,135 @@
 <!-- SELL MODAL -->
 @if (showSellModal && investment) {
 <div class="modal-backdrop">
-  <div class="modal">
+  <div class="modal" style="max-width: 500px;">
     <div class="modal-header">
-      <h3>Sell Investment</h3>
-      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeSellModal()"><app-icon name="close"></app-icon></button>
+      <h3>{{ actionTerm }} Investment</h3>
+      <button type="button" class="icon-btn" (click)="closeSellModal()"><app-icon name="close"></app-icon></button>
     </div>
     <form (ngSubmit)="submitSell()">
       <div class="modal-body">
         <p><strong>{{ investment.name }}</strong></p>
-        <p class="text-muted">Current Value: KES {{ investment.currentValue | number }}</p>
-        <div class="form-field">
-          <label>Sale Amount (KES)</label>
-          <input type="number" [(ngModel)]="sellForm.soldAmount" name="soldAmount" min="0" required>
+        
+        <!-- Investment Summary -->
+        <div class="sale-summary" style="background: var(--color-bg-secondary); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.9em;">
+            <div>
+              <span class="text-muted">Current Value:</span>
+              <strong>KES {{ investment.currentValue | number }}</strong>
+            </div>
+            <div>
+              <span class="text-muted">Cost Basis (Principal):</span>
+              <strong>KES {{ investment.remainingPrincipal || investment.amountInvested | number }}</strong>
+            </div>
+          </div>
+          @if (investment.hasPartialSales) {
+            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border);">
+              <span class="text-muted">Previously {{ actionTermPast }}:</span>
+              <strong>KES {{ investment.totalAmountSold | number }}</strong>
+              <span class="text-muted" style="margin-left: 12px;">Realized Gain:</span>
+              <strong [class.text-success]="(investment.realizedGain || 0) >= 0" [class.text-danger]="(investment.realizedGain || 0) < 0">
+                KES {{ investment.realizedGain | number }}
+              </strong>
+            </div>
+          }
         </div>
+
+        <!-- Sale Type Selection -->
         <div class="form-field">
-          <label>Sale Date</label>
-          <input type="date" [(ngModel)]="sellForm.soldDate" name="soldDate" required>
+          <label>{{ amountTerm }} Type</label>
+          <div style="display: flex; gap: 12px; margin-top: 4px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="radio" [(ngModel)]="sellForm.sellAll" name="sellType" [value]="true" (change)="onSellTypeChange()">
+              <span>{{ actionTerm }} All (Close Investment)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="radio" [(ngModel)]="sellForm.sellAll" name="sellType" [value]="false" (change)="onSellTypeChange()">
+              <span>Partial {{ amountTerm }}</span>
+            </label>
+          </div>
         </div>
+
+        <!-- Amount (for partial) -->
+        @if (!sellForm.sellAll) {
+          <!-- For assets like Land, Real Estate - show percentage option -->
+          @if (isAssetInvestment) {
+            <div class="form-field">
+              <label>Portion to Sell</label>
+              <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                <input type="range" [(ngModel)]="sellPercentage" name="sellPercentage" 
+                       min="1" max="100" step="1" style="flex: 1;"
+                       (ngModelChange)="onPercentageChange()">
+                <span style="min-width: 50px; text-align: right; font-weight: 600;">{{ sellPercentage }}%</span>
+              </div>
+              <small class="text-muted">Selling {{ sellPercentage }}% of your investment</small>
+            </div>
+          }
+          
+          <div class="form-field">
+            <label>{{ amountTerm }} Amount (KES)</label>
+            <input type="number" [(ngModel)]="sellForm.saleAmount" name="saleAmount" 
+                   min="1" [max]="investment.currentValue" step="0.01"
+                   (ngModelChange)="onSaleAmountChange()" required>
+            <small class="text-muted">
+              @if (isAssetInvestment) {
+                Amount received for {{ sellPercentage | number:'1.0-0' }}% of the investment
+              } @else {
+                Max: KES {{ investment.currentValue | number }}
+              }
+            </small>
+          </div>
+        } @else {
+          <div class="form-field">
+            <label>Total {{ amountTerm }} Amount (KES)</label>
+            <input type="number" [(ngModel)]="sellForm.saleAmount" name="saleAmount" 
+                   min="0" step="0.01" [value]="investment.currentValue"
+                   (ngModelChange)="calculateExpectedGain()" required>
+            <small class="text-muted">Enter the actual amount you received (may differ from current value)</small>
+          </div>
+        }
+
+        <!-- Expected Gain/Loss Preview -->
+        @if (sellForm.saleAmount > 0) {
+          <div class="gain-preview" style="background: var(--color-bg-secondary); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Principal Portion (Cost Basis):</span>
+              <strong>KES {{ expectedPrincipalPortion | number }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <span>{{ expectedGain >= 0 ? 'Gain (Income)' : 'Loss (Expense)' }}:</span>
+              <strong [class.text-success]="expectedGain >= 0" [class.text-danger]="expectedGain < 0" style="font-size: 1.1em;">
+                KES {{ expectedGain | number }}
+              </strong>
+            </div>
+            <small class="text-muted" style="display: block; margin-top: 8px;">
+              This {{ expectedGain >= 0 ? 'gain' : 'loss' }} will be recorded as {{ expectedGain >= 0 ? 'income' : 'expense' }} in the finance book.
+            </small>
+          </div>
+        }
+
+        <div class="form-field">
+          <label>{{ amountTerm }} Date</label>
+          <input type="date" [(ngModel)]="sellForm.saleDate" name="saleDate" required>
+        </div>
+
         <div class="form-field">
           <label>Notes</label>
-          <textarea [(ngModel)]="sellForm.notes" name="notes" rows="2" placeholder="Optional notes about this sale"></textarea>
+          <textarea [(ngModel)]="sellForm.notes" name="notes" rows="2" [placeholder]="'Optional notes about this ' + actionTermLower"></textarea>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeSellModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" [disabled]="saving">{{ saving ? 'Processing...' : 'Confirm Sale' }}</button>
+        <button type="button" class="btn btn-ghost" (click)="closeSellModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving || !isValidSale()">
+          @if (saving) {
+            Processing...
+          } @else if (sellForm.sellAll) {
+            {{ actionTerm }} All
+          } @else if (isAssetInvestment) {
+            {{ actionTerm }} {{ sellPercentage | number:'1.0-0' }}% for KES {{ sellForm.saleAmount | number }}
+          } @else {
+            {{ actionTerm }} KES {{ sellForm.saleAmount | number }}
+          }
+        </button>
       </div>
     </form>
   </div>
@@ -437,34 +616,6 @@
 }
 
 
-<!-- DELETE CONFIRMATION MODAL -->
-@if (showDeleteModal && investment) {
-<div class="modal-backdrop">
-  <div class="modal">
-    <div class="modal-header">
-      <h3>Delete Investment</h3>
-      <button type="button" class="icon-btn" onclick="console.log('x')" (click)="closeDeleteModal()"><app-icon name="close"></app-icon></button>
-    </div>
-    <div class="modal-body">
-      <div class="alert alert-danger" style="margin-bottom:16px;">
-        <strong>Warning:</strong> This will permanently delete this investment and all its value history. This action cannot be undone.
-      </div>
-      <p><strong>{{ investment.name }}</strong></p>
-      <p class="text-muted">Invested: KES {{ investment.amountInvested | number }}</p>
-      @if (investment.status !== 'ACTIVE') {
-        <p class="text-muted">Status: {{ investment.status }}</p>
-      }
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-ghost" onclick="console.log('cancel')" (click)="closeDeleteModal()">Cancel</button>
-      <button type="button" class="btn btn-danger" onclick="console.log('delete')" (click)="confirmDelete()" [disabled]="saving">
-        {{ saving ? 'Deleting...' : 'Delete Permanently' }}
-      </button>
-    </div>
-  </div>
-</div>
-}
-
 <!-- ADD PRINCIPAL (TOPUP) MODAL -->
 @if (showTopupModal && investment) {
 <div class="modal-backdrop">
@@ -480,6 +631,25 @@
         <div class="form-field">
           <label>Amount to Add (KES)</label>
           <input type="number" [(ngModel)]="topupForm.amount" name="amount" min="1" required>
+          <!-- Liquidity Info -->
+          @if (loadingLiquidity) {
+            <small class="text-muted">Checking available funds...</small>
+          } @else if (liquidity) {
+            <div style="margin-top: 8px; padding: 8px; background: var(--color-bg-secondary); border-radius: 6px; font-size: 0.85em;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-muted">Available Liquid Cash:</span>
+                <strong [class.text-success]="!isTopupOverLiquidCash" [class.text-danger]="isTopupOverLiquidCash">
+                  KES {{ liquidity.liquidCash | number }}
+                </strong>
+              </div>
+              @if (isTopupOverLiquidCash && topupForm.amount > 0) {
+                <div class="text-danger" style="margin-top: 6px; font-size: 0.9em;">
+                  <app-icon name="alert-triangle" style="width:14px;height:14px;vertical-align:middle;"></app-icon>
+                  Amount exceeds available liquid cash by KES {{ (topupForm.amount - liquidity.liquidCash) | number }}
+                </div>
+              }
+            </div>
+          }
         </div>
         <div class="form-field">
           <label>Top-up Date</label>

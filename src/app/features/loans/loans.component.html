@@ -538,6 +538,25 @@
                   </small>
                 }
               }
+              <!-- Liquidity Info -->
+              @if (loadingLiquidity()) {
+                <small class="text-muted" style="font-size: 10px;">Checking available funds...</small>
+              } @else if (liquidity) {
+                <div style="margin-top: 6px; padding: 6px 8px; background: var(--color-bg-secondary); border-radius: 4px; font-size: 11px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="text-muted">Available for Disbursement:</span>
+                    <strong [class.text-success]="!isLoanAmountOverLiquidCash" [class.text-danger]="isLoanAmountOverLiquidCash">
+                      KES {{ liquidity.liquidCash | number }}
+                    </strong>
+                  </div>
+                  @if (isLoanAmountOverLiquidCash && editing.principal > 0) {
+                    <div class="text-danger" style="margin-top: 4px; font-size: 10px;">
+                      <app-icon name="alert-triangle" style="width:12px;height:12px;vertical-align:middle;"></app-icon>
+                      Loan amount exceeds available liquid cash
+                    </div>
+                  }
+                </div>
+              }
             </div>
             <div class="form-field">
               <label>Term (months)</label>

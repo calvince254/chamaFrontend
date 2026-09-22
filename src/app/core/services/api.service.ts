@@ -213,7 +213,8 @@ export class ApiService {
           memberNo: m.memberNo,
           joinDate: m.joinDate,
           status: m.status,
-          role: m.roleName || m.role?.name || 'Member',
+          role: m.role || m.roleName || m.role?.name || 'Member',
+          roleId: m.roleId,
           totalSavings: m.totalSavings || 0,
           totalShares: m.totalShares || 0,
           outstandingLoan: m.outstandingLoan || 0,
@@ -1022,6 +1023,23 @@ export class ApiService {
     return this.http.post<Investment>(`${this.baseUrl}/investments/${id}/sell`, { soldAmount, soldDate, notes });
   }
 
+  // New partial sale method
+  sellInvestmentPartial(id: number, saleAmount: number, saleDate: string, sellAll: boolean, unitsToSell?: number, notes?: string): Observable<Investment> {
+    return this.http.post<Investment>(`${this.baseUrl}/investments/${id}/sell`, {
+      saleAmount,
+      saleDate,
+      sellAll,
+      unitsToSell,
+      notes
+    });
+  }
+
+  // Get sale history
+  getInvestmentSaleHistory(id: number): Observable<any[]> {
+    if (!this.isBrowser) return of([]);
+    return this.http.get<any[]>(`${this.baseUrl}/investments/${id}/sales`);
+  }
+
   writeOffInvestment(id: number, reason?: string): Observable<Investment> {
     return this.http.post<Investment>(`${this.baseUrl}/investments/${id}/write-off`, { reason });
   }
@@ -1678,6 +1696,29 @@ export class ApiService {
   revokeTreasurerDevice(deviceId: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/payments/devices/${deviceId}`);
   }
+
+  // ==================== PLATFORM SETTINGS ====================
+  
+  /**
+   * Get contact info for login page (public endpoint)
+   */
+  getPlatformContactInfo(): Observable<PlatformContactInfo> {
+    return this.http.get<PlatformContactInfo>(`${this.baseUrl}/platform/contact-info`);
+  }
+
+  /**
+   * Update contact info (Super Admin only)
+   */
+  updatePlatformContactInfo(contactInfo: PlatformContactInfo): Observable<PlatformContactInfo> {
+    return this.http.put<PlatformContactInfo>(`${this.baseUrl}/platform/contact-info`, contactInfo);
+  }
+}
+
+// Platform Contact Info
+export interface PlatformContactInfo {
+  contactPhone: string;
+  contactEmail: string;
+  contactName: string;
 }
 
 // Dashboard Analytics Types

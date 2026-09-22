@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Investment, InvestmentApproval, Member, PageResponse } from '../../core/models/models';
+import { Investment, InvestmentApproval, Member, PageResponse, Liquidity } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 
@@ -19,6 +19,10 @@ export class InvestmentsComponent implements OnInit {
   pendingApprovals: InvestmentApproval[] = [];
   loading = true;
   saving = false;
+
+  // Liquidity info
+  liquidity: Liquidity | null = null;
+  loadingLiquidity = false;
 
   // Pagination
   currentPage = 0;
@@ -226,8 +230,30 @@ export class InvestmentsComponent implements OnInit {
       requiresApproval: false,
       approverIds: []
     };
+    this.loadLiquidity();
     this.showCreateModal = true;
     this.cdr.detectChanges();
+  }
+
+  loadLiquidity() {
+    this.loadingLiquidity = true;
+    this.api.getLiquidity().subscribe({
+      next: (data) => {
+        this.liquidity = data;
+        this.loadingLiquidity = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.liquidity = null;
+        this.loadingLiquidity = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  get isAmountOverLiquidCash(): boolean {
+    if (!this.liquidity) return false;
+    return this.createForm.amountInvested > this.liquidity.liquidCash;
   }
 
   closeCreateModal() {

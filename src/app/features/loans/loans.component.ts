@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { LoanExtended, LoanProduct, Member, LoanPenalty, PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods, CreditScoreResponse } from '../../core/models/models';
+import { LoanExtended, LoanProduct, Member, LoanPenalty, PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods, CreditScoreResponse, Liquidity } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
@@ -118,6 +118,10 @@ export class LoansComponent implements OnInit {
   myCreditScore: CreditScoreResponse | null = null;
   loadingCreditScore = signal(false);
   showCreditScoreModal = false; // Modal for credit score info
+
+  // Liquidity Info (for loan disbursement)
+  liquidity: Liquidity | null = null;
+  loadingLiquidity = signal(false);
 
   constructor(
     private api: ApiService, 
@@ -481,7 +485,27 @@ export class LoansComponent implements OnInit {
       purpose: '',
       guarantorIds: []
     };
+    this.loadLiquidity();
     this.showForm = true;
+  }
+
+  loadLiquidity() {
+    this.loadingLiquidity.set(true);
+    this.api.getLiquidity().subscribe({
+      next: (data) => {
+        this.liquidity = data;
+        this.loadingLiquidity.set(false);
+      },
+      error: () => {
+        this.liquidity = null;
+        this.loadingLiquidity.set(false);
+      }
+    });
+  }
+
+  get isLoanAmountOverLiquidCash(): boolean {
+    if (!this.liquidity) return false;
+    return this.editing.principal > this.liquidity.liquidCash;
   }
 
   onProductChange() {

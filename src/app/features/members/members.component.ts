@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
-import { Member, MemberFinancialSummary, PageResponse, RegistrationFeePayment, RegistrationFeeInfo, EnabledPaymentMethods, PaymentMethod, InitiatePaymentRequest, InitiatePaymentResponse } from '../../core/models/models';
+import { Member, MemberFinancialSummary, PageResponse, RegistrationFeePayment, RegistrationFeeInfo, EnabledPaymentMethods, PaymentMethod, InitiatePaymentRequest, InitiatePaymentResponse, Role } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
@@ -13,6 +13,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
 interface MemberForm extends Partial<Member> {
   password?: string;
   passwordMode?: string;
+  roleId?: number;
 }
 
 interface FormErrors {
@@ -92,6 +93,10 @@ export class MembersComponent implements OnInit {
   resetPasswordOptions = ['12345678', 'password123', 'Welcome@123', 'Chama@2024'];
   resettingPassword = signal(false);
 
+  // Roles for assignment
+  roles: Role[] = [];
+  loadingRoles = signal(false);
+
   constructor(
     private api: ApiService, 
     public session: SessionService,
@@ -126,7 +131,22 @@ export class MembersComponent implements OnInit {
     // Only load data if user has permission to view members
     if (this.session.can('VIEW_MEMBERS') || this.session.can('CREATE_MEMBER')) {
       this.initializeData();
+      this.loadRoles();
     }
+  }
+
+  loadRoles() {
+    this.loadingRoles.set(true);
+    this.api.getRoles().subscribe({
+      next: (roles) => {
+        this.roles = roles;
+        this.loadingRoles.set(false);
+      },
+      error: () => {
+        this.roles = [];
+        this.loadingRoles.set(false);
+      }
+    });
   }
 
   /**
@@ -221,11 +241,6 @@ export class MembersComponent implements OnInit {
   loadAllRegistrationFeePayments() {
     this.api.getAllRegistrationFeePayments().subscribe({
       next: (payments) => {
-        console.log('=== Registration Fee Payments loaded ===');
-        console.log('Payments:', payments);
-        payments.forEach(p => {
-          console.log(`Member ${p.memberId}: status=${p.status}, hasPendingClaim=${p.hasPendingClaim}, payableId=${p.payableId}`);
-        });
         this.registrationFeePayments.clear();
         payments.forEach(p => {
           this.registrationFeePayments.set(p.memberId, p);
@@ -528,7 +543,6 @@ export class MembersComponent implements OnInit {
         if (err.status !== 403) {
           this.error.set('Failed to load members. Please check if the backend is running.');
           this.toast.error('Failed to load members', 'Please check your connection and try again.');
-          console.error('Failed to load members:', err);
         }
       }
     });
@@ -581,7 +595,13 @@ export class MembersComponent implements OnInit {
   }
 
   edit(m: Member) {
-    this.editing = { ...m, password: '' };
+    // Use roleId directly from member if available, otherwise find by role name
+    const roleId = m.roleId || this.roles.find(r => r.name === m.role)?.id;
+    this.editing = { 
+      ...m, 
+      password: '',
+      roleId: roleId
+    };
     this.formErrors.set({});
     this.showForm = true;
   }
@@ -667,12 +687,38 @@ export class MembersComponent implements OnInit {
     }
     
     if (this.editing.id) {
+      // Check if role changed
+      const originalMember = this.members.find(m => m.id === this.editing.id);
+      const originalRole = this.roles.find(r => r.name === originalMember?.role);
+      const roleChanged = this.editing.roleId && originalRole?.id !== this.editing.roleId;
+      
       this.api.updateMember(this.editing.id, data).subscribe({
         next: () => {
-          this.saving.set(false);
-          this.showForm = false;
-          this.toast.success('Member updated', `${this.editing.name} has been updated successfully.`);
-          this.loadMembers();
+          // If role changed, update it separately
+          if (roleChanged && this.editing.roleId) {
+            const tenantId = this.session.currentUser()?.tenantId;
+            if (tenantId && this.editing.id) {
+              this.api.updateMemberRole(tenantId, this.editing.id, this.editing.roleId).subscribe({
+                next: () => {
+                  this.saving.set(false);
+                  this.showForm = false;
+                  this.toast.success('Member updated', `${this.editing.name} has been updated with new role.`);
+                  this.loadMembers();
+                },
+                error: () => {
+                  this.saving.set(false);
+                  this.showForm = false;
+                  this.toast.warning('Member updated, but role change failed', 'Basic info was saved but role could not be updated.');
+                  this.loadMembers();
+                }
+              });
+            }
+          } else {
+            this.saving.set(false);
+            this.showForm = false;
+            this.toast.success('Member updated', `${this.editing.name} has been updated successfully.`);
+            this.loadMembers();
+          }
         },
         error: (err) => {
           this.saving.set(false);

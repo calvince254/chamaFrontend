@@ -66,6 +66,22 @@
           ← Back to login
         </button>
       }
+
+      @if (contactInfo().contactPhone || contactInfo().contactEmail) {
+        <div class="onboard-contact">
+          <p>To onboard your Chama, please contact:</p>
+          @if (contactInfo().contactPhone) {
+            <a [href]="'https://wa.me/' + contactInfo().contactPhone.replace(/[\\s+]/g, '')" class="contact-phone" target="_blank">
+              <span class="contact-icon">📞</span> Call/WhatsApp: {{ contactInfo().contactPhone }}
+            </a>
+          }
+          @if (contactInfo().contactEmail) {
+            <a [href]="'mailto:' + contactInfo().contactEmail" class="contact-email">
+              <span class="contact-icon">✉️</span> {{ contactInfo().contactEmail }}
+            </a>
+          }
+        </div>
+      }
     </div>
   </div>
 

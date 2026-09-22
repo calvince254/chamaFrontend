@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
-import { Investment, InvestmentValueHistory, InvestmentApproval } from '../../core/models/models';
+import { Investment, InvestmentValueHistory, InvestmentApproval, Liquidity } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 
@@ -32,14 +32,31 @@ export class InvestmentDetailComponent implements OnInit {
   showUpdateValueModal = false;
   showSellModal = false;
   showWriteOffModal = false;
-  showDeleteModal = false;
   showTopupModal = false;
 
   // Form data
   updateValueForm = { newValue: 0, notes: '' };
-  sellForm = { soldAmount: 0, soldDate: '', notes: '' };
+  sellForm: {
+    saleAmount: number;
+    saleDate: string;
+    unitsToSell: number;
+    sellAll: boolean;
+    notes: string;
+  } = { saleAmount: 0, saleDate: '', unitsToSell: 0, sellAll: true, notes: '' };
   writeOffReason = '';
   topupForm = { amount: 0, topupDate: '', notes: '' };
+
+  // Liquidity info (for topup validation)
+  liquidity: Liquidity | null = null;
+  loadingLiquidity = false;
+
+  // Sale calculations
+  expectedGain = 0;
+  expectedPrincipalPortion = 0;
+
+  // Sale history
+  saleHistory: any[] = [];
+  loadingSales = false;
 
   // Topup history
   topupHistory: any[] = [];
@@ -57,6 +74,40 @@ export class InvestmentDetailComponent implements OnInit {
     { value: 'AGRICULTURE', label: 'Agriculture' },
     { value: 'OTHER', label: 'Other' }
   ];
+
+  // Liquid investments use "Withdraw" terminology, asset-based use "Sell"
+  private liquidCategories = ['MONEY_MARKET', 'FIXED_DEPOSIT', 'SACCO_SHARES'];
+  
+  // Asset investments where percentage/portion makes more sense than amount
+  private assetCategories = ['LAND', 'REAL_ESTATE', 'BUSINESS', 'AGRICULTURE'];
+
+  get isLiquidInvestment(): boolean {
+    return this.investment ? this.liquidCategories.includes(this.investment.category) : false;
+  }
+
+  get isAssetInvestment(): boolean {
+    return this.investment ? this.assetCategories.includes(this.investment.category) : false;
+  }
+
+  get actionTerm(): string {
+    return this.isLiquidInvestment ? 'Withdraw' : 'Sell';
+  }
+
+  get actionTermLower(): string {
+    return this.isLiquidInvestment ? 'withdraw' : 'sell';
+  }
+
+  get actionTermPast(): string {
+    return this.isLiquidInvestment ? 'Withdrawn' : 'Sold';
+  }
+
+  get amountTerm(): string {
+    return this.isLiquidInvestment ? 'Withdrawal' : 'Sale';
+  }
+
+  // For assets - show percentage input mode
+  sellPercentage = 50; // Default to 50%
+  sellByPercentage = true; // For assets, default to percentage mode
 
   @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
 
@@ -86,6 +137,7 @@ export class InvestmentDetailComponent implements OnInit {
         this.cdr.detectChanges();
         this.loadValueHistory(id);
         this.loadTopupHistory(id);
+        this.loadSaleHistory(id);
         if (data.approvalStatus === 'PENDING') {
           this.loadApprovalInfo(id);
         }
@@ -198,10 +250,16 @@ export class InvestmentDetailComponent implements OnInit {
   openSellModal() {
     if (!this.investment) return;
     this.sellForm = {
-      soldAmount: this.investment.currentValue,
-      soldDate: new Date().toISOString().split('T')[0],
+      saleAmount: this.investment.currentValue,
+      saleDate: new Date().toISOString().split('T')[0],
+      unitsToSell: 0, // Not used in amount-based approach
+      sellAll: true,
       notes: ''
     };
+    // For asset investments, default to percentage mode
+    this.sellByPercentage = this.isAssetInvestment;
+    this.sellPercentage = 100;
+    this.calculateExpectedGain();
     this.showSellModal = true;
     this.cdr.detectChanges();
   }
@@ -211,17 +269,115 @@ export class InvestmentDetailComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  submitSell() {
+  onSellTypeChange() {
+    if (this.sellForm.sellAll && this.investment) {
+      this.sellForm.saleAmount = this.investment.currentValue;
+      this.sellPercentage = 100;
+    }
+    this.calculateExpectedGain();
+  }
+
+  onPercentageChange() {
     if (!this.investment) return;
+    // Update sale amount based on percentage
+    this.sellForm.saleAmount = (this.sellPercentage / 100) * this.investment.currentValue;
+    this.calculateExpectedGain();
+  }
+
+  onSaleAmountChange() {
+    if (!this.investment || this.investment.currentValue === 0) return;
+    // Update percentage based on sale amount
+    this.sellPercentage = (this.sellForm.saleAmount / this.investment.currentValue) * 100;
+    this.calculateExpectedGain();
+  }
+
+  calculateExpectedGain() {
+    if (!this.investment) return;
+    
+    const currentValue = this.investment.currentValue || 0;
+    const amountInvested = this.investment.remainingPrincipal || this.investment.amountInvested || 0;
+    const saleAmount = this.sellForm.saleAmount || 0;
+    
+    // For full sale, use remaining principal
+    // For partial, calculate proportional principal
+    if (this.sellForm.sellAll || currentValue === 0) {
+      this.expectedPrincipalPortion = amountInvested;
+    } else {
+      // Principal portion is proportional to sale amount vs current value
+      this.expectedPrincipalPortion = (amountInvested * saleAmount) / currentValue;
+    }
+    
+    // Calculate expected gain/loss
+    this.expectedGain = saleAmount - this.expectedPrincipalPortion;
+  }
+
+  isValidSale(): boolean {
+    if (!this.investment) return false;
+    if (this.sellForm.saleAmount <= 0) return false;
+    if (!this.sellForm.saleDate) return false;
+    
+    // For partial withdrawal, amount can't exceed current value
+    if (!this.sellForm.sellAll && this.sellForm.saleAmount > this.investment.currentValue) {
+      return false;
+    }
+    return true;
+  }
+
+  submitSell() {
+    if (!this.investment || !this.isValidSale()) return;
     this.saving = true;
-    this.api.sellInvestment(this.investment.id, this.sellForm.soldAmount, this.sellForm.soldDate, this.sellForm.notes).subscribe({
-      next: () => {
+    
+    // Calculate units to sell based on withdrawal amount (for backend compatibility)
+    const currentValue = this.investment.currentValue || 0;
+    const remainingUnits = this.investment.remainingUnits || this.investment.totalUnits || 1;
+    
+    let unitsToSell: number | undefined;
+    if (!this.sellForm.sellAll && currentValue > 0) {
+      // Calculate proportional units based on withdrawal amount
+      unitsToSell = (this.sellForm.saleAmount / currentValue) * remainingUnits;
+    }
+    
+    // Call updated API with partial sale support
+    this.api.sellInvestmentPartial(
+      this.investment.id,
+      this.sellForm.saleAmount,
+      this.sellForm.saleDate,
+      this.sellForm.sellAll,
+      unitsToSell,
+      this.sellForm.notes
+    ).subscribe({
+      next: (updated) => {
         this.saving = false;
-        this.router.navigate(['/app/investments']);
+        this.showSellModal = false;
+        if (updated.status === 'SOLD') {
+          // Fully sold - go back to list
+          this.router.navigate(['/app/investments']);
+        } else {
+          // Partial sale - refresh the page
+          this.investment = updated;
+          this.loadValueHistory(this.investment.id);
+          this.loadSaleHistory(this.investment.id);
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        this.saving = false;
+        alert(err.error?.message || `Failed to ${this.actionTermLower} investment`);
+      }
+    });
+  }
+
+  // Load sale history
+  loadSaleHistory(investmentId: number) {
+    this.loadingSales = true;
+    this.api.getInvestmentSaleHistory(investmentId).subscribe({
+      next: (data) => {
+        this.saleHistory = data;
+        this.loadingSales = false;
+        this.cdr.detectChanges();
       },
       error: () => {
-        this.saving = false;
-        alert('Failed to sell investment');
+        this.loadingSales = false;
       }
     });
   }
@@ -254,32 +410,6 @@ export class InvestmentDetailComponent implements OnInit {
     });
   }
 
-  // Delete Modal
-  openDeleteModal() {
-    this.showDeleteModal = true;
-    this.cdr.detectChanges();
-  }
-
-  closeDeleteModal() {
-    this.showDeleteModal = false;
-    this.cdr.detectChanges();
-  }
-
-  confirmDelete() {
-    if (!this.investment) return;
-    this.saving = true;
-    this.api.deleteInvestment(this.investment.id).subscribe({
-      next: () => {
-        this.saving = false;
-        this.router.navigate(['/app/investments']);
-      },
-      error: () => {
-        this.saving = false;
-        alert('Failed to delete investment');
-      }
-    });
-  }
-
   // Topup (Add Principal) Modal
   openTopupModal() {
     if (!this.investment) return;
@@ -288,8 +418,30 @@ export class InvestmentDetailComponent implements OnInit {
       topupDate: new Date().toISOString().split('T')[0],
       notes: ''
     };
+    this.loadLiquidity();
     this.showTopupModal = true;
     this.cdr.detectChanges();
+  }
+
+  loadLiquidity() {
+    this.loadingLiquidity = true;
+    this.api.getLiquidity().subscribe({
+      next: (data) => {
+        this.liquidity = data;
+        this.loadingLiquidity = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.liquidity = null;
+        this.loadingLiquidity = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  get isTopupOverLiquidCash(): boolean {
+    if (!this.liquidity) return false;
+    return this.topupForm.amount > this.liquidity.liquidCash;
   }
 
   closeTopupModal() {

@@ -90,6 +90,17 @@ export class ShellComponent implements OnInit, OnDestroy {
   // Profile modal state
   showProfileModal = signal(false);
   
+  // Platform settings modal state (Super Admin only)
+  showPlatformSettingsModal = signal(false);
+  platformSettingsForm = {
+    contactPhone: '',
+    contactEmail: '',
+    contactName: ''
+  };
+  platformSettingsError = signal('');
+  platformSettingsSuccess = signal('');
+  platformSettingsSaving = signal(false);
+  
   // Session validation
   private platformId = inject(PLATFORM_ID);
   private sessionValidated = false;
@@ -439,5 +450,67 @@ export class ShellComponent implements OnInit, OnDestroy {
     if (!target.closest('.user-menu')) {
       this.closeUserDropdown();
     }
+  }
+
+  // Platform Settings methods (Super Admin only)
+  openPlatformSettings() {
+    this.closeUserDropdown();
+    this.platformSettingsError.set('');
+    this.platformSettingsSuccess.set('');
+    
+    // Load current settings
+    this.api.getPlatformContactInfo().subscribe({
+      next: (info) => {
+        this.platformSettingsForm = {
+          contactPhone: info.contactPhone || '',
+          contactEmail: info.contactEmail || '',
+          contactName: info.contactName || ''
+        };
+        this.showPlatformSettingsModal.set(true);
+      },
+      error: () => {
+        this.platformSettingsForm = {
+          contactPhone: '+254 703 878 878',
+          contactEmail: 'admin@chamamanager.app',
+          contactName: 'Platform Admin'
+        };
+        this.showPlatformSettingsModal.set(true);
+      }
+    });
+  }
+
+  closePlatformSettingsModal() {
+    this.showPlatformSettingsModal.set(false);
+    this.platformSettingsError.set('');
+    this.platformSettingsSuccess.set('');
+  }
+
+  savePlatformSettings() {
+    if (!this.platformSettingsForm.contactPhone?.trim()) {
+      this.platformSettingsError.set('Contact phone is required');
+      return;
+    }
+
+    this.platformSettingsSaving.set(true);
+    this.platformSettingsError.set('');
+    this.platformSettingsSuccess.set('');
+
+    this.api.updatePlatformContactInfo({
+      contactPhone: this.platformSettingsForm.contactPhone,
+      contactEmail: this.platformSettingsForm.contactEmail,
+      contactName: this.platformSettingsForm.contactName
+    }).subscribe({
+      next: () => {
+        this.platformSettingsSaving.set(false);
+        this.platformSettingsSuccess.set('Platform settings updated successfully!');
+        setTimeout(() => {
+          this.closePlatformSettingsModal();
+        }, 1500);
+      },
+      error: (err) => {
+        this.platformSettingsSaving.set(false);
+        this.platformSettingsError.set(err.error?.message || 'Failed to update settings');
+      }
+    });
   }
 }

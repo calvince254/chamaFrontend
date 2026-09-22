@@ -172,6 +172,25 @@
           @if (amountField.invalid && amountField.touched) {
             <small class="form-error">Amount is required and must be at least 1</small>
           }
+          <!-- Liquidity Info -->
+          @if (loadingLiquidity) {
+            <small class="text-muted">Checking available funds...</small>
+          } @else if (liquidity) {
+            <div style="margin-top: 8px; padding: 8px; background: var(--color-bg-secondary); border-radius: 6px; font-size: 0.85em;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="text-muted">Available Liquid Cash:</span>
+                <strong [class.text-success]="!isAmountOverLiquidCash" [class.text-danger]="isAmountOverLiquidCash">
+                  KES {{ liquidity.liquidCash | number }}
+                </strong>
+              </div>
+              @if (isAmountOverLiquidCash) {
+                <div class="text-danger" style="margin-top: 6px; font-size: 0.9em;">
+                  <app-icon name="alert-triangle" style="width:14px;height:14px;vertical-align:middle;"></app-icon>
+                  Amount exceeds available liquid cash by KES {{ (createForm.amountInvested - liquidity.liquidCash) | number }}
+                </div>
+              }
+            </div>
+          }
         </div>
         <div class="form-field">
           <label>Description</label>

@@ -141,3 +141,38 @@ button:disabled {
   color: #1f2937;
   background: #f3f4f6;
 }
+
+
+/* Onboard Contact Section */
+.onboard-contact {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.onboard-contact p {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+}
+
+.contact-phone,
+.contact-email {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #166534;
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+.contact-phone:hover,
+.contact-email:hover {
+  color: #14532d;
+  text-decoration: underline;
+}
+
+.contact-icon {
+  margin-right: 6px;
+}

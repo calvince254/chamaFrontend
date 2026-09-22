@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { SessionService, MultiTenantLoginResult, LoginResult } from '../../core/services/session.service';
 import { IdleService } from '../../core/services/idle.service';
+import { ApiService, PlatformContactInfo } from '../../core/services/api.service';
 
 interface TenantOption {
   id: number;
@@ -33,15 +34,26 @@ export class LoginComponent implements OnInit {
   showTenantSelection = signal(false);
   availableTenants = signal<TenantOption[]>([]);
   multiTenantUserName = signal('');
+  
+  // Contact info
+  contactInfo = signal<PlatformContactInfo>({
+    contactPhone: '',
+    contactEmail: '',
+    contactName: ''
+  });
 
   constructor(
     private session: SessionService, 
     private router: Router,
     private route: ActivatedRoute,
-    private idleService: IdleService
+    private idleService: IdleService,
+    private api: ApiService
   ) {}
 
   ngOnInit() {
+    // Load contact info
+    this.loadContactInfo();
+    
     // Check if redirected due to session expiration or idle logout
     this.route.queryParams.subscribe(params => {
       if (params['sessionExpired'] === 'true') {
@@ -50,6 +62,17 @@ export class LoginComponent implements OnInit {
       }
       if (params['reason'] === 'idle') {
         this.idleLogout.set(true);
+      }
+    });
+  }
+
+  loadContactInfo() {
+    this.api.getPlatformContactInfo().subscribe({
+      next: (info) => {
+        this.contactInfo.set(info);
+      },
+      error: () => {
+        // Keep default values on error
       }
     });
   }
