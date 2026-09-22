@@ -72,3 +72,72 @@ button:disabled {
   font-weight: 700;
   flex-shrink: 0;
 }
+
+
+/* Tenant Selection Styles */
+.tenant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tenant-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.tenant-option:hover:not(:disabled) {
+  border-color: #166534;
+  background: #f0fdf4;
+  transform: translateX(4px);
+}
+
+.tenant-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tenant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tenant-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.tenant-role {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.tenant-arrow {
+  font-size: 18px;
+  color: #166534;
+  font-weight: 500;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #6b7280;
+  border: none;
+  font-size: 13px;
+}
+
+.btn-ghost:hover {
+  color: #1f2937;
+  background: #f3f4f6;
+}

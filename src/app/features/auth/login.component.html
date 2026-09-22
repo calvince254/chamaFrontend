@@ -5,38 +5,67 @@
         <img src="images/calpex-final-256px.png" alt="Calpex Technologies" />
       </div>
       
-      <h1>Welcome back</h1>
-      <p class="subtitle">Sign in to manage your group's savings, loans and welfare.</p>
+      @if (!showTenantSelection()) {
+        <!-- Standard Login Form -->
+        <h1>Welcome back</h1>
+        <p class="subtitle">Sign in to manage your group's savings, loans and welfare.</p>
 
-      @if (idleLogout()) {
-        <div class="info-message">
-          You were logged out due to inactivity. Please sign in again.
-        </div>
-      }
+        @if (idleLogout()) {
+          <div class="info-message">
+            You were logged out due to inactivity. Please sign in again.
+          </div>
+        }
 
-      @if (error()) {
-        <div class="error-message">
-          {{ error() }}
-        </div>
-      }
+        @if (error()) {
+          <div class="error-message">
+            {{ error() }}
+          </div>
+        }
 
-      <form (ngSubmit)="submit()">
-        <div class="form-field">
-          <label>Email</label>
-          <input type="email" [(ngModel)]="email" name="email" placeholder="your@email.com" required />
-        </div>
-        <div class="form-field">
-          <label>Password</label>
-          <input type="password" [(ngModel)]="password" name="password" placeholder="••••••••" required />
-        </div>
-        <button type="submit" class="btn btn-primary btn-block" [disabled]="loading()">
-          @if (loading()) {
-            Signing in...
-          } @else {
-            Sign in
+        <form (ngSubmit)="submit()">
+          <div class="form-field">
+            <label>Email or Phone</label>
+            <input type="text" [(ngModel)]="email" name="email" placeholder="your@email.com or 0712345678" required />
+          </div>
+          <div class="form-field">
+            <label>Password</label>
+            <input type="password" [(ngModel)]="password" name="password" placeholder="••••••••" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" [disabled]="loading()">
+            @if (loading()) {
+              Signing in...
+            } @else {
+              Sign in
+            }
+          </button>
+        </form>
+      } @else {
+        <!-- Tenant Selection -->
+        <h1>Select your Chama</h1>
+        <p class="subtitle">Hi {{ multiTenantUserName() }}, you belong to multiple groups. Please select one to continue.</p>
+
+        @if (error()) {
+          <div class="error-message">
+            {{ error() }}
+          </div>
+        }
+
+        <div class="tenant-list">
+          @for (tenant of availableTenants(); track tenant.id) {
+            <button class="tenant-option" (click)="selectTenant(tenant)" [disabled]="loading()">
+              <div class="tenant-info">
+                <span class="tenant-name">{{ tenant.name }}</span>
+                <span class="tenant-role">{{ tenant.roleName }}</span>
+              </div>
+              <span class="tenant-arrow">→</span>
+            </button>
           }
+        </div>
+
+        <button class="btn btn-ghost btn-block" (click)="backToLogin()" [disabled]="loading()">
+          ← Back to login
         </button>
-      </form>
+      }
     </div>
   </div>
 

@@ -5,21 +5,40 @@ import { Observable, tap, catchError, of, map } from 'rxjs';
 import { CurrentUser } from '../models/models';
 import { environment } from '../../../environments/environment';
 
-interface LoginResponse {
-  token: string;
+interface TenantSelection {
   id: number;
-  tenantId: number;
+  name: string;
+  code: string;
+  roleName: string;
+}
+
+interface LoginResponse {
+  token?: string;
+  id: number;
+  tenantId?: number;
   name: string;
   email: string;
-  phone: string;
-  tenantName: string;
-  roleName: string;
-  superAdmin: boolean;
-  avatarInitials: string;
-  permissionCodes: string[];  // New granular permission codes from JWT
-  mustChangePassword?: boolean; // First-login password change requirement
-  sessionTimeoutMinutes?: number; // Idle timeout in minutes (0 = disabled)
+  phone?: string;
+  tenantName?: string;
+  roleName?: string;
+  superAdmin?: boolean;
+  avatarInitials?: string;
+  permissionCodes?: string[];
+  mustChangePassword?: boolean;
+  sessionTimeoutMinutes?: number;
+  // Multi-tenant fields
+  multiTenant?: boolean;
+  availableTenants?: TenantSelection[];
 }
+
+export interface MultiTenantLoginResult {
+  multiTenant: true;
+  name: string;
+  email: string;
+  tenants: TenantSelection[];
+}
+
+export type LoginResult = true | false | MultiTenantLoginResult;
 
 /**
  * SessionService handles authentication and authorization.
@@ -108,18 +127,29 @@ export class SessionService {
     }
   }
 
-  login(email: string, password: string): Observable<boolean> {
+  login(email: string, password: string): Observable<LoginResult> {
     return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, { email, password }).pipe(
-      tap(response => {
+      map(response => {
+        // Handle multi-tenant response (user belongs to multiple chamas)
+        if (response.multiTenant && response.availableTenants) {
+          return {
+            multiTenant: true as const,
+            name: response.name,
+            email: response.email,
+            tenants: response.availableTenants
+          };
+        }
+        
+        // Single tenant or super admin - normal login
         const user: CurrentUser = {
           id: response.id,
           name: response.name,
           email: response.email,
           phone: response.phone || '',
-          tenantId: response.tenantId,
-          tenantName: response.tenantName,
-          roleName: response.roleName,
-          isSuperAdmin: response.superAdmin,
+          tenantId: response.tenantId || 0,
+          tenantName: response.tenantName || '',
+          roleName: response.roleName || '',
+          isSuperAdmin: response.superAdmin || false,
           avatarInitials: response.avatarInitials || this.getInitials(response.name)
         };
         
@@ -130,11 +160,47 @@ export class SessionService {
         this.permissionCodes.set(new Set(codes));
         this._mustChangePassword.set(mustChange);
         this._sessionTimeoutMinutes.set(timeout);
-        this.persist(user, response.token, codes, timeout, mustChange);
+        this.persist(user, response.token!, codes, timeout, mustChange);
+        
+        return true;
+      }),
+      catchError(error => {
+        console.error('Login failed:', error);
+        return of(false);
+      })
+    );
+  }
+
+  /**
+   * Login to a specific tenant (used when user belongs to multiple chamas)
+   */
+  loginToTenant(email: string, password: string, tenantId: number): Observable<boolean> {
+    return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login/${tenantId}`, { email, password }).pipe(
+      tap(response => {
+        const user: CurrentUser = {
+          id: response.id,
+          name: response.name,
+          email: response.email,
+          phone: response.phone || '',
+          tenantId: response.tenantId || 0,
+          tenantName: response.tenantName || '',
+          roleName: response.roleName || '',
+          isSuperAdmin: response.superAdmin || false,
+          avatarInitials: response.avatarInitials || this.getInitials(response.name)
+        };
+        
+        const codes = response.permissionCodes || [];
+        const timeout = response.sessionTimeoutMinutes || 0;
+        const mustChange = response.mustChangePassword || false;
+        this.user.set(user);
+        this.permissionCodes.set(new Set(codes));
+        this._mustChangePassword.set(mustChange);
+        this._sessionTimeoutMinutes.set(timeout);
+        this.persist(user, response.token!, codes, timeout, mustChange);
       }),
       map(() => true),
       catchError(error => {
-        console.error('Login failed:', error);
+        console.error('Tenant login failed:', error);
         return of(false);
       })
     );
