@@ -10,6 +10,7 @@ import { IconComponent } from '../../shared/icon.component';
   standalone: true,
   imports: [CommonModule, RouterLink, IconComponent, DecimalPipe],
   templateUrl: './dashboard.component.html',
+  styleUrl: './dashboard.component.css',
 })
 export class DashboardComponent implements OnInit {
   loading = true;

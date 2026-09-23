@@ -12,6 +12,7 @@ import { AuditLog, PageResponse, Member } from '../../core/models/models';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './audit-trail.component.html',
+  styleUrl: './audit-trail.component.css',
 })
 export class AuditTrailComponent implements OnInit {
   Math = Math;  // Expose Math for template

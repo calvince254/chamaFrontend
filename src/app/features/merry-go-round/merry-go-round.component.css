@@ -1,0 +1,737 @@
+/* ==========================================================================
+   Merry-Go-Round Component Styles
+   ========================================================================== */
+
+.mgr-cycles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.mgr-cycle-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mgr-cycle-card:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.mgr-cycle-card.active {
+  border-left: 3px solid var(--color-primary);
+}
+
+.mgr-cycle-card .cycle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.mgr-cycle-card .cycle-header h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mgr-cycle-card .cycle-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mgr-cycle-card .cycle-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mgr-cycle-card .stat-label {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.mgr-cycle-card .stat-value {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.mgr-cycle-card .current-round-info {
+  background: var(--color-primary);
+  color: var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.mgr-cycle-card .round-label {
+  color: rgba(255,255,255,0.7);
+}
+
+.mgr-cycle-card .round-recipient {
+  font-weight: 600;
+  flex: 1;
+}
+
+.mgr-cycle-card .cycle-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.mgr-cycle-card .date-range {
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+/* Cycle Details View */
+.cycle-details-view {
+  /* Container for detail view */
+}
+
+.cycle-details-view .back-btn {
+  margin-bottom: 12px;
+}
+
+.cycle-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.cycle-detail-header h2 {
+  font-size: 16px;
+  margin: 0 0 4px 0;
+}
+
+.cycle-detail-header p {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.cycle-detail-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Detail Tabs */
+.detail-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.detail-tabs .tab-btn {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-tabs .tab-btn:hover {
+  color: var(--color-text);
+}
+
+.detail-tabs .tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.detail-tabs .tab-badge {
+  background: var(--color-danger);
+  color: white;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+/* Sub-tabs */
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.sub-tab {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sub-tab:hover {
+  background: #f5f7f6;
+  color: var(--color-text);
+}
+
+.sub-tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.sub-tab.active .badge {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* Contribution Progress */
+.contribution-progress {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* Current Round Highlight */
+tr.current-round {
+  background: #f0f6f4 !important;
+}
+
+tr.current-round td:first-child {
+  border-left: 3px solid var(--color-primary);
+}
+
+/* Overdue Row */
+tr.overdue {
+  background: #fef2f2 !important;
+}
+
+/* Participant Selection */
+.participant-selection {
+  margin-top: 8px;
+}
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.selection-count {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.participant-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.checkbox-item:hover {
+  background: #f5f5f5;
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.checkbox-field {
+  margin-top: 8px;
+}
+
+.checkbox-field label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Form Section */
+.form-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.form-section-title app-icon {
+  color: var(--color-primary);
+}
+
+
+/* MGR Summary Section */
+.mgr-summary-section {
+  background: linear-gradient(135deg, #f8faf9 0%, #eef3f1 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.mgr-summary-section .summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.mgr-summary-section .summary-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+}
+
+.mgr-summary-section .summary-note {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  background: #fff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+}
+
+.mgr-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.summary-card.balance {
+  grid-column: span 2;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.summary-card.balance .summary-content {
+  color: white;
+}
+
+.summary-card.balance .summary-label {
+  color: rgba(255,255,255,0.8);
+}
+
+.summary-card.balance .summary-sub {
+  color: rgba(255,255,255,0.6);
+}
+
+.summary-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.summary-icon.cycles {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.summary-icon.contributions {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.summary-icon.payouts {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.summary-icon.fines {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.summary-icon.balance-icon {
+  background: rgba(255,255,255,0.2);
+  color: var(--color-accent);
+}
+
+.summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.summary-value.large {
+  font-size: 20px;
+}
+
+.summary-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.summary-sub {
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+.summary-sub.warning {
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-header h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+
+/* MGR Progress Bar Mini */
+.progress-bar-mini {
+  height: 3px;
+  background: var(--color-border);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-mini .progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+
+/* ==========================================================================
+   Sortable List (Drag & Drop)
+   ========================================================================== */
+
+.sortable-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #f8fafa;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.sortable-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  cursor: grab;
+  transition: all 0.15s ease;
+}
+
+.sortable-item:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.sortable-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.sortable-item .order-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.sortable-item .participant-name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sortable-item .order-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.icon-btn-sm {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  display: flex;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-btn-sm:hover:not(:disabled) {
+  background: #f0f4f3;
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.icon-btn-sm:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.icon-btn-sm app-icon {
+  width: 14px;
+  height: 14px;
+}
+
+
+/* ==========================================================================
+   MGR Contributions Grouped by Round
+   ========================================================================== */
+
+.round-group {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.round-group:last-child {
+  border-bottom: none;
+}
+
+.round-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8fafa;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.round-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.round-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--color-accent);
+  color: #26170a;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.round-recipient {
+  color: var(--color-text);
+}
+
+.round-due {
+  color: var(--color-text-muted);
+}
+
+.round-header-right {
+  text-align: right;
+}
+
+.round-status {
+  color: var(--color-text-muted);
+}
+
+.round-status.complete {
+  color: var(--color-success);
+}
+
+.round-status.partial {
+  color: var(--color-text-muted);
+}
+
+.round-table {
+  margin: 0;
+}
+
+.round-table thead th {
+  background: transparent;
+  border-top: none;
+}
+
+.round-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* ==========================================================================
+   MGR Compact Cycle Header
+   ========================================================================== */
+
+.cycle-compact-header {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.cycle-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cycle-title-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cycle-title-left h2 {
+  margin: 0;
+}
+
+.cycle-meta {
+  color: var(--color-text-muted);
+}
+
+.cycle-title-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cycle-stats-row {
+  display: flex;
+  padding: 8px 16px;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.stat-label {
+  color: var(--color-text-muted);
+}
+
+.stat-value {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.stat-value.highlight {
+  color: var(--color-primary);
+}
+
+
+/* Cycle detail title with inline back button */
+.cycle-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cycle-detail-title .back-btn {
+  padding: 4px;
+}
+
+.cycle-detail-title h2 {
+  margin: 0;
+}
+
+.cycle-detail-title p {
+  margin: 0;
+  color: var(--color-text-muted);
+}

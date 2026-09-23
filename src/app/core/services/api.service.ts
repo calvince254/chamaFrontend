@@ -6,7 +6,7 @@ import { environment } from '../../../environments/environment';
 import {
   Tenant, TenantSettings, Role, Member, Meeting, Contribution, Loan, MerryGoRoundRound,
   ShareEntry, WelfareEvent, WelfareContribution, Investment, InvestmentValueHistory, InvestmentApproval, FinanceSummary, Transaction,
-  ContributionType, Penalty, LoanProduct, LoanPenalty, LoanExtended, ShareSettings, ShareCalculation,
+  ContributionType, Penalty, LoanProduct, LoanPenalty, LoanExtended, ShareSettings, ShareCalculation, MemberShare,
   Liquidity, Payout, PayoutPreview, CreatePayoutRequest, PayoutPreviewRequest, MemberFinancialSummary,
   PageResponse, LoanEligibility, LoanIncomeSummary, LoanIncomeTransaction, LoanPayment, RecordPaymentRequest,
   RegistrationFeePayment, RegistrationFeeInfo, Resource, AuditLog, ContributionTopUp, ContributionBalance,
@@ -834,6 +834,13 @@ export class ApiService {
     return this.http.get<ShareCalculation>(`${this.baseUrl}/shares`);
   }
 
+  getMemberSharesPaginated(page: number = 0, size: number = 10): Observable<PageResponse<MemberShare>> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    return this.http.get<PageResponse<MemberShare>>(`${this.baseUrl}/shares/members/paginated`, { params });
+  }
+
   // ==================== PAYOUTS ====================
   getLiquidity(): Observable<Liquidity> {
     return this.http.get<Liquidity>(`${this.baseUrl}/payouts/liquidity`);
@@ -938,6 +945,10 @@ export class ApiService {
   // Welfare Contributions
   getWelfareContributions(eventId: number): Observable<WelfareContribution[]> {
     return this.http.get<WelfareContribution[]>(`${this.baseUrl}/welfare/${eventId}/contributions`);
+  }
+
+  getWelfareContributionsPaginated(eventId: number, page: number = 0, size: number = 10): Observable<PageResponse<WelfareContribution>> {
+    return this.http.get<PageResponse<WelfareContribution>>(`${this.baseUrl}/welfare/${eventId}/contributions/paginated?page=${page}&size=${size}`);
   }
 
   updateWelfareContributionPayment(eventId: number, memberId: number, paid: boolean): Observable<WelfareContribution> {

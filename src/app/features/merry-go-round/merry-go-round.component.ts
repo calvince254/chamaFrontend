@@ -114,6 +114,7 @@ interface MgrSummary {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './merry-go-round.component.html',
+  styleUrl: './merry-go-round.component.css',
 })
 export class MerryGoRoundComponent implements OnInit {
   // Data

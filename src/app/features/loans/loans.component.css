@@ -1,0 +1,269 @@
+/* ==========================================================================
+   Loans Component Styles
+   ========================================================================== */
+
+/* Dashboard loan rows */
+.loan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.loan-row:last-child {
+  border-bottom: none;
+}
+
+.loan-member {
+  font-weight: 600;
+  font-size: 10.5px;
+}
+
+.loan-sub {
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+/* ==================== Loan Details Modal Styles ==================== */
+.loan-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.loan-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.loan-detail-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.loan-detail-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Amounts card - bordered style matching mockup */
+.loan-amounts-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+.loan-amounts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+}
+
+.loan-amounts-grid .loan-amount-item {
+  padding: 14px 8px;
+  border-right: 1px solid var(--color-border);
+}
+
+.loan-amounts-grid .loan-amount-item:last-child {
+  border-right: none;
+}
+
+.loan-amounts-grid.secondary {
+  border-top: 1px solid var(--color-border);
+}
+
+.loan-amount-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.loan-amount-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+.loan-amount-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.loan-amount-value.success {
+  color: var(--color-success);
+}
+
+.loan-amount-value.danger {
+  color: var(--color-danger);
+}
+
+/* Section divider */
+.loan-section {
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.loan-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--color-text);
+}
+
+/* Approval history item */
+.approval-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.approval-history-item .badge {
+  margin-top: 2px;
+}
+
+.approval-history-content {
+  flex: 1;
+}
+
+.approval-history-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.approval-history-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.approval-history-comments {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* Payment history */
+.payment-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Visible scrollbar for payment history */
+.payment-history-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.payment-history-list::-webkit-scrollbar-track {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.payment-history-list::-webkit-scrollbar-thumb {
+  background: var(--color-text-muted);
+  border-radius: 3px;
+}
+
+.payment-history-list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+
+.payment-history-item {
+  padding: 10px 12px;
+  background: var(--color-surface-raised);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.payment-history-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.payment-history-amount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.payment-history-amount strong {
+  font-size: 14px;
+}
+
+.payment-history-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.payment-history-details {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.payment-history-details small {
+  font-size: 11px;
+}
+
+/* Rejection box */
+.loan-rejection-box {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  margin-top: 16px;
+}
+
+.loan-rejection-box .loan-detail-label {
+  color: var(--color-danger);
+}
+
+.loan-rejection-box .loan-detail-value {
+  color: var(--color-danger);
+}
+
+/* Loans table specific styling */
+.loans-table {
+  table-layout: auto;
+}
+
+.loans-table th,
+.loans-table td {
+  white-space: nowrap;
+}
+
+/* Loan balance styling */
+.loan-balance {
+  font-weight: 500;
+}
+
+.loan-balance.has-loan {
+  color: #c2410c;
+  font-weight: 600;
+}
+
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}

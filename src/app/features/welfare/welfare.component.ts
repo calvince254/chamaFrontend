@@ -12,6 +12,7 @@ import { ToastService } from '../../shared/toast.service';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './welfare.component.html',
+  styleUrl: './welfare.component.css',
 })
 export class WelfareComponent implements OnInit {
   events: WelfareEvent[] = [];
@@ -48,6 +49,14 @@ export class WelfareComponent implements OnInit {
   contributions: WelfareContribution[] = [];
   loadingContributions = signal(false);
   updatingPayment = signal(false);
+
+  // Contributions modal pagination (backend)
+  contributionPage = 0;
+  contributionPageSize = 10;
+  contributionTotalElements = 0;
+  contributionTotalPages = 0;
+  isContributionFirst = true;
+  isContributionLast = true;
 
   // Member welfare payment modal
   showWelfarePaymentModal = false;
@@ -209,6 +218,7 @@ export class WelfareComponent implements OnInit {
   openPaymentsModal(event: WelfareEvent) {
     this.selectedEvent = event;
     this.showPaymentsModal = true;
+    this.contributionPage = 0; // Reset pagination
     this.loadContributions(event.id);
   }
 
@@ -220,9 +230,13 @@ export class WelfareComponent implements OnInit {
 
   loadContributions(eventId: number) {
     this.loadingContributions.set(true);
-    this.api.getWelfareContributions(eventId).subscribe({
-      next: (c) => {
-        this.contributions = c;
+    this.api.getWelfareContributionsPaginated(eventId, this.contributionPage, this.contributionPageSize).subscribe({
+      next: (response) => {
+        this.contributions = response.content;
+        this.contributionTotalElements = response.totalElements;
+        this.contributionTotalPages = response.totalPages;
+        this.isContributionFirst = response.first;
+        this.isContributionLast = response.last;
         this.loadingContributions.set(false);
       },
       error: (err) => {
@@ -278,6 +292,34 @@ export class WelfareComponent implements OnInit {
 
   get unpaidContributions(): WelfareContribution[] {
     return this.contributions.filter(c => !c.paid);
+  }
+
+  // Contribution pagination methods (backend pagination)
+  contributionPreviousPage() {
+    if (!this.isContributionFirst) {
+      this.contributionPage--;
+      if (this.selectedEvent) {
+        this.loadContributions(this.selectedEvent.id);
+      }
+    }
+  }
+
+  contributionNextPage() {
+    if (!this.isContributionLast) {
+      this.contributionPage++;
+      if (this.selectedEvent) {
+        this.loadContributions(this.selectedEvent.id);
+      }
+    }
+  }
+
+  goToContributionPage(page: number) {
+    if (page >= 0 && page < this.contributionTotalPages) {
+      this.contributionPage = page;
+      if (this.selectedEvent) {
+        this.loadContributions(this.selectedEvent.id);
+      }
+    }
   }
 
   // ==================== MEMBER WELFARE PAYMENT (UNIFIED) ====================

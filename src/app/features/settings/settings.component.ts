@@ -13,6 +13,7 @@ import { FineType, ContributionType, LoanProduct, LoanApprovalLevel, Role, Membe
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './settings.component.html',
+  styleUrl: './settings.component.css',
 })
 export class SettingsComponent implements OnInit {
   // Chama settings (fetched from API)

@@ -1,0 +1,454 @@
+/* ==========================================================================
+   Members Component Styles
+   ========================================================================== */
+
+/* Registration Fee Legend */
+.reg-fee-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  font-size: 11px;
+}
+
+.legend-title {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-unpaid .legend-dot {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+}
+
+.legend-awaiting .legend-dot {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+}
+
+.legend-paid .legend-dot {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.legend-rejected .legend-dot {
+  background: #fee2e2;
+  border: 1px solid #f87171;
+}
+
+/* Registration Fee Badge */
+.reg-fee-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.reg-fee-badge.badge-unpaid {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.reg-fee-badge.badge-awaiting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.reg-fee-badge.badge-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.reg-fee-badge.badge-rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Member Table Cell Styles */
+.member-phone {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.member-no-cell {
+  color: var(--color-text-muted);
+}
+
+.member-email-cell {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+/* Loan Balance */
+.loan-balance {
+  font-weight: 500;
+}
+
+.loan-balance.has-loan {
+  color: #c2410c;
+  font-weight: 600;
+}
+
+/* Arrears Badge */
+.arrears-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  background: #fee2e2;
+  color: #dc2626;
+  margin-left: 6px;
+}
+
+
+/* Members Table */
+.members-table-container {
+  background: transparent;
+}
+
+.members-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.members-table thead th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.members-table thead th.actions-col {
+  text-align: right;
+}
+
+.members-table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.members-table tbody tr:hover {
+  background: #f8faf9;
+}
+
+.members-table tbody td {
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+
+/* ==========================================================================
+   Member Detail Modal - Centered with Tabs
+   ========================================================================== */
+
+.modal-fullscreen {
+  width: 100%;
+  max-width: 1290px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+}
+
+.modal-fullscreen .modal-header {
+  padding: 16px 24px;
+  border-bottom: none;
+  flex-shrink: 0;
+}
+
+.modal-fullscreen .modal-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.modal-subtitle {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* Tab bar */
+.detail-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.detail-tab {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: -1px;
+}
+
+.detail-tab:hover {
+  color: var(--color-text);
+}
+
+.detail-tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* Content area */
+.modal-fullscreen .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: #f8faf9;
+  min-height: 0;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+}
+
+/* Detail cards */
+.detail-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+}
+
+.detail-card h4 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+
+.detail-card-highlight {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  border-color: var(--color-primary);
+}
+
+/* Stat rows */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-item .stat-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.stat-item .stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.stat-item .stat-value.stat-primary {
+  color: var(--color-primary);
+}
+
+.stat-item .stat-value.stat-success {
+  color: var(--color-success);
+}
+
+.stat-item .stat-value.stat-danger {
+  color: var(--color-danger);
+}
+
+/* Detail tables */
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.detail-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: #fafbfb;
+}
+
+.detail-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+}
+
+.detail-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.detail-table .text-right {
+  text-align: right;
+}
+
+.detail-table .text-center {
+  text-align: center;
+}
+
+.detail-table .text-success {
+  color: var(--color-success);
+}
+
+.detail-table .text-danger {
+  color: var(--color-danger);
+}
+
+/* Note box */
+.detail-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--color-info-bg);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--color-info);
+}
+
+.detail-note app-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Net position row */
+.net-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.net-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.net-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.net-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+}
+
+.net-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.net-value.positive {
+  color: #b8f5c8;
+}
+
+.net-value.negative {
+  color: #ffb8b8;
+}
+
+/* Empty text */
+.empty-text {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* Modal footer */
+.modal-fullscreen .modal-footer {
+  padding: 12px 24px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+
+/* Members Toolbar */
+.members-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.members-toolbar .search-box {
+  max-width: 260px;
+}
+
+.status-filter {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  font-size: 11px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}

@@ -1,1 +1,560 @@
-/* Shell styles are in global styles.css for consistency */
+/* ==========================================================================
+   Shell Layout Styles
+   ========================================================================== */
+
+/* Shell layout - Floating UI with margins */
+.shell {
+  display: flex;
+  min-height: calc(100vh / 0.9);
+  background: var(--color-bg);
+  padding: 12px 40px;
+  gap: 12px;
+}
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 10px;
+  position: sticky;
+  top: 12px;
+  height: calc((100vh / 0.9) - 24px);
+  border-radius: var(--radius-lg);
+}
+
+.sidebar .brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px 12px 20px;
+  text-align: left;
+}
+
+.sidebar .brand-name { 
+  font-family: 'Pacifico', cursive;
+  font-weight: 400; 
+  font-size: 18px; 
+  color: #fff;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.sidebar .brand-tenant { 
+  font-size: 11px; 
+  color: rgba(255,255,255,0.6); 
+}
+
+/* Navigation */
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: rgba(255,255,255,0.75);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.nav-item:hover { 
+  background: rgba(255,255,255,0.08); 
+  color: #fff; 
+}
+
+.nav-item.active {
+  background: rgba(245, 166, 35, 0.15);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 16px 12px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.sidebar-footer .footer-logo {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.sidebar-footer .footer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+
+.sidebar-footer .company-name {
+  font-size: 10px;
+  color: rgba(255,255,255,0.7);
+  font-weight: 500;
+}
+
+.sidebar-footer .version { 
+  font-size: 9px; 
+  color: rgba(255,255,255,0.4); 
+}
+
+/* Sidebar Warning (for license suspension) */
+.sidebar-warning {
+  margin: 12px;
+  padding: 10px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #fecaca;
+}
+
+.sidebar-warning app-icon { 
+  flex-shrink: 0; 
+  color: #f87171; 
+}
+
+.sidebar-warning strong { 
+  display: block; 
+  font-size: 10px; 
+  color: #fca5a5; 
+  margin-bottom: 2px; 
+}
+
+.sidebar-warning span { 
+  display: block; 
+  font-size: 9px; 
+  color: #fecaca; 
+  opacity: 0.8; 
+}
+
+/* ==========================================================================
+   Suspended Account Overlay
+   ========================================================================== */
+
+.suspended-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.suspended-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+}
+
+.suspended-icon {
+  width: 70px;
+  height: 70px;
+  background: var(--color-danger-bg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.suspended-icon app-icon {
+  font-size: 32px;
+  color: var(--color-danger);
+}
+
+.suspended-modal h2 {
+  font-size: 18px;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.suspended-modal > p {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.suspended-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.suspended-contact {
+  font-size: 11px;
+  color: var(--color-primary);
+  font-weight: 500;
+  background: var(--color-info-bg);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  width: 100%;
+}
+
+/* ==========================================================================
+   Main Content Area
+   ========================================================================== */
+
+.main { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  min-width: 0;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Topbar
+   ========================================================================== */
+
+.topbar {
+  height: var(--topbar-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.topbar-title { 
+  font-weight: 600; 
+  font-size: 11px; 
+}
+
+/* Mobile menu button (hidden on desktop) */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+/* Mobile overlay */
+.mobile-overlay {
+  display: none;
+}
+
+/* Hide on mobile utility */
+.hide-mobile {
+  display: flex;
+}
+
+/* ==========================================================================
+   User Menu
+   ========================================================================== */
+
+.user-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  border-left: 1px solid var(--color-border);
+}
+
+.user-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.user-menu-trigger:hover {
+  background: var(--color-hover);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+}
+
+.user-menu .user-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.user-menu .user-role {
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+.dropdown-chevron {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.dropdown-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+/* ==========================================================================
+   User Dropdown Menu
+   ========================================================================== */
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  animation: dropdownFadeIn 0.15s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--color-bg);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.dropdown-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.dropdown-user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dropdown-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-email {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-role {
+  font-size: 10px;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  background: var(--color-hover);
+}
+
+.dropdown-item app-icon {
+  font-size: 16px;
+  color: var(--color-text-muted);
+}
+
+.dropdown-item:hover app-icon {
+  color: var(--color-primary);
+}
+
+.dropdown-item-danger {
+  color: #dc2626;
+}
+
+.dropdown-item-danger:hover {
+  background: #fef2f2;
+}
+
+.dropdown-item-danger app-icon {
+  color: #dc2626;
+}
+
+.user-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  margin: 0 4px;
+}
+
+/* ==========================================================================
+   Profile Modal Styles
+   ========================================================================== */
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+.profile-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 28px;
+}
+
+.profile-details {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+}
+
+.profile-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.profile-value {
+  font-size: 13px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+
+/* ==========================================================================
+   Password Change Modal Notice
+   ========================================================================== */
+
+.password-change-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.password-change-notice app-icon {
+  color: var(--color-warning);
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.password-change-notice p {
+  margin: 0;
+  font-size: 10px;
+  color: var(--color-text);
+  line-height: 1.5;
+}

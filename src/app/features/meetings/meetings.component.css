@@ -1,0 +1,240 @@
+/* ==========================================================================
+   Meetings Component Styles
+   ========================================================================== */
+
+/* RSVP Summary in table (compact colored dots/counts) */
+.rsvp-summary {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.rsvp-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.rsvp-yes {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.rsvp-no {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.rsvp-pending {
+  background: #eef2f1;
+  color: var(--color-text-muted);
+}
+
+/* My RSVP Section in modal */
+.my-rsvp-section {
+  background: linear-gradient(135deg, #f0f6f4 0%, #e8f1ef 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.my-rsvp-section h4 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.my-rsvp-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rsvp-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* RSVP Summary Section */
+.rsvp-summary-section {
+  margin-bottom: 14px;
+}
+
+.rsvp-summary-section h4 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+}
+
+.rsvp-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.rsvp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.rsvp-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rsvp-stat-label {
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+/* Attendees Section */
+.attendees-section h4 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+}
+
+/* Attendance toggle (checkbox + label) */
+.attendance-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.attendance-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Decline reason display */
+.decline-reason {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.decline-reason-small {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Member Selection (for meeting invites)
+   ========================================================================== */
+
+.invite-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.invite-section h4 {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.invite-toggle {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.member-selection {
+  background: #f8fafa;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.member-selection-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.selection-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.selected-count {
+  font-size: 10px;
+  color: var(--color-primary);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.member-list {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.member-item:hover {
+  background: #eef2f1;
+}
+
+.member-item.selected {
+  background: var(--color-success-bg);
+}
+
+.member-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+

@@ -104,7 +104,7 @@
       </button>
 
       <!-- Member Ownership Table -->
-      @if (memberShares.length === 0) {
+      @if (paginatedMemberShares.length === 0 && shareTotalElements === 0) {
         <div class="empty-state-card">
           <app-icon name="users" class="empty-icon"></app-icon>
           <h3>No Member Shares</h3>
@@ -128,7 +128,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (share of memberShares; track share.memberId) {
+              @for (share of paginatedMemberShares; track share.memberId) {
                 <tr>
                   <td class="shares-member-name">{{ share.memberName }}</td>
                   <td class="text-right">KES {{ share.contributionAmount | number }}</td>
@@ -148,6 +148,24 @@
               </tr>
             </tfoot>
           </table>
+
+          <!-- Pagination Controls -->
+          @if (shareTotalPages > 1) {
+            <div class="pagination">
+              <div class="pagination-info">
+                Showing {{ paginatedMemberShares.length === 0 ? 0 : sharePage * sharePageSize + 1 }} - {{ Math.min((sharePage + 1) * sharePageSize, shareTotalElements) }} of {{ shareTotalElements }} members
+              </div>
+              <div class="pagination-controls">
+                <button class="pagination-btn" (click)="sharePreviousPage()" [disabled]="shareIsFirst">
+                  <app-icon name="chevron-left"></app-icon> Previous
+                </button>
+                <span class="pagination-page-info">Page {{ sharePage + 1 }} of {{ shareTotalPages }}</span>
+                <button class="pagination-btn" (click)="shareNextPage()" [disabled]="shareIsLast">
+                  Next <app-icon name="chevron-right"></app-icon>
+                </button>
+              </div>
+            </div>
+          }
         </div>
       }
     </div>

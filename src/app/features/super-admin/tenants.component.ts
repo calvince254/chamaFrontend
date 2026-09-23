@@ -48,6 +48,7 @@ interface FormErrors {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './tenants.component.html',
+  styleUrl: './tenants.component.css',
 })
 export class TenantsComponent implements OnInit {
   tenants: Tenant[] = [];

@@ -1,0 +1,48 @@
+/* Licenses component styles */
+
+/* Filter Tabs */
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  background: #f5f5f5;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-tab:hover {
+  color: var(--color-text);
+}
+
+.filter-tab.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.tab-count {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: #e5e7e6;
+  color: var(--color-text-muted);
+}
+
+.filter-tab.active .tab-count {
+  background: var(--color-primary);
+  color: var(--color-accent);
+}

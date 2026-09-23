@@ -33,6 +33,7 @@ interface MemberWithRegFee extends Member {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './members.component.html',
+  styleUrl: './members.component.css',
 })
 export class MembersComponent implements OnInit {
   members: MemberWithRegFee[] = [];

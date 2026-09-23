@@ -50,6 +50,7 @@ interface License {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, DatePipe, DecimalPipe, NgClass],
   templateUrl: './billing.component.html',
+  styleUrl: './billing.component.css',
 })
 export class BillingComponent implements OnInit {
   invoices: Invoice[] = [];

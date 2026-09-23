@@ -12,6 +12,7 @@ import { AuditLog, PageResponse } from '../../core/models/models';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './super-admin-audit.component.html',
+  styleUrl: './super-admin-audit.component.css',
 })
 export class SuperAdminAuditComponent implements OnInit {
   Math = Math;

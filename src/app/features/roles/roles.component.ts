@@ -27,6 +27,7 @@ interface PermissionItem {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './roles.component.html',
+  styleUrl: './roles.component.css',
 })
 export class RolesComponent implements OnInit {
   roles: Role[] = [];

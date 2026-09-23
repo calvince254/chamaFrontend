@@ -13,6 +13,7 @@ import { Resource, PageResponse } from '../../core/models/models';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './resources.component.html',
+  styleUrl: './resources.component.css',
 })
 export class ResourcesComponent implements OnInit {
   Math = Math;  // Expose Math for template

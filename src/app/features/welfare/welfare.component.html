@@ -319,6 +319,24 @@
               }
             </tbody>
           </table>
+
+          <!-- Contributions Pagination -->
+          @if (contributionTotalPages > 1) {
+            <div class="pagination">
+              <div class="pagination-info">
+                Showing {{ contributionPage * contributionPageSize + 1 }} - {{ Math.min((contributionPage + 1) * contributionPageSize, contributionTotalElements) }} of {{ contributionTotalElements }}
+              </div>
+              <div class="pagination-controls">
+                <button class="pagination-btn" (click)="contributionPreviousPage()" [disabled]="isContributionFirst">
+                  <app-icon name="chevron-left"></app-icon>
+                </button>
+                <span class="pagination-page-info">Page {{ contributionPage + 1 }} of {{ contributionTotalPages }}</span>
+                <button class="pagination-btn" (click)="contributionNextPage()" [disabled]="isContributionLast">
+                  <app-icon name="chevron-right"></app-icon>
+                </button>
+              </div>
+            </div>
+          }
         }
       </div>
       <div class="modal-footer">

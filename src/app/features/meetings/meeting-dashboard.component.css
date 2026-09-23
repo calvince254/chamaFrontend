@@ -334,26 +334,6 @@
   align-items: flex-end;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .meeting-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .meeting-fines-bar {
-    flex-direction: column;
-    gap: 4px;
-  }
-  .your-response-bar {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-  .meeting-table th,
-  .meeting-table td {
-    padding: 6px 8px;
-  }
-}
-
 
 /* ==================== Attendance Buttons ==================== */
 .attendance-btn {

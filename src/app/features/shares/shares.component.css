@@ -1,0 +1,432 @@
+/* ==========================================================================
+   Shares Component Styles
+   ========================================================================== */
+
+.shares-container {
+  width: 100%;
+}
+
+/* Pool Breakdown Horizontal Scroll */
+.shares-pool-scroll-wrapper {
+  margin-bottom: 12px;
+}
+
+.shares-pool-scroll {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.shares-pool-chip {
+  flex: 1;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 10px 14px;
+  min-width: 0;
+}
+
+.shares-pool-chip-label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.shares-pool-chip-value {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.shares-pool-chip-total {
+  background: #166534;
+  border-color: #166534;
+}
+
+.shares-pool-chip-total .shares-pool-chip-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.shares-pool-chip-total .shares-pool-chip-value {
+  color: white;
+}
+
+/* Negative pool styling */
+.shares-pool-chip-negative {
+  background: var(--color-danger) !important;
+  border-color: var(--color-danger) !important;
+}
+
+.shares-value-negative {
+  color: var(--color-danger) !important;
+  font-weight: 600;
+}
+
+.shares-pool-chip-paidout {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.shares-pool-chip-paidout .shares-pool-chip-label {
+  color: #991b1b;
+}
+
+.shares-pool-chip-paidout .shares-pool-chip-value {
+  color: #dc2626;
+}
+
+/* Info Button */
+.shares-info-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 8px 0;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.shares-info-btn:hover {
+  text-decoration: underline;
+}
+
+.shares-info-btn app-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Table Card */
+.shares-table-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.shares-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.shares-table-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.shares-table-date {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.shares-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.shares-table th {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: none;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary, #fafafa);
+}
+
+.shares-table th:nth-child(1) { width: 25%; }
+.shares-table th:nth-child(2) { width: 25%; }
+.shares-table th:nth-child(3) { width: 20%; }
+.shares-table th:nth-child(4) { width: 30%; }
+
+.shares-table td {
+  font-size: 0.75rem;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.shares-table .text-right {
+  text-align: right;
+}
+
+.shares-table .text-center {
+  text-align: center;
+}
+
+.shares-member-name {
+  font-weight: 500;
+}
+
+.shares-percentage-badge {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.shares-value {
+  font-weight: 500;
+}
+
+.shares-total-row {
+  background: var(--bg-secondary, #fafafa);
+}
+
+.shares-total-row td {
+  border-bottom: none;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.shares-total-label {
+  font-weight: 600;
+}
+
+.shares-total-value {
+  font-weight: 600;
+}
+
+.shares-total-primary {
+  color: var(--primary-color);
+}
+
+/* Info Modal */
+.shares-info-modal {
+  max-width: 450px;
+}
+
+.shares-info-section {
+  margin-bottom: 16px;
+}
+
+.shares-info-section h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+}
+
+.shares-info-section p {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.shares-info-formula {
+  background: var(--bg-secondary, #f5f5f5);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.shares-info-note {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  color: #92400e;
+  align-items: flex-start;
+}
+
+.shares-info-note app-icon {
+  flex-shrink: 0;
+  color: #f59e0b;
+  width: 14px;
+  height: 14px;
+}
+
+
+/* ==========================================================================
+   Payouts Styles
+   ========================================================================== */
+
+.payouts-container {
+  width: 100%;
+}
+
+/* Liquidity Section */
+.liquidity-section {
+  margin-bottom: 16px;
+}
+
+.liquidity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.liquidity-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 12px 16px;
+}
+
+.liquidity-card-primary {
+  background: #166534;
+  border-color: #166534;
+}
+
+.liquidity-card-primary .liquidity-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.liquidity-card-primary .liquidity-value {
+  color: white;
+}
+
+.liquidity-label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.liquidity-value {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.liquidity-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  color: #92400e;
+}
+
+.liquidity-warning app-icon {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+/* Payout Form */
+.payout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-hint {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* Payout Preview */
+.payout-preview {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.payout-preview h4 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.payout-preview-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #991b1b;
+  margin-bottom: 12px;
+}
+
+.payout-preview-warning app-icon {
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+.payout-preview-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.preview-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.preview-stat-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.payout-preview-table {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.payout-preview-table .data-table {
+  font-size: 0.72rem;
+}
+
+.payout-preview-table .data-table th,
+.payout-preview-table .data-table td {
+  padding: 8px 12px;
+}
+
+/* Payout Detail */
+.payout-detail-info {
+  margin-bottom: 16px;
+}
+
+/* Payout Progress */
+.payout-progress {
+  margin-bottom: 16px;
+}
+
+.payout-progress span {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* Payout Members Section */
+.payout-members-section {
+  margin-top: 16px;
+}
+
+.payout-members-section h4 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}

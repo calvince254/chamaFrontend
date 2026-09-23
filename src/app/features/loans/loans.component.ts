@@ -13,6 +13,7 @@ import { IconComponent } from '../../shared/icon.component';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './loans.component.html',
+  styleUrl: './loans.component.css',
 })
 export class LoansComponent implements OnInit {
   // Data

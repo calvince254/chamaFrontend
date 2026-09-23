@@ -11,6 +11,7 @@ import { IconComponent } from '../../shared/icon.component';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './finance.component.html',
+  styleUrl: './finance.component.css',
 })
 export class FinanceComponent implements OnInit {
   summary?: FinanceSummary;

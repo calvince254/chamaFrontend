@@ -83,6 +83,7 @@ interface Tenant {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, DatePipe, DecimalPipe, NgClass, OrdinalPipe],
   templateUrl: './licenses.component.html',
+  styleUrl: './licenses.component.css',
 })
 export class LicensesComponent implements OnInit {
   // Data

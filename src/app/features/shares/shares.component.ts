@@ -17,6 +17,7 @@ import { ToastService } from '../../shared/toast.service';
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule, IconComponent],
   templateUrl: './shares.component.html',
+  styleUrl: './shares.component.css',
 })
 export class SharesComponent implements OnInit {
   // Tab management
@@ -27,6 +28,15 @@ export class SharesComponent implements OnInit {
   loading = signal(false);
   error = signal<string | null>(null);
   showInfoModal = false;
+
+  // Member Ownership pagination
+  paginatedMemberShares: MemberShare[] = [];
+  sharePage = 0;
+  sharePageSize = 10;
+  shareTotalElements = 0;
+  shareTotalPages = 0;
+  shareIsFirst = true;
+  shareIsLast = true;
 
   // Payouts tab
   liquidity: Liquidity | null = null;
@@ -101,6 +111,8 @@ export class SharesComponent implements OnInit {
       next: (calc) => {
         this.calculation = calc;
         this.loading.set(false);
+        // Load paginated member shares
+        this.loadMemberSharesPaginated();
       },
       error: (err) => {
         this.loading.set(false);
@@ -110,6 +122,21 @@ export class SharesComponent implements OnInit {
           this.error.set('Failed to load share calculation.');
           console.error('Failed to load share calculation:', err);
         }
+      }
+    });
+  }
+
+  loadMemberSharesPaginated() {
+    this.api.getMemberSharesPaginated(this.sharePage, this.sharePageSize).subscribe({
+      next: (response) => {
+        this.paginatedMemberShares = response.content;
+        this.shareTotalElements = response.totalElements;
+        this.shareTotalPages = response.totalPages;
+        this.shareIsFirst = response.first;
+        this.shareIsLast = response.last;
+      },
+      error: (err) => {
+        console.error('Failed to load paginated member shares:', err);
       }
     });
   }
@@ -130,8 +157,31 @@ export class SharesComponent implements OnInit {
     return this.calculation?.totalShareContributions ?? 0;
   }
 
+  // Member Ownership pagination methods
+  shareGoToPage(page: number) {
+    if (page >= 0 && page < this.shareTotalPages) {
+      this.sharePage = page;
+      this.loadMemberSharesPaginated();
+    }
+  }
+
+  sharePreviousPage() {
+    if (!this.shareIsFirst) {
+      this.sharePage--;
+      this.loadMemberSharesPaginated();
+    }
+  }
+
+  shareNextPage() {
+    if (!this.shareIsLast) {
+      this.sharePage++;
+      this.loadMemberSharesPaginated();
+    }
+  }
+
   refresh() {
     if (this.activeTab === 'ownership') {
+      this.sharePage = 0; // Reset to first page on refresh
       this.loadShareCalculation();
     } else {
       this.loadPayoutsData();

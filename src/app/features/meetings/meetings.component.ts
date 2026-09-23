@@ -14,6 +14,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './meetings.component.html',
+  styleUrl: './meetings.component.css',
 })
 export class MeetingsComponent implements OnInit {
   meetings: Meeting[] = [];

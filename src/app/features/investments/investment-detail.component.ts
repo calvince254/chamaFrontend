@@ -12,6 +12,7 @@ import { IconComponent } from '../../shared/icon.component';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, IconComponent],
   templateUrl: './investment-detail.component.html',
+  styleUrl: './investment-detail.component.css',
 })
 export class InvestmentDetailComponent implements OnInit {
   investment: Investment | null = null;

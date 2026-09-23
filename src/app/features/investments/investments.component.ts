@@ -12,6 +12,7 @@ import { IconComponent } from '../../shared/icon.component';
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './investments.component.html',
+  styleUrl: './investments.component.css',
 })
 export class InvestmentsComponent implements OnInit {
   investments: Investment[] = [];
