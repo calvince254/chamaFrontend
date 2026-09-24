@@ -1,4 +1,4 @@
-<div class="page-header">
+<div class="page-header desktop-only">
   <div>
     <h1>Investments</h1>
     <p class="text-muted">Track and manage group investments</p>
@@ -17,6 +17,27 @@
   </div>
 </div>
 
+<!-- Mobile Page Header -->
+<div class="mobile-only mobile-page-header">
+  <div class="mobile-header-top">
+    <div>
+      <h1 class="mobile-page-title">Investments</h1>
+      <p class="mobile-page-subtitle">Group investment portfolio</p>
+    </div>
+    @if (session.can('CREATE_INVESTMENT')) {
+      <button class="mobile-add-btn" (click)="openCreateModal()">
+        <app-icon name="plus"></app-icon>
+      </button>
+    }
+  </div>
+  @if (pendingApprovalCount > 0) {
+    <button class="mobile-alert-btn" (click)="openPendingApprovalsModal()">
+      <app-icon name="bell"></app-icon>
+      <span>{{ pendingApprovalCount }} Pending Approval</span>
+    </button>
+  }
+</div>
+
 @if (loading) {
   <div class="loading-state"><div class="spinner"></div><p>Loading investments...</p></div>
 } @else if (investments.length === 0 && !hasFilters) {
@@ -31,7 +52,7 @@
     }
   </div>
 } @else {
-  <div class="stat-grid">
+  <div class="stat-grid desktop-only">
     <div class="stat-card">
       <div class="stat-label">Total Invested</div>
       <div class="stat-value">KES {{ totalInvested | number }}</div>
@@ -55,7 +76,7 @@
   </div>
 
   <!-- Filters -->
-  <div class="filter-bar">
+  <div class="filter-bar desktop-only">
     <div class="filter-group">
       <label>Status:</label>
       <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
@@ -79,7 +100,7 @@
     }
   </div>
 
-  <div class="card">
+  <div class="card desktop-only">
     @if (investments.length === 0 && hasFilters) {
       <div class="empty-filter-state">
         <app-icon name="search"></app-icon>
@@ -132,6 +153,119 @@
             </button>
             <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
             <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+              <app-icon name="chevron-right"></app-icon>
+            </button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <!-- ==================== MOBILE INVESTMENTS VIEW ==================== -->
+  <div class="mobile-only mobile-investments">
+    <!-- Mobile Stats - 2x2 Grid -->
+    <div class="mobile-stats-grid">
+      <div class="mobile-stat-card">
+        <span class="mobile-stat-label">TOTAL INVESTED</span>
+        <span class="mobile-stat-value">KES {{ totalInvested | number:'1.0-0' }}</span>
+      </div>
+      <div class="mobile-stat-card">
+        <span class="mobile-stat-label">ACTIVE VALUE</span>
+        <span class="mobile-stat-value">KES {{ totalCurrentActive | number:'1.0-0' }}</span>
+      </div>
+      <div class="mobile-stat-card">
+        <span class="mobile-stat-label">NET GAIN/LOSS</span>
+        <span class="mobile-stat-value" [class.positive]="totalNetGain >= 0" [class.negative]="totalNetGain < 0">
+          {{ totalNetGain >= 0 ? '+' : '' }}KES {{ totalNetGain | number:'1.0-0' }}
+        </span>
+      </div>
+      <div class="mobile-stat-card">
+        <span class="mobile-stat-label">RETURN %</span>
+        <span class="mobile-stat-value" [class.positive]="returnPercentage >= 0" [class.negative]="returnPercentage < 0">
+          {{ returnPercentage >= 0 ? '+' : '' }}{{ returnPercentage | number:'1.1-1' }}%
+        </span>
+      </div>
+    </div>
+
+    <!-- Mobile Filters - Side by Side -->
+    <div class="mobile-filter-grid">
+      <div class="mobile-filter-item">
+        <label class="mobile-filter-label">Status</label>
+        <select class="mobile-select" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All</option>
+          <option value="ACTIVE">Active</option>
+          <option value="SOLD">Sold</option>
+          <option value="WRITTEN_OFF">Written Off</option>
+        </select>
+      </div>
+      <div class="mobile-filter-item">
+        <label class="mobile-filter-label">Approval</label>
+        <select class="mobile-select" [(ngModel)]="approvalStatusFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All</option>
+          <option value="PENDING">Pending</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Mobile Investments List -->
+    @if (investments.length === 0 && hasFilters) {
+      <div class="mobile-empty-state">
+        <app-icon name="search"></app-icon>
+        <span>No investments match your filters</span>
+      </div>
+    } @else if (investments.length === 0) {
+      <div class="mobile-empty-state">
+        <app-icon name="trending-up"></app-icon>
+        <span>No investments yet</span>
+      </div>
+    } @else {
+      <div class="mobile-list">
+        @for (inv of investments; track inv.id) {
+          <div class="mobile-inv-card" (click)="viewInvestment(inv)">
+            <div class="mobile-inv-header">
+              <span class="mobile-inv-name">{{ inv.name }}</span>
+              <span class="mobile-inv-category">{{ getCategoryLabel(inv.category) }}</span>
+            </div>
+            <div class="mobile-inv-stats">
+              <div class="mobile-inv-stat">
+                <span class="mobile-inv-stat-label">INVESTED</span>
+                <span class="mobile-inv-stat-value">{{ inv.amountInvested | number:'1.0-0' }}</span>
+              </div>
+              <div class="mobile-inv-stat">
+                <span class="mobile-inv-stat-label">CURRENT</span>
+                <span class="mobile-inv-stat-value">{{ inv.currentValue | number:'1.0-0' }}</span>
+              </div>
+              <div class="mobile-inv-stat">
+                <span class="mobile-inv-stat-label">GAIN</span>
+                <span class="mobile-inv-stat-value" [class.positive]="(inv.netGain || 0) >= 0" [class.negative]="(inv.netGain || 0) < 0">
+                  {{ (inv.netGain || 0) >= 0 ? '+' : '' }}{{ inv.netGain | number:'1.0-0' }}
+                </span>
+              </div>
+            </div>
+            <div class="mobile-inv-footer">
+              <div class="mobile-inv-badges">
+                <span class="mobile-badge" [ngClass]="getStatusClass(inv.status)">{{ inv.status }}</span>
+                <span class="mobile-badge" [ngClass]="getApprovalClass(inv.approvalStatus)">{{ inv.approvalStatus }}</span>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Mobile Pagination -->
+      @if (totalPages > 1) {
+        <div class="mobile-pagination">
+          <div class="mobile-pagination-info">
+            Showing {{ currentPage * pageSize + 1 }}–{{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+          </div>
+          <div class="mobile-pagination-controls">
+            <button class="mobile-pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+              <app-icon name="chevron-left"></app-icon>
+            </button>
+            <span class="mobile-pagination-page">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+            <button class="mobile-pagination-btn" (click)="nextPage()" [disabled]="isLast">
               <app-icon name="chevron-right"></app-icon>
             </button>
           </div>

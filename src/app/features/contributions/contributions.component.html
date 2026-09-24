@@ -125,6 +125,52 @@
       }
     </div>
   } @else {
+    <!-- Mobile Status Filter Tabs -->
+    <div class="mobile-status-tabs">
+      <button class="mobile-status-tab" [class.active]="statusFilter === 'PENDING' || statusFilter === 'OVERDUE'" 
+              (click)="statusFilter = 'PENDING'; onFilterChange()">
+        Pending ({{ getPendingCount() }})
+      </button>
+      <button class="mobile-status-tab" [class.active]="statusFilter === 'ALL'" 
+              (click)="statusFilter = 'ALL'; onFilterChange()">
+        All ({{ totalElements }})
+      </button>
+    </div>
+
+    <!-- Mobile Contribution List -->
+    <div class="mobile-contribution-list">
+      @for (c of filteredContributions; track c.id ?? c.memberId) {
+        <div class="mobile-contribution-row">
+          <div class="mobile-contrib-top">
+            <div class="mobile-contrib-member">
+              <div class="mobile-contrib-name">{{ c.memberName }}</div>
+              <div class="mobile-contrib-no">{{ c.memberNo }}</div>
+            </div>
+            <div class="mobile-contrib-badge">
+              <span class="badge" [ngClass]="getStatusBadgeClass(c.status)">{{ c.status }}</span>
+            </div>
+          </div>
+          <div class="mobile-contrib-bottom">
+            <div class="mobile-contrib-amounts">
+              Due <strong>{{ c.amountDue | number }}</strong> · Paid <strong>{{ c.amountPaid | number }}</strong>
+            </div>
+            <div class="mobile-contrib-action">
+              @if (c.status === 'PAID') {
+                <span class="settled-text">Settled</span>
+              } @else if (c.hasPendingClaim) {
+                <span class="badge badge-warning">Pending</span>
+              } @else if (isOwnContribution(c)) {
+                <button class="btn btn-primary btn-sm" (click)="openMemberContributionPaymentModal(c)">Pay</button>
+              } @else if (session.can('RECORD_CONTRIBUTION_PAYMENT')) {
+                <button class="btn btn-primary btn-sm" (click)="openPaymentForm(c)">Record</button>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table -->
     <div class="card">
       <table class="data-table">
         <thead>
@@ -261,6 +307,41 @@
       <p>No penalties found.</p>
     </div>
   } @else {
+    <!-- Mobile Penalty List -->
+    <div class="mobile-penalty-list">
+      @for (p of filteredPenalties; track p.id) {
+        <div class="mobile-penalty-row">
+          <div class="mobile-penalty-top">
+            <div class="mobile-penalty-member">
+              <div class="mobile-penalty-name">{{ p.memberName }}</div>
+              <div class="mobile-penalty-no">{{ p.memberNo }}</div>
+              <div class="mobile-penalty-reason">{{ p.reason }}</div>
+            </div>
+            <div class="mobile-penalty-badge">
+              <span class="badge" [ngClass]="getStatusBadgeClass(p.status)">{{ p.status }}</span>
+            </div>
+          </div>
+          <div class="mobile-penalty-bottom">
+            <div class="mobile-penalty-amounts">
+              Due <strong>{{ p.amount | number }}</strong> · Paid <strong>{{ p.paidAmount | number }}</strong>
+            </div>
+            <div class="mobile-penalty-action">
+              @if (p.status === 'PAID' || p.status === 'WAIVED') {
+                <span class="settled-text">{{ p.status === 'WAIVED' ? 'Waived' : 'Settled' }}</span>
+              } @else if (p.hasPendingClaim) {
+                <span class="badge badge-warning">Pending</span>
+              } @else if (isOwnPenalty(p)) {
+                <button class="btn btn-primary btn-sm" (click)="openMemberPenaltyPaymentModal(p)">Pay</button>
+              } @else if (session.can('RECORD_PENALTY_PAYMENT')) {
+                <button class="btn btn-primary btn-sm" (click)="openPenaltyPaymentForm(p)">Record</button>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table -->
     <div class="card">
       <table class="data-table">
         <thead>
@@ -401,6 +482,47 @@
       }
     </div>
   } @else {
+    <!-- Mobile Top-Up List -->
+    <div class="mobile-topup-list">
+      @for (t of topUps; track t.id) {
+        <div class="mobile-topup-row">
+          <div class="mobile-topup-top">
+            <div class="mobile-topup-member">
+              <div class="mobile-topup-name">{{ t.memberName }}</div>
+              <div class="mobile-topup-no">{{ t.memberNo }}</div>
+            </div>
+            <div class="mobile-topup-badge">
+              <span class="badge" [ngClass]="getTopUpStatusClass(t.status)">{{ t.status }}</span>
+            </div>
+          </div>
+          <div class="mobile-topup-details">
+            <span class="mobile-topup-type">{{ t.contributionTypeName }}</span>
+            @if (t.targetMonth) {
+              <span class="mobile-topup-month">· {{ t.targetMonth }}</span>
+            }
+          </div>
+          <div class="mobile-topup-bottom">
+            <div class="mobile-topup-amount">KES {{ t.amount | number }}</div>
+            <div class="mobile-topup-action">
+              @if (t.status === 'PENDING' && session.can('APPROVE_CONTRIBUTION_TOPUP')) {
+                <button class="btn btn-success btn-sm" (click)="approveTopUp(t)">
+                  <app-icon name="check"></app-icon>
+                </button>
+                <button class="btn btn-danger btn-sm" style="margin-left: 4px;" (click)="rejectTopUp(t)">
+                  <app-icon name="close"></app-icon>
+                </button>
+              } @else if (t.status === 'APPROVED') {
+                <span class="settled-text">Approved</span>
+              } @else if (t.status === 'REJECTED') {
+                <span class="settled-text" style="color: var(--color-danger);">Rejected</span>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table -->
     <div class="table-container">
       <table class="data-table">
         <thead>

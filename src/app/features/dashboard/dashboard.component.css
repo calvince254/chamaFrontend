@@ -323,7 +323,7 @@
   color: var(--color-text-muted);
   padding: 8px 10px;
   border-bottom: 1px solid var(--color-border);
-  background: #fafbfb;
+  background: var(--color-bg);
 }
 
 .dash-table td {
@@ -363,7 +363,7 @@
 
 .dash-badge-warning {
   background: var(--color-warning-bg);
-  color: #92400e;
+  color: var(--color-warning);
 }
 
 /* Empty State */
@@ -420,4 +420,558 @@
   flex: 1;
   overflow-y: auto;
   max-height: 360px;
+}
+
+
+/* ==========================================================================
+   Mobile Styles (< 768px) - Redesigned Dashboard
+   ========================================================================== */
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  /* Mobile Page Header - Hidden on new design, hero card takes over */
+  .mobile-page-header {
+    display: none;
+  }
+
+  /* Mobile Dashboard Container */
+  .mobile-dashboard {
+    padding: 16px;
+    background: var(--color-bg);
+  }
+
+  /* ========== Hero Balance Card ========== */
+  .mobile-hero-card {
+    background: var(--color-primary);
+    border-radius: 16px;
+    padding: 24px 20px;
+    margin-bottom: 16px;
+    color: white;
+    box-shadow: var(--shadow-card);
+  }
+
+  .mobile-hero-card.mobile-hero-negative {
+    background: var(--color-danger);
+  }
+
+  .mobile-hero-label {
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .mobile-hero-amount {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 8px 0 12px;
+    letter-spacing: -0.5px;
+  }
+
+  .mobile-hero-meta {
+    font-size: 12px;
+    opacity: 0.85;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-hero-credit {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .mobile-hero-debit {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .mobile-hero-separator {
+    opacity: 0.5;
+  }
+
+  /* ========== Stats Grid: 2×3 ========== */
+  .mobile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .mobile-stat-tile {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .mobile-stat-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .mobile-stat-icon.savings {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+
+  .mobile-stat-icon.loans {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+  }
+
+  .mobile-stat-icon.welfare {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+  }
+
+  .mobile-stat-icon.invest {
+    background: var(--color-info-bg);
+    color: var(--color-info);
+  }
+
+  .mobile-stat-icon.members {
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+  }
+
+  .mobile-stat-icon.percent {
+    background: var(--color-info-bg);
+    color: var(--color-info);
+  }
+
+  .mobile-stat-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .mobile-stat-label {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* ========== Section Styles ========== */
+  .mobile-section {
+    margin-bottom: 20px;
+  }
+
+  .mobile-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .mobile-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  .mobile-section-header .mobile-section-title {
+    margin-bottom: 0;
+  }
+
+  .mobile-section-link {
+    font-size: 12px;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .mobile-section-link:hover {
+    text-decoration: underline;
+  }
+
+  /* ========== Mobile Card Base ========== */
+  .mobile-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  /* ========== Meeting Card ========== */
+  .mobile-meeting-card {
+    padding: 16px;
+  }
+
+  .mobile-meeting-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .mobile-meeting-icon-lg {
+    width: 44px;
+    height: 44px;
+    background: var(--color-primary-bg);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+    flex-shrink: 0;
+  }
+
+  .mobile-meeting-icon-lg app-icon {
+    font-size: 18px;
+  }
+
+  .mobile-meeting-details {
+    flex: 1;
+  }
+
+  .mobile-meeting-date-lg {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .mobile-meeting-venue-lg {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+
+  .mobile-meeting-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .mobile-meeting-type {
+    font-size: 11px;
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .mobile-meeting-attendance {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  /* ========== Payout Card ========== */
+  .mobile-payout-card {
+    padding: 16px;
+  }
+
+  .mobile-payout-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .mobile-payout-avatar {
+    width: 40px;
+    height: 40px;
+    background: var(--color-primary-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+    flex-shrink: 0;
+  }
+
+  .mobile-payout-avatar app-icon {
+    font-size: 16px;
+  }
+
+  .mobile-payout-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-payout-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-payout-round-date {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+
+  .mobile-payout-amount-badge {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-primary-bg);
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .mobile-payout-progress-section {
+    margin-top: 4px;
+  }
+
+  .mobile-payout-progress-bar {
+    height: 8px;
+    background: var(--color-bg);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .mobile-payout-progress-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .mobile-payout-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 6px;
+  }
+
+  /* ========== Activity List ========== */
+  .mobile-activity-list {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .mobile-activity-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .mobile-activity-item:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-activity-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+
+  .mobile-activity-icon.credit {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+
+  .mobile-activity-icon.debit {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+  }
+
+  .mobile-activity-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-activity-desc {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-activity-meta {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+
+  .mobile-activity-amount {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .mobile-activity-amount.credit {
+    color: var(--color-success);
+  }
+
+  .mobile-activity-amount.debit {
+    color: var(--color-danger);
+  }
+
+  /* ========== Alert List (Loans) ========== */
+  .mobile-alert-list {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .mobile-alert-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .mobile-alert-item:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-alert-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(245, 158, 11, 0.12);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-warning);
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+
+  .mobile-alert-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-alert-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .mobile-alert-meta {
+    font-size: 11px;
+    color: var(--color-danger);
+    margin-top: 2px;
+  }
+
+  /* ========== Approval List ========== */
+  .mobile-approval-list {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .mobile-approval-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .mobile-approval-item:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-approval-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(139, 92, 246, 0.12);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+
+  .mobile-approval-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-approval-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-approval-meta {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+
+  .mobile-approval-badge {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  /* ========== Empty State Card ========== */
+  .mobile-empty-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    color: var(--color-text-muted);
+    gap: 10px;
+  }
+
+  .mobile-empty-card app-icon {
+    font-size: 28px;
+    opacity: 0.4;
+  }
+
+  .mobile-empty-card span {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
 }

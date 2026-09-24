@@ -7,11 +7,18 @@ import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
 import { IconComponent } from '../../shared/icon.component';
 import { FineType, ContributionType, LoanProduct, LoanApprovalLevel, Role, Member, TenantSettings, ShareSettings, PaymentSettings, TreasurerDevice } from '../../core/models/models';
+import {
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  LabelValueComponent,
+  StatusBadgeComponent
+} from '../../shared/components';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, ListRowCardComponent, ListRowSecondaryDirective, ListRowFooterDirective, LabelValueComponent, StatusBadgeComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css',
 })

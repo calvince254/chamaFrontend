@@ -3,156 +3,231 @@
     <h1>Audit Trail</h1>
     <p class="text-muted">Track all system activities and changes.</p>
   </div>
-  <button class="btn btn-outline" (click)="showStats = !showStats">
+  <button class="btn btn-outline desktop-only" (click)="showStats = !showStats">
     <app-icon name="bar-chart"></app-icon> {{ showStats ? 'Hide Stats' : 'Show Stats' }}
   </button>
 </div>
 
-<!-- Statistics Panel -->
-@if (showStats && statistics) {
-  <div class="audit-stats-container">
-    <div class="audit-stats-left">
-      <div class="stat-label-small">ACTIVITIES (7 DAYS)</div>
-      <div class="stat-number">{{ statistics.totalActivities | number }}</div>
-    </div>
-    <div class="audit-stats-right">
-      <div class="stat-label-small">BY MODULE</div>
-      @if (statistics.byModule) {
-        <div class="module-bars" style="max-height: 120px; overflow-y: auto;">
-          @for (item of getModuleStats(); track item.key) {
-            <div class="module-bar-row">
-              <span class="module-name">{{ item.key }}</span>
-              <div class="module-bar-container">
-                <div class="module-bar" [style.width.%]="item.percent"></div>
-              </div>
-              <span class="module-count">{{ item.value }}</span>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  </div>
-}
-
-<!-- Filters -->
-<div class="audit-filters">
-  <div class="filter-group">
-    <label>Module: All</label>
-    <select [(ngModel)]="filterModule" (ngModelChange)="onFilterChange()">
-      <option value="">All</option>
-      @for (m of modules; track m) {
-        <option [value]="m">{{ m }}</option>
-      }
-    </select>
-  </div>
-  <div class="filter-group">
-    <label>Action: All</label>
-    <select [(ngModel)]="filterAction" (ngModelChange)="onFilterChange()">
-      <option value="">All</option>
-      @for (a of actions; track a) {
-        <option [value]="a">{{ a }}</option>
-      }
-    </select>
-  </div>
-  <div class="filter-group">
-    <label>User: All</label>
-    <select [(ngModel)]="filterMemberId" (ngModelChange)="onFilterChange()">
-      <option [ngValue]="null">All</option>
-      @for (m of members; track m.id) {
-        <option [ngValue]="m.id">{{ m.name }}</option>
-      }
-    </select>
-  </div>
-  <div class="filter-group">
-    <label>From</label>
-    <input type="date" [(ngModel)]="filterStartDate" (ngModelChange)="onFilterChange()" />
-  </div>
-  <span class="filter-to">to</span>
-  <div class="filter-group">
-    <label>To</label>
-    <input type="date" [(ngModel)]="filterEndDate" (ngModelChange)="onFilterChange()" />
-  </div>
-  <button class="btn-reset-link" (click)="clearFilters()">Reset</button>
-</div>
-
-<!-- Loading State -->
-@if (loading()) {
-  <div class="loading-state">
-    <div class="spinner"></div>
-    <p>Loading audit logs...</p>
-  </div>
-} @else if (auditLogs.length === 0) {
-  <div class="empty-state-card">
-    <app-icon name="activity" class="empty-icon"></app-icon>
-    <h3>No audit logs found</h3>
-    <p>{{ hasFilters() ? 'Try adjusting your filters.' : 'Activities will appear here once users start using the system.' }}</p>
-  </div>
-} @else {
-  <!-- Audit Logs Table -->
-  <div class="card">
-    <table class="data-table audit-table">
-      <thead>
-        <tr>
-          <th class="th-timestamp">TIMESTAMP</th>
-          <th class="th-user">USER</th>
-          <th class="th-module">MODULE</th>
-          <th class="th-action">ACTION</th>
-          <th class="th-description">DESCRIPTION</th>
-          <th class="th-ip">IP ADDRESS</th>
-          <th class="th-status">STATUS</th>
-          <th class="th-actions">ACTIONS</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (log of auditLogs; track log.id) {
-          <tr>
-            <td class="timestamp-cell">{{ formatTimestamp(log.timestamp) }}</td>
-            <td>
-              <div class="user-cell">
-                <span class="user-name-link">{{ log.memberName || 'System' }}</span>
-                @if (log.memberEmail) {
-                  <span class="user-email">{{ log.memberEmail }}</span>
-                }
-              </div>
-            </td>
-            <td class="module-cell">{{ log.module }}</td>
-            <td>
-              <span class="action-badge" [ngClass]="getActionClass(log.action)">{{ log.action }}</span>
-            </td>
-            <td class="description-cell">{{ log.description || '—' }}</td>
-            <td class="ip-cell">{{ log.ipAddress || '—' }}</td>
-            <td>
-              <span class="status-text" [ngClass]="getStatusClass(log.status)">{{ log.status }}</span>
-            </td>
-            <td class="actions-cell">
-              <button class="action-btn" (click)="viewLog(log)" title="View Details">
-                <app-icon name="eye"></app-icon>
-              </button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Pagination -->
-  @if (totalPages > 0) {
-    <div class="pagination">
-      <div class="pagination-info">
-        Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+<!-- Desktop View -->
+<div class="desktop-only">
+  <!-- Statistics Panel -->
+  @if (showStats && statistics) {
+    <div class="audit-stats-container">
+      <div class="audit-stats-left">
+        <div class="stat-label-small">ACTIVITIES (7 DAYS)</div>
+        <div class="stat-number">{{ statistics.totalActivities | number }}</div>
       </div>
-      <div class="pagination-controls">
-        <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
-          <app-icon name="chevron-left"></app-icon> Previous
-        </button>
-        <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
-        <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
-          Next <app-icon name="chevron-right"></app-icon>
-        </button>
+      <div class="audit-stats-right">
+        <div class="stat-label-small">BY MODULE</div>
+        @if (statistics.byModule) {
+          <div class="module-bars" style="max-height: 120px; overflow-y: auto;">
+            @for (item of getModuleStats(); track item.key) {
+              <div class="module-bar-row">
+                <span class="module-name">{{ item.key }}</span>
+                <div class="module-bar-container">
+                  <div class="module-bar" [style.width.%]="item.percent"></div>
+                </div>
+                <span class="module-count">{{ item.value }}</span>
+              </div>
+            }
+          </div>
+        }
       </div>
     </div>
   }
-}
+
+  <!-- Filters -->
+  <div class="audit-filters">
+    <div class="filter-group">
+      <label>Module: All</label>
+      <select [(ngModel)]="filterModule" (ngModelChange)="onFilterChange()">
+        <option value="">All</option>
+        @for (m of modules; track m) {
+          <option [value]="m">{{ m }}</option>
+        }
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Action: All</label>
+      <select [(ngModel)]="filterAction" (ngModelChange)="onFilterChange()">
+        <option value="">All</option>
+        @for (a of actions; track a) {
+          <option [value]="a">{{ a }}</option>
+        }
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>User: All</label>
+      <select [(ngModel)]="filterMemberId" (ngModelChange)="onFilterChange()">
+        <option [ngValue]="null">All</option>
+        @for (m of members; track m.id) {
+          <option [ngValue]="m.id">{{ m.name }}</option>
+        }
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>From</label>
+      <input type="date" [(ngModel)]="filterStartDate" (ngModelChange)="onFilterChange()" />
+    </div>
+    <span class="filter-to">to</span>
+    <div class="filter-group">
+      <label>To</label>
+      <input type="date" [(ngModel)]="filterEndDate" (ngModelChange)="onFilterChange()" />
+    </div>
+    <button class="btn-reset-link" (click)="clearFilters()">Reset</button>
+  </div>
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading audit logs...</p>
+    </div>
+  } @else if (auditLogs.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="activity" class="empty-icon"></app-icon>
+      <h3>No audit logs found</h3>
+      <p>{{ hasFilters() ? 'Try adjusting your filters.' : 'Activities will appear here once users start using the system.' }}</p>
+    </div>
+  } @else {
+    <!-- Audit Logs Table -->
+    <div class="card">
+      <table class="data-table audit-table">
+        <thead>
+          <tr>
+            <th class="th-timestamp">TIMESTAMP</th>
+            <th class="th-user">USER</th>
+            <th class="th-module">MODULE</th>
+            <th class="th-action">ACTION</th>
+            <th class="th-description">DESCRIPTION</th>
+            <th class="th-ip">IP ADDRESS</th>
+            <th class="th-status">STATUS</th>
+            <th class="th-actions">ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (log of auditLogs; track log.id) {
+            <tr>
+              <td class="timestamp-cell">{{ formatTimestamp(log.timestamp) }}</td>
+              <td>
+                <div class="user-cell">
+                  <span class="user-name-link">{{ log.memberName || 'System' }}</span>
+                  @if (log.memberEmail) {
+                    <span class="user-email">{{ log.memberEmail }}</span>
+                  }
+                </div>
+              </td>
+              <td class="module-cell">{{ log.module }}</td>
+              <td>
+                <span class="action-badge" [ngClass]="getActionClass(log.action)">{{ log.action }}</span>
+              </td>
+              <td class="description-cell">{{ log.description || '—' }}</td>
+              <td class="ip-cell">{{ log.ipAddress || '—' }}</td>
+              <td>
+                <span class="status-text" [ngClass]="getStatusClass(log.status)">{{ log.status }}</span>
+              </td>
+              <td class="actions-cell">
+                <button class="action-btn" (click)="viewLog(log)" title="View Details">
+                  <app-icon name="eye"></app-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages > 0) {
+      <div class="pagination">
+        <div class="pagination-info">
+          Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
+            <app-icon name="chevron-left"></app-icon> Previous
+          </button>
+          <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+          <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+            Next <app-icon name="chevron-right"></app-icon>
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- Mobile View -->
+<div class="mobile-only">
+  <!-- Mobile Stats -->
+  @if (statistics) {
+    <app-stat-strip>
+      <app-stat-chip label="Activities (7d)" [value]="(statistics.totalActivities || 0) + ''"></app-stat-chip>
+      <app-stat-chip label="Modules" [value]="(getModuleStats().length || 0) + ''"></app-stat-chip>
+    </app-stat-strip>
+  }
+
+  <!-- Mobile Filters -->
+  <div class="mobile-filters">
+    <div class="mobile-filter-row">
+      <select [(ngModel)]="filterModule" (ngModelChange)="onFilterChange()">
+        <option value="">All Modules</option>
+        @for (m of modules; track m) {
+          <option [value]="m">{{ m }}</option>
+        }
+      </select>
+      <select [(ngModel)]="filterAction" (ngModelChange)="onFilterChange()">
+        <option value="">All Actions</option>
+        @for (a of actions; track a) {
+          <option [value]="a">{{ a }}</option>
+        }
+      </select>
+    </div>
+    @if (hasFilters()) {
+      <button class="mobile-reset-btn" (click)="clearFilters()">Reset Filters</button>
+    }
+  </div>
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading audit logs...</p>
+    </div>
+  } @else if (auditLogs.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="activity" class="empty-icon"></app-icon>
+      <h3>No audit logs found</h3>
+      <p>{{ hasFilters() ? 'Try adjusting your filters.' : 'Activities will appear here.' }}</p>
+    </div>
+  } @else {
+    <div class="mobile-list">
+      @for (log of auditLogs; track log.id) {
+        <app-list-row-card
+          [title]="log.action"
+          [primaryActionLabel]="getMobileLogActionLabel(log)"
+          (primaryAction)="handleMobileLogAction(log)">
+          <ng-container listRowSecondary>
+            <app-label-value label="Module" [value]="log.module"></app-label-value>
+            <app-label-value label="User" [value]="log.memberName || 'System'"></app-label-value>
+            <app-status-badge [status]="log.status" [label]="log.status"></app-status-badge>
+          </ng-container>
+          <ng-container listRowFooter>
+            <span class="mobile-row-footer-text">{{ formatMobileTimestamp(log.timestamp) }}</span>
+          </ng-container>
+        </app-list-row-card>
+      }
+    </div>
+
+    @if (totalPages > 1) {
+      <app-pagination-bar
+        [currentPage]="currentPage"
+        [total]="totalElements"
+        [pageSize]="pageSize"
+        (pageChange)="goToPage($event)">
+      </app-pagination-bar>
+    }
+  }
+</div>
 
 <!-- Detail Modal -->
 @if (showDetailModal && selectedLog) {

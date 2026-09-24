@@ -1,4 +1,4 @@
-<div class="page-header">
+<div class="page-header desktop-only">
   <div>
     <h1>Meetings</h1>
     <p>Monthly meetings, attendance, quorum and minutes.</p>
@@ -6,6 +6,21 @@
   @if (session.can('SCHEDULE_MEETING')) {
     <button class="btn btn-primary" (click)="openNew()"><app-icon name="plus"></app-icon> Schedule Meeting</button>
   }
+</div>
+
+<!-- Mobile Page Header -->
+<div class="mobile-only mobile-page-header">
+  <div class="mobile-header-top">
+    <div>
+      <h1 class="mobile-page-title">Meetings</h1>
+      <p class="mobile-page-subtitle">{{ totalElements }} meetings</p>
+    </div>
+    @if (session.can('SCHEDULE_MEETING')) {
+      <button class="mobile-add-btn" (click)="openNew()">
+        <app-icon name="plus"></app-icon>
+      </button>
+    }
+  </div>
 </div>
 
 @if (loading()) {
@@ -25,7 +40,8 @@
     }
   </div>
 } @else {
-  <div class="toolbar">
+  <!-- Desktop Toolbar -->
+  <div class="toolbar desktop-only">
     <div class="search-box">
       <app-icon name="search"></app-icon>
       <input type="text" placeholder="Search meetings..." [(ngModel)]="search" (ngModelChange)="onFilterChange()" />
@@ -34,7 +50,8 @@
     <span class="item-count">{{ totalElements }} meetings</span>
   </div>
 
-  <div class="card">
+  <!-- Desktop Table View -->
+  <div class="card desktop-only">
     <table class="data-table">
       <thead>
         <tr>
@@ -88,30 +105,55 @@
     </table>
   </div>
 
-  <!-- Pagination -->
-  @if (totalPages > 1) {
-    <div class="pagination">
-      <div class="pagination-info">
-        Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
-      </div>
-      <div class="pagination-controls">
-        <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
-          <app-icon name="chevron-left"></app-icon>
-        </button>
-        @for (page of pageNumbers; track page) {
-          <button class="pagination-btn" [class.active]="page === currentPage" (click)="goToPage(page)">
-            {{ page + 1 }}
-          </button>
-        }
-        <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
-          <app-icon name="chevron-right"></app-icon>
-        </button>
-      </div>
-      <div class="pagination-page-info">
-        Page {{ currentPage + 1 }} of {{ totalPages }}
+  <!-- Mobile Meetings View -->
+  <div class="mobile-only mobile-meetings">
+    <!-- Mobile Search -->
+    <div class="mobile-search-row">
+      <div class="mobile-search-input">
+        <app-icon name="search"></app-icon>
+        <input type="text" placeholder="Search meetings..." [(ngModel)]="search" (ngModelChange)="onFilterChange()" />
       </div>
     </div>
-  }
+
+    <!-- Mobile Meetings List -->
+    @if (meetings.length === 0) {
+      <div class="mobile-empty-state">
+        <app-icon name="calendar"></app-icon>
+        <span>No meetings found</span>
+      </div>
+    } @else {
+      <div class="mobile-meeting-list">
+        @for (m of meetings; track m.id) {
+          <div class="mobile-meeting-row" (click)="viewMeeting(m)">
+            <div class="mobile-meeting-date-col">
+              <span class="mobile-meeting-day">{{ m.date | date: 'd' }}</span>
+              <span class="mobile-meeting-month">{{ m.date | date: 'MMM' }}</span>
+            </div>
+            <div class="mobile-meeting-info">
+              <div class="mobile-meeting-venue">{{ m.venue }}</div>
+              <div class="mobile-meeting-meta">{{ m.type }} · {{ m.attendeesCount }}/{{ m.totalMembers }} attended</div>
+            </div>
+            <div class="mobile-meeting-right">
+              <span class="mobile-quorum-badge" [class.met]="m.quorumMet" [class.not-met]="!m.quorumMet">
+                {{ m.quorumMet ? 'Quorum' : 'No Quorum' }}
+              </span>
+              <app-icon name="chevron-right" class="mobile-chevron"></app-icon>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Mobile Pagination -->
+    @if (totalPages > 1) {
+      <app-pagination-bar
+        [currentPage]="currentPage"
+        [pageSize]="pageSize"
+        [total]="totalElements"
+        (pageChange)="goToPage($event)"
+      ></app-pagination-bar>
+    }
+  </div>
 }
 
 <!-- Schedule Meeting Modal -->

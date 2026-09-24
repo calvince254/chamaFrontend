@@ -1,8 +1,14 @@
-<div class="page-header">
+<div class="page-header desktop-only">
   <div>
     <h1>Dashboard</h1>
     <p>Overview of your chama's savings, loans and activity.</p>
   </div>
+</div>
+
+<!-- Mobile Page Header -->
+<div class="mobile-only mobile-page-header">
+  <h1 class="mobile-page-title">Dashboard</h1>
+  <p class="mobile-page-subtitle">Overview of your chama's savings, loans and activity.</p>
 </div>
 
 @if (loading) {
@@ -11,8 +17,8 @@
     <p>Loading dashboard...</p>
   </div>
 } @else if (analytics) {
-  <!-- Stats Strip -->
-  <div class="dash-stats">
+  <!-- Desktop Stats Strip -->
+  <div class="dash-stats desktop-only">
     <div class="dash-stat">
       <div class="dash-stat-label">Total Savings</div>
       <div class="dash-stat-value">KES {{ analytics.totalSavings | number:'1.0-0' }}</div>
@@ -42,8 +48,17 @@
     </div>
   </div>
 
+  <!-- Mobile Stat Strip -->
+  <div class="mobile-only">
+    <app-stat-strip>
+      <app-stat-chip label="Savings" [value]="analytics.totalSavings" [isCurrency]="true"></app-stat-chip>
+      <app-stat-chip label="Loans Out" [value]="analytics.loansOutstanding" [isCurrency]="true"></app-stat-chip>
+      <app-stat-chip label="Balance" [value]="analytics.ledgerBalance" [isCurrency]="true" [success]="analytics.ledgerBalance >= 0" [danger]="analytics.ledgerBalance < 0"></app-stat-chip>
+    </app-stat-strip>
+  </div>
+
   <!-- Charts Row -->
-  <div class="dash-row">
+  <div class="dash-row desktop-only">
     <!-- Fund Growth Chart (Line Graph) -->
     <div class="dash-card dash-chart-card">
       <div class="dash-card-header">
@@ -117,7 +132,7 @@
   </div>
 
   <!-- Cards Row -->
-  <div class="dash-row dash-row-3">
+  <div class="dash-row dash-row-3 desktop-only">
     <!-- Next Meeting -->
     <div class="dash-card">
       <div class="dash-card-header">
@@ -200,7 +215,7 @@
   </div>
 
   <!-- Bottom Row: Transactions & Approvals -->
-  <div class="dash-row dash-row-bottom">
+  <div class="dash-row dash-row-bottom desktop-only">
     <!-- Recent Transactions -->
     <div class="dash-card dash-card-transactions">
       <div class="dash-card-header">
@@ -264,5 +279,210 @@
         </div>
       }
     </div>
+  </div>
+
+  <!-- ==================== MOBILE DASHBOARD VIEW ==================== -->
+  <div class="mobile-only mobile-dashboard">
+    <!-- Hero Balance Card -->
+    <div class="mobile-hero-card" [class.mobile-hero-negative]="analytics.ledgerBalance < 0">
+      <div class="mobile-hero-label">Ledger balance</div>
+      <div class="mobile-hero-amount">KES {{ analytics.ledgerBalance | number:'1.0-0' }}</div>
+      <div class="mobile-hero-meta">
+        <span class="mobile-hero-credit">↑ {{ analytics.totalCredits | number:'1.0-0' }}</span>
+        <span class="mobile-hero-separator">·</span>
+        <span class="mobile-hero-debit">↓ {{ analytics.totalDebits | number:'1.0-0' }}</span>
+      </div>
+    </div>
+
+    <!-- Stats Grid: 2 rows × 3 columns -->
+    <div class="mobile-stats-grid">
+      <div class="mobile-stat-tile">
+        <span class="mobile-stat-icon savings">
+          <app-icon name="piggy-bank"></app-icon>
+        </span>
+        <span class="mobile-stat-value">{{ analytics.totalSavings | number:'1.0-0' }}</span>
+        <span class="mobile-stat-label">Savings</span>
+      </div>
+      <div class="mobile-stat-tile">
+        <span class="mobile-stat-icon loans">
+          <app-icon name="hand-coins"></app-icon>
+        </span>
+        <span class="mobile-stat-value">{{ analytics.loansOutstanding | number:'1.0-0' }}</span>
+        <span class="mobile-stat-label">Loans out</span>
+      </div>
+      <div class="mobile-stat-tile">
+        <span class="mobile-stat-icon welfare">
+          <app-icon name="heart-handshake"></app-icon>
+        </span>
+        <span class="mobile-stat-value">{{ analytics.welfareBalance | number:'1.0-0' }}</span>
+        <span class="mobile-stat-label">Welfare</span>
+      </div>
+      <div class="mobile-stat-tile">
+        <span class="mobile-stat-icon invest">
+          <app-icon name="trending-up"></app-icon>
+        </span>
+        <span class="mobile-stat-value">{{ analytics.investmentValue | number:'1.0-0' }}</span>
+        <span class="mobile-stat-label">Invest.</span>
+      </div>
+      <div class="mobile-stat-tile">
+        <span class="mobile-stat-icon members">
+          <app-icon name="users"></app-icon>
+        </span>
+        <span class="mobile-stat-value">{{ analytics.activeMembers }}</span>
+        <span class="mobile-stat-label">Members</span>
+      </div>
+      <div class="mobile-stat-tile">
+        <span class="mobile-stat-icon percent">
+          <app-icon name="percent"></app-icon>
+        </span>
+        <span class="mobile-stat-value">{{ analytics.savingsPercent | number:'1.0-0' }}%</span>
+        <span class="mobile-stat-label">Savings %</span>
+      </div>
+    </div>
+
+    <!-- Next Meeting -->
+    <div class="mobile-section">
+      <div class="mobile-section-header">
+        <span class="mobile-section-title">Next meeting</span>
+        <a routerLink="/app/meetings" class="mobile-section-link">View all</a>
+      </div>
+      @if (analytics.nextMeeting; as m) {
+        <div class="mobile-card mobile-meeting-card">
+          <div class="mobile-meeting-row">
+            <div class="mobile-meeting-icon-lg">
+              <app-icon name="calendar"></app-icon>
+            </div>
+            <div class="mobile-meeting-details">
+              <div class="mobile-meeting-date-lg">{{ m.dateTime | date:'EEEE, d MMMM' }}</div>
+              <div class="mobile-meeting-venue-lg">{{ m.venue }}</div>
+              <div class="mobile-meeting-meta">
+                <span class="mobile-meeting-type">{{ m.type }}</span>
+                <span class="mobile-meeting-attendance">{{ m.attended }}/{{ m.totalMembers }} confirmed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="mobile-empty-card">
+          <app-icon name="calendar"></app-icon>
+          <span>No upcoming meetings</span>
+        </div>
+      }
+    </div>
+
+    <!-- Next Payout -->
+    <div class="mobile-section">
+      <div class="mobile-section-header">
+        <span class="mobile-section-title">Next payout</span>
+        <a routerLink="/app/merry-go-round" class="mobile-section-link">View all</a>
+      </div>
+      @if (analytics.nextPayout; as p) {
+        <div class="mobile-card mobile-payout-card">
+          <div class="mobile-payout-top">
+            <div class="mobile-payout-avatar">
+              <app-icon name="user"></app-icon>
+            </div>
+            <div class="mobile-payout-info">
+              <div class="mobile-payout-name">{{ p.memberName }}</div>
+              <div class="mobile-payout-round-date">Round {{ p.roundNumber }} · {{ p.dueDate | date:'d MMM yyyy' }}</div>
+            </div>
+            <div class="mobile-payout-amount-badge">
+              KES {{ p.totalAmount | number:'1.0-0' }}
+            </div>
+          </div>
+          <div class="mobile-payout-progress-section">
+            <div class="mobile-payout-progress-bar">
+              <div class="mobile-payout-progress-fill" [style.width.%]="p.totalAmount > 0 ? (p.paidAmount / p.totalAmount * 100) : 0"></div>
+            </div>
+            <div class="mobile-payout-progress-labels">
+              <span>KES {{ p.paidAmount | number:'1.0-0' }} collected</span>
+              <span>{{ p.totalAmount > 0 ? (p.paidAmount / p.totalAmount * 100 | number:'1.0-0') : 0 }}%</span>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="mobile-empty-card">
+          <app-icon name="users"></app-icon>
+          <span>No upcoming payouts</span>
+        </div>
+      }
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="mobile-section">
+      <div class="mobile-section-header">
+        <span class="mobile-section-title">Recent activity</span>
+        <a routerLink="/app/finance" class="mobile-section-link">View all</a>
+      </div>
+      @if (analytics.recentTransactions.length > 0) {
+        <div class="mobile-activity-list">
+          @for (t of analytics.recentTransactions.slice(0, 5); track t.id) {
+            <div class="mobile-activity-item">
+              <div class="mobile-activity-icon" [class.credit]="t.isCredit || t.credit" [class.debit]="!t.isCredit && !t.credit">
+                <app-icon [name]="(t.isCredit || t.credit) ? 'arrow-down-left' : 'arrow-up-right'"></app-icon>
+              </div>
+              <div class="mobile-activity-details">
+                <div class="mobile-activity-desc">{{ t.description }}</div>
+                <div class="mobile-activity-meta">{{ t.date | date:'d MMM' }} · {{ t.type }}</div>
+              </div>
+              <div class="mobile-activity-amount" [class.credit]="t.isCredit || t.credit" [class.debit]="!t.isCredit && !t.credit">
+                {{ (t.isCredit || t.credit) ? '+' : '-' }}{{ t.amount | number:'1.0-0' }}
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="mobile-empty-card">
+          <app-icon name="file-text"></app-icon>
+          <span>No recent activity</span>
+        </div>
+      }
+    </div>
+
+    <!-- Loans Needing Attention (collapsed by default, show only if there are alerts) -->
+    @if (analytics.loanAlerts.length > 0) {
+      <div class="mobile-section">
+        <div class="mobile-section-header">
+          <span class="mobile-section-title">Loans needing attention</span>
+          <a routerLink="/app/loans" class="mobile-section-link">View all</a>
+        </div>
+        <div class="mobile-alert-list">
+          @for (loan of analytics.loanAlerts.slice(0, 3); track loan.id) {
+            <div class="mobile-alert-item">
+              <div class="mobile-alert-icon">
+                <app-icon name="alert-triangle"></app-icon>
+              </div>
+              <div class="mobile-alert-details">
+                <div class="mobile-alert-name">{{ loan.memberName }}</div>
+                <div class="mobile-alert-meta">KES {{ loan.overdue | number:'1.0-0' }} overdue · {{ loan.daysOverdue }} days</div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Pending Approvals (only show if there are items) -->
+    @if (analytics.pendingApprovals.length > 0) {
+      <div class="mobile-section">
+        <div class="mobile-section-header">
+          <span class="mobile-section-title">Pending approvals</span>
+        </div>
+        <div class="mobile-approval-list">
+          @for (a of analytics.pendingApprovals.slice(0, 3); track a.id) {
+            <div class="mobile-approval-item">
+              <div class="mobile-approval-icon">
+                <app-icon name="clock"></app-icon>
+              </div>
+              <div class="mobile-approval-details">
+                <div class="mobile-approval-title">{{ a.title }}</div>
+                <div class="mobile-approval-meta">{{ a.memberName }} · KES {{ a.amount | number:'1.0-0' }}</div>
+              </div>
+              <span class="mobile-approval-badge">{{ a.type }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
   </div>
 }

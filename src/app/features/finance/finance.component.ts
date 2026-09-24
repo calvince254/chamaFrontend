@@ -5,11 +5,24 @@ import { ApiService } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
 import { FinanceSummary, Transaction, PageResponse, Member } from '../../core/models/models';
 import { IconComponent } from '../../shared/icon.component';
+import {
+  StatStripComponent,
+  StatChipComponent,
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  PaginationBarComponent
+} from '../../shared/components';
 
 @Component({
   selector: 'app-finance',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [
+    CommonModule, FormsModule, IconComponent,
+    StatStripComponent, StatChipComponent, StatusBadgeComponent, ListRowCardComponent,
+    ListRowSecondaryDirective, ListRowFooterDirective, PaginationBarComponent
+  ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.css',
 })
@@ -166,5 +179,19 @@ export class FinanceComponent implements OnInit {
 
   get isLoading() {
     return this.loadingSummary || this.loadingTransactions;
+  }
+
+  // ==================== MOBILE HELPERS ====================
+
+  handleMobileTransactionAction(t: Transaction): void {
+    // Could show transaction detail modal
+  }
+
+  getMobileTransactionActionLabel(t: Transaction): string {
+    return 'View';
+  }
+
+  isMobileTransactionActionDisabled(t: Transaction): boolean {
+    return true; // No detail view currently
   }
 }

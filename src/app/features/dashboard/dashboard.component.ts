@@ -4,11 +4,24 @@ import { RouterLink } from '@angular/router';
 import { ApiService, DashboardAnalytics, FundGrowthPoint, MeetingInfo, LoanAlert, PayoutInfo, DashboardTransaction, ApprovalInfo } from '../../core/services/api.service';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
+import {
+  StatStripComponent,
+  StatChipComponent,
+  LabelValueComponent,
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective
+} from '../../shared/components';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, IconComponent, DecimalPipe],
+  imports: [
+    CommonModule, RouterLink, IconComponent, DecimalPipe,
+    StatStripComponent, StatChipComponent, LabelValueComponent, StatusBadgeComponent,
+    ListRowCardComponent, ListRowSecondaryDirective, ListRowFooterDirective
+  ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
 })

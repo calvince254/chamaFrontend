@@ -6,8 +6,16 @@
 
   <aside class="sidebar" [class.open]="mobileMenuOpen()">
     <div class="brand">
-      <div class="brand-name">Calpex Chama Manager</div>
-      <div class="brand-tenant">{{ user()?.tenantName }}</div>
+      <div class="brand-header">
+        <div class="brand-info">
+          <div class="brand-name">Calpex Chama Manager</div>
+          <div class="brand-tenant mobile-hide">{{ user()?.tenantName }}</div>
+          <div class="brand-user mobile-show">{{ user()?.name }}</div>
+        </div>
+        <button class="drawer-close-btn" (click)="closeMobileMenu()" aria-label="Close menu">
+          <app-icon name="close" [size]="20"></app-icon>
+        </button>
+      </div>
     </div>
 
     <nav class="nav">

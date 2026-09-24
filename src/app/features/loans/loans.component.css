@@ -267,3 +267,430 @@
   padding-top: 12px;
   border-top: 1px solid var(--color-border);
 }
+
+
+/* ==========================================================================
+   MOBILE STYLES - Loans
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Page Header */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .page-header h1 {
+    font-size: 18px;
+  }
+  .page-header p {
+    display: none;
+  }
+  .page-header > div:last-child {
+    display: flex;
+    gap: 10px;
+  }
+  .page-header .btn-outline {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .page-header .btn-primary {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  /* Main Tabs - Horizontal scroll */
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+    margin-bottom: 12px !important;
+    padding-bottom: 4px;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tabs .tab {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    font-size: 12px;
+    white-space: nowrap;
+    border-radius: 20px;
+    margin-right: 6px;
+  }
+  .tabs .tab:last-child {
+    margin-right: 0;
+  }
+
+  /* Mobile Stats Summary */
+  .mobile-loan-stats {
+    display: flex;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+  }
+  .mobile-loan-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .mobile-loan-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+  }
+  .mobile-loan-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-primary);
+  }
+
+  /* Hide desktop table and stats */
+  .card:has(.data-table),
+  .card:has(.loans-table) {
+    display: none;
+  }
+  .stat-grid {
+    display: none;
+  }
+  .toolbar {
+    display: none;
+  }
+
+  /* Mobile Loan List */
+  .mobile-loan-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mobile-loan-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Card Header: Product name + Status badge */
+  .mobile-loan-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .mobile-loan-product {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+  .mobile-loan-member {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+
+  /* Balance Row */
+  .mobile-loan-balance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .mobile-loan-balance-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+  .mobile-loan-balance-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-warning);
+  }
+  .mobile-loan-balance-value.cleared {
+    color: var(--color-success);
+  }
+
+  /* Loan Terms Row */
+  .mobile-loan-terms {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  /* Due Date and Actions Row */
+  .mobile-loan-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--color-border);
+  }
+  .mobile-loan-due {
+    font-size: 12px;
+    color: var(--color-text);
+  }
+  .mobile-loan-due strong {
+    font-weight: 600;
+  }
+  .mobile-loan-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .mobile-loan-actions .btn {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+  .mobile-loan-actions .btn-ghost {
+    padding: 8px;
+  }
+
+  /* Mobile Penalty List */
+  .mobile-penalty-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mobile-penalty-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mobile-penalty-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .mobile-penalty-info {
+    flex: 1;
+  }
+  .mobile-penalty-product {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+  .mobile-penalty-member {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+  .mobile-penalty-reason {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+  }
+  .mobile-penalty-balance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .mobile-penalty-balance-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+  .mobile-penalty-balance-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-danger);
+  }
+  .mobile-penalty-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--color-border);
+  }
+  .mobile-penalty-date {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+  .mobile-penalty-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Mobile Income Summary */
+  .summary-cards {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .summary-card {
+    padding: 14px !important;
+  }
+  .summary-label {
+    font-size: 11px;
+  }
+  .summary-value {
+    font-size: 20px !important;
+  }
+  .summary-subtitle {
+    font-size: 10px;
+  }
+
+  /* Mobile Income List */
+  .mobile-income-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .mobile-income-item {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+  }
+  .mobile-income-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .mobile-income-type {
+    font-size: 12px;
+  }
+  .mobile-income-amount {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-success);
+  }
+  .mobile-income-details {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+  .mobile-income-date {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+  }
+
+  /* Pagination - Simplified */
+  .pagination {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+  .pagination-info {
+    font-size: 11px;
+    text-align: center;
+  }
+  .pagination-controls {
+    justify-content: center;
+    width: 100%;
+  }
+  .pagination-page-info {
+    font-size: 11px;
+  }
+
+  /* Modal - Full screen */
+  .modal-backdrop {
+    padding: 0;
+  }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-header {
+    padding: 14px 16px;
+    flex-shrink: 0;
+  }
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .modal-footer {
+    padding: 12px 16px;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  .modal-footer .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* Loan Details Modal Mobile */
+  .loan-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .loan-amounts-grid {
+    grid-template-columns: 1fr;
+  }
+  .loan-amounts-grid .loan-amount-item {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px;
+  }
+  .loan-amounts-grid .loan-amount-item:last-child {
+    border-bottom: none;
+  }
+
+  /* Credit Score Modal Mobile */
+  .credit-score-history-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  .credit-score-history-grid > div {
+    padding: 10px !important;
+  }
+  .credit-score-history-grid > div > div:first-child {
+    font-size: 20px !important;
+  }
+  .credit-score-calc-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .credit-score-table {
+    font-size: 11px !important;
+  }
+  .credit-score-table th,
+  .credit-score-table td {
+    padding: 6px 8px !important;
+  }
+
+  /* Empty State */
+  .empty-state-card {
+    padding: 32px 16px;
+  }
+  .empty-state-card h3 {
+    font-size: 16px;
+  }
+  .empty-state-card p {
+    font-size: 13px;
+  }
+}
+
+/* Hide mobile lists on desktop */
+.mobile-loan-list,
+.mobile-loan-stats,
+.mobile-penalty-list,
+.mobile-income-list {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-loan-list,
+  .mobile-loan-stats,
+  .mobile-penalty-list,
+  .mobile-income-list {
+    display: flex;
+  }
+}

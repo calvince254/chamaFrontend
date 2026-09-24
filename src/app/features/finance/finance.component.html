@@ -1,9 +1,22 @@
-<div class="page-header">
+<div class="page-header desktop-only">
   <div>
     <h1>Finance</h1>
     <p>Consolidated financial position and transaction ledger. Externally audited annually once funds exceed KES 500,000.</p>
   </div>
   <button class="btn btn-outline">Export Statement</button>
+</div>
+
+<!-- Mobile Page Header -->
+<div class="mobile-only mobile-page-header">
+  <div class="mobile-header-top">
+    <div>
+      <h1 class="mobile-page-title">Finance</h1>
+      <p class="mobile-page-subtitle">Transaction ledger</p>
+    </div>
+    <button class="mobile-icon-btn">
+      <app-icon name="download"></app-icon>
+    </button>
+  </div>
 </div>
 
 @if (isLoading) {
@@ -12,7 +25,7 @@
     <p>Loading financial data...</p>
   </div>
 } @else {
-  <div class="stat-grid">
+  <div class="stat-grid desktop-only">
     <div class="stat-card"><div class="stat-label">Total Savings</div><div class="stat-value">KES {{ (summary?.totalSavings ?? 0) | number }}</div></div>
     <div class="stat-card"><div class="stat-label">Loans Outstanding</div><div class="stat-value">KES {{ (summary?.totalLoansOutstanding ?? 0) | number }}</div></div>
     <div class="stat-card"><div class="stat-label">Income (This Month)</div><div class="stat-value">KES {{ (summary?.incomeThisMonth ?? 0) | number }}</div></div>
@@ -28,7 +41,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card desktop-only">
     <div class="card-header"><h3>Transaction Ledger</h3></div>
     
     <!-- Filters -->
@@ -115,6 +128,81 @@
             </button>
           </div>
         </div>
+      }
+    }
+  </div>
+
+  <!-- ==================== MOBILE FINANCE VIEW ==================== -->
+  <div class="mobile-only mobile-finance">
+    <!-- Mobile Stats -->
+    <app-stat-strip>
+      <app-stat-chip label="Savings" [value]="summary?.totalSavings ?? 0" [isCurrency]="true"></app-stat-chip>
+      <app-stat-chip label="Loans Out" [value]="summary?.totalLoansOutstanding ?? 0" [isCurrency]="true"></app-stat-chip>
+      <app-stat-chip label="Balance" [value]="ledgerBalance" [isCurrency]="true" [success]="ledgerBalance >= 0" [danger]="ledgerBalance < 0"></app-stat-chip>
+    </app-stat-strip>
+
+    <!-- Mobile Filters -->
+    <div class="mobile-filter-grid">
+      <select class="mobile-select" [(ngModel)]="typeFilter" (ngModelChange)="onFilterChange()">
+        <option value="">All types</option>
+        <option value="CONTRIBUTION">Contribution</option>
+        <option value="LOAN_DISBURSEMENT">Loan Disbursement</option>
+        <option value="LOAN_REPAYMENT">Loan Repayment</option>
+        <option value="LOAN_INTEREST">Loan Interest</option>
+        <option value="PENALTY">Penalty</option>
+        <option value="WELFARE">Welfare</option>
+        <option value="INVESTMENT">Investment</option>
+        <option value="SHARE_PAYOUT">Share Payout</option>
+      </select>
+      <select class="mobile-select" [(ngModel)]="directionFilter" (ngModelChange)="onFilterChange()">
+        <option value="">All</option>
+        <option value="IN">Income</option>
+        <option value="OUT">Expense</option>
+      </select>
+    </div>
+
+    <!-- Mobile Transactions List -->
+    @if (transactions.length === 0 && !hasFilters) {
+      <div class="mobile-empty-state">
+        <app-icon name="file-text"></app-icon>
+        <span>No transactions yet</span>
+      </div>
+    } @else if (transactions.length === 0 && hasFilters) {
+      <div class="mobile-empty-state">
+        <app-icon name="search"></app-icon>
+        <span>No transactions match your filters</span>
+      </div>
+    } @else {
+      <div class="mobile-list">
+        @for (t of transactions; track t.id) {
+          <app-list-row-card
+            [title]="t.description"
+            [primaryActionLabel]="getMobileTransactionActionLabel(t)"
+            [primaryActionDisabled]="isMobileTransactionActionDisabled(t)"
+            (primaryAction)="handleMobileTransactionAction(t)">
+            <ng-container listRowSecondary>
+              {{ t.date | date:'d MMM y' }} · {{ t.memberName || 'System' }}
+            </ng-container>
+            <ng-container listRowFooter>
+              <div class="mobile-txn-footer">
+                <span class="mobile-txn-type">{{ t.type }}</span>
+                <span class="mobile-txn-amount" [class.credit]="t.direction === 'IN'" [class.debit]="t.direction === 'OUT'">
+                  {{ t.direction === 'IN' ? '+' : '-' }} KES {{ t.amount | number }}
+                </span>
+              </div>
+            </ng-container>
+          </app-list-row-card>
+        }
+      </div>
+
+      <!-- Mobile Pagination -->
+      @if (totalPages > 1) {
+        <app-pagination-bar
+          [currentPage]="currentPage"
+          [total]="totalElements"
+          [pageSize]="pageSize"
+          (pageChange)="goToPage($event)">
+        </app-pagination-bar>
       }
     }
   </div>

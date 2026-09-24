@@ -14,6 +14,436 @@
   text-decoration: underline;
 }
 
+/* ==================== MOBILE STYLES ==================== */
+@media (max-width: 768px) {
+  /* Mobile Header - Compact horizontal layout */
+  .meeting-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .meeting-title {
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+  .meeting-subtitle {
+    font-size: 10px;
+  }
+  .quorum-status {
+    font-size: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Mobile Stats Grid - 2x2 */
+  .meeting-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .meeting-stat-box {
+    padding: 12px;
+  }
+  .meeting-stat-label {
+    font-size: 10px;
+  }
+  .meeting-stat-value {
+    font-size: 16px;
+  }
+
+  /* Mobile Fines Summary Bar - Stack */
+  .meeting-fines-bar {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--color-surface);
+  }
+
+  /* Mobile Your Response Bar - Side by side */
+  .your-response-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--color-surface);
+  }
+  .your-response-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .your-response-label {
+    font-size: 11px;
+  }
+  .your-response-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .your-response-actions .btn {
+    padding: 8px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* Mobile Tabs - Scrollable */
+  .meeting-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0;
+    padding-bottom: 1px;
+  }
+  .meeting-tab {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  /* Mobile Card Header */
+  .meeting-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+  .meeting-card-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Hide desktop table on mobile */
+  .meeting-table {
+    display: none;
+  }
+
+  /* Mobile Attendee List */
+  .mobile-attendee-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-attendee-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .mobile-attendee-row:last-child {
+    border-bottom: none;
+  }
+  .mobile-attendee-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-inverse);
+    flex-shrink: 0;
+  }
+  .mobile-attendee-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .mobile-attendee-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mobile-attendee-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+  .mobile-attendee-right {
+    flex-shrink: 0;
+  }
+  
+  /* Compact attendance button on mobile */
+  .mobile-attendee-right .attendance-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  
+  /* Mobile action buttons row */
+  .mobile-attendee-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .mobile-attendee-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  /* Mobile Fine List */
+  .mobile-fine-list {
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-fine-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .mobile-fine-row:last-child {
+    border-bottom: none;
+  }
+  .mobile-fine-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .mobile-fine-member {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: 2px;
+  }
+  .mobile-fine-type {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+  }
+  .mobile-fine-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+  }
+  .mobile-fine-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .mobile-fine-amount {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-danger);
+  }
+  .mobile-fine-balance {
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  /* Mobile Minutes Content */
+  .minutes-content {
+    padding: 14px;
+  }
+  .minutes-file-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px;
+  }
+  .minutes-file-info {
+    width: 100%;
+  }
+  .minutes-file-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .minutes-file-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .minutes-empty-state {
+    padding: 24px 16px;
+  }
+  .minutes-actions-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .minutes-actions-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Mobile Modals - Full Screen */
+  .modal-backdrop {
+    padding: 0;
+  }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-wide {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .modal-header {
+    flex-shrink: 0;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .modal-footer {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-top: 1px solid var(--color-border);
+    gap: 10px;
+  }
+  .modal-footer .btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* Mobile Modal Tables to Lists */
+  .modal .meeting-table {
+    display: none;
+  }
+  .mobile-modal-fine-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mobile-modal-fine-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 12px;
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+  }
+  .mobile-modal-fine-left {
+    flex: 1;
+  }
+  .mobile-modal-fine-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: 4px;
+  }
+  .mobile-modal-fine-details {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+  .mobile-modal-fine-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .mobile-modal-fine-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* Mobile Add Fine Section */
+  .add-fine-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .add-fine-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .add-fine-section h4,
+  .existing-fines-section h4 {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  /* Mobile Member List in Add Modal */
+  .member-list {
+    max-height: none !important;
+  }
+  .member-item-row {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .member-item-row:last-child {
+    border-bottom: none;
+  }
+
+  /* Mobile Payment Modal */
+  .payment-summary {
+    background: var(--color-bg);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+  }
+  .payment-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 12px;
+  }
+  .payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .payment-method-option {
+    padding: 14px;
+  }
+  .method-content {
+    gap: 12px;
+  }
+  .method-details {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .method-name {
+    font-size: 12px;
+  }
+  .method-desc {
+    font-size: 10px;
+  }
+  .payment-instructions {
+    padding: 12px;
+  }
+  .payment-instructions ol {
+    padding-left: 16px;
+    margin: 8px 0 0;
+    font-size: 11px;
+  }
+}
+
+/* Show mobile list only on mobile */
+.mobile-attendee-list,
+.mobile-fine-list,
+.mobile-modal-fine-list {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-attendee-list,
+  .mobile-fine-list {
+    display: flex;
+  }
+  .modal .mobile-modal-fine-list {
+    display: flex;
+  }
+}
+
 /* Meeting Header */
 .meeting-header {
   display: flex;
@@ -72,7 +502,7 @@
   display: flex;
   gap: 16px;
   padding: 8px 12px;
-  background: #f8fafa;
+  background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   margin-bottom: 10px;
@@ -88,7 +518,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #f8fafa;
+  background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   margin-bottom: 12px;
@@ -185,7 +615,7 @@
 .meeting-table td {
   padding: 10px 14px;
   font-size: 11px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
 }
 .meeting-table tbody tr:last-child td {
@@ -225,16 +655,16 @@
   border-radius: 3px;
 }
 .rsvp-badge.rsvp-attending {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .rsvp-badge.rsvp-not_attending {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 .rsvp-badge.rsvp-pending {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 /* Attendance Checkbox */
@@ -258,13 +688,14 @@
   padding: 2px 6px;
   font-size: 9px;
   font-weight: 500;
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
   border-radius: 3px;
   cursor: pointer;
 }
 .fines-badge:hover {
-  background: #fecaca;
+  background: var(--color-danger-bg);
+  filter: brightness(0.95);
 }
 .no-fines {
   color: var(--color-text-muted);
@@ -280,20 +711,24 @@
   border-radius: 3px;
 }
 .status-badge.status-paid {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .status-badge.status-partial {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 .status-badge.status-unpaid {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 .status-badge.status-waived {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+}
+.status-badge.status-pending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 /* Icon Button Small */
@@ -315,7 +750,7 @@
   margin-left: 0;
 }
 .icon-btn-sm:hover {
-  background: #f3f4f6;
+  background: var(--color-bg);
   color: var(--color-text);
 }
 
@@ -349,18 +784,18 @@
   transition: all 0.15s ease;
 }
 .attendance-btn.present {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .attendance-btn.present:hover {
-  background: #bbf7d0;
+  filter: brightness(0.95);
 }
 .attendance-btn.absent {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 .attendance-btn.absent:hover {
-  background: #fecaca;
+  filter: brightness(0.95);
 }
 .attendance-status {
   font-size: 10px;
@@ -390,7 +825,7 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: #f8fafa;
+  background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   margin-bottom: 16px;
@@ -447,7 +882,7 @@
   justify-content: center;
   width: 64px;
   height: 64px;
-  background: #f3f4f6;
+  background: var(--color-bg);
   border-radius: 50%;
   color: var(--color-text-muted);
   margin-bottom: 12px;
@@ -527,7 +962,7 @@
 }
 
 .fine-type-checkbox.selected {
-  background: #f0fdf4;
+  background: var(--color-success-bg);
   border-color: var(--color-success);
 }
 
@@ -562,15 +997,15 @@
   font-size: 9px;
   font-weight: 500;
   padding: 2px 5px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--color-info-bg);
+  color: var(--color-info);
   border-radius: 3px;
 }
 
 .absence-summary {
   margin-top: 12px;
   padding: 10px 12px;
-  background: #f8fafa;
+  background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }

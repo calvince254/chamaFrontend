@@ -5,6 +5,16 @@ import { ApiService } from '../../core/services/api.service';
 import { PageResponse } from '../../core/models/models';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
+import {
+  StatStripComponent,
+  StatChipComponent,
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  LabelValueComponent,
+  PaginationBarComponent
+} from '../../shared/components';
 
 interface Invoice {
   id: number;
@@ -48,7 +58,7 @@ interface License {
 @Component({
   selector: 'app-billing',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, DatePipe, DecimalPipe, NgClass],
+  imports: [CommonModule, FormsModule, IconComponent, DatePipe, DecimalPipe, NgClass, StatStripComponent, StatChipComponent, StatusBadgeComponent, ListRowCardComponent, ListRowSecondaryDirective, ListRowFooterDirective, LabelValueComponent, PaginationBarComponent],
   templateUrl: './billing.component.html',
   styleUrl: './billing.component.css',
 })
@@ -323,5 +333,19 @@ export class BillingComponent implements OnInit {
     const startMonth = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const endMonth = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     return `${startMonth} - ${endMonth}`;
+  }
+
+  // ==================== MOBILE HELPERS ====================
+
+  handleMobileInvoiceAction(invoice: Invoice) {
+    this.viewInvoice(invoice);
+  }
+
+  getMobileInvoiceActionLabel(invoice: Invoice): string {
+    return 'View';
+  }
+
+  formatMobileCurrency(amount: number): string {
+    return 'KES ' + amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   }
 }

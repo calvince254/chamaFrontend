@@ -4,7 +4,7 @@
     <p>Create roles and manage permissions. Admin role always has full access.</p>
   </div>
   @if (session.can('CREATE_ROLE')) {
-    <button class="btn btn-primary" (click)="openNewRole()">
+    <button class="btn btn-primary desktop-only" (click)="openNewRole()">
       <app-icon name="plus"></app-icon> Create role
     </button>
   }
@@ -25,63 +25,200 @@
     }
   </div>
 } @else {
-  <div class="roles-dashboard">
-    <!-- Role Sidebar -->
-    <div class="roles-sidebar">
-      <div class="roles-sidebar-header">ROLES</div>
-      @for (r of roles; track r.id) {
-        <div class="roles-sidebar-item" [class.active]="selected?.id === r.id" (click)="selectRole(r)">
-          <div class="roles-sidebar-item-info">
-            <span class="roles-sidebar-item-name">{{ r.name }}</span>
-            <span class="roles-sidebar-item-count">{{ r.memberCount }} member{{ r.memberCount === 1 ? '' : 's' }}</span>
+  <!-- Desktop View -->
+  <div class="desktop-only">
+    <div class="roles-dashboard">
+      <!-- Role Sidebar -->
+      <div class="roles-sidebar">
+        <div class="roles-sidebar-header">ROLES</div>
+        @for (r of roles; track r.id) {
+          <div class="roles-sidebar-item" [class.active]="selected?.id === r.id" (click)="selectRole(r)">
+            <div class="roles-sidebar-item-info">
+              <span class="roles-sidebar-item-name">{{ r.name }}</span>
+              <span class="roles-sidebar-item-count">{{ r.memberCount }} member{{ r.memberCount === 1 ? '' : 's' }}</span>
+            </div>
+            @if (r.isSystemDefault) {
+              <span class="roles-sidebar-badge">Default</span>
+            }
           </div>
+        }
+      </div>
+
+      <!-- Permissions Panel -->
+      @if (selected; as r) {
+        <div class="roles-main">
+          <!-- Role Header -->
+          <div class="roles-main-header">
+            <h2>{{ r.name | uppercase }}</h2>
+            <div class="roles-main-header-actions">
+              @if (r.isSystemDefault) {
+                <span class="roles-full-access-badge">
+                  <app-icon name="lock"></app-icon> Full access
+                </span>
+              } @else if (permissionsModified && session.can('EDIT_ROLE')) {
+                <button class="btn btn-ghost btn-sm" (click)="discardChanges()">Discard</button>
+                <button class="btn btn-primary btn-sm" (click)="savePermissions()" [disabled]="savingPermissions()">
+                  {{ savingPermissions() ? 'Saving...' : 'Save Changes' }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Admin Info Banner -->
           @if (r.isSystemDefault) {
-            <span class="roles-sidebar-badge">Default</span>
+            <div class="roles-admin-banner">
+              <app-icon name="lock"></app-icon>
+              <span>Admin always has full access to every module — this can't be edited.</span>
+            </div>
+          }
+
+          <!-- Modules Grid -->
+          <div class="roles-modules-grid">
+            @for (module of availablePermissions; track module.module) {
+              <div class="roles-module-card clickable" 
+                   [class.expanded]="module.expanded"
+                   (click)="toggleModule(module)">
+                <div class="roles-module-card-content">
+                  <app-icon [name]="getModuleIcon(module.module)" class="roles-module-icon"></app-icon>
+                  <span class="roles-module-name">{{ module.module }}</span>
+                </div>
+                <span class="roles-module-count" [class.full]="r.isSystemDefault || allSelectedInModule(module)">
+                  {{ r.isSystemDefault ? module.permissions.length : getModuleSelectedCount(module) }}/{{ module.permissions.length }}
+                </span>
+              </div>
+            }
+          </div>
+
+          <!-- Expanded Module Permissions -->
+          @for (module of availablePermissions; track module.module) {
+            @if (module.expanded) {
+              <div class="roles-permissions-panel">
+                <div class="roles-permissions-header">
+                  <div class="roles-permissions-title">
+                    <app-icon [name]="getModuleIcon(module.module)"></app-icon>
+                    <span>{{ module.module }} Permissions</span>
+                  </div>
+                  <div class="roles-permissions-actions">
+                    @if (!r.isSystemDefault && session.can('EDIT_ROLE')) {
+                      <button class="btn btn-ghost btn-xs" (click)="allSelectedInModule(module) ? deselectAllInModule(module) : selectAllInModule(module); $event.stopPropagation()">
+                        {{ allSelectedInModule(module) ? 'Clear all' : 'Select all' }}
+                      </button>
+                    }
+                    <button class="btn btn-ghost btn-xs" (click)="toggleModule(module); $event.stopPropagation()">
+                      <app-icon name="close"></app-icon>
+                    </button>
+                  </div>
+                </div>
+                <div class="roles-permissions-list">
+                  @for (perm of module.permissions; track perm.code) {
+                    <label class="roles-permission-item" [class.selected]="r.isSystemDefault || hasPermission(perm.code)">
+                      @if (r.isSystemDefault) {
+                        <input type="checkbox" checked disabled />
+                      } @else if (session.can('EDIT_ROLE')) {
+                        <input 
+                          type="checkbox" 
+                          [checked]="hasPermission(perm.code)" 
+                          (change)="togglePermission(perm.code)" 
+                          (click)="$event.stopPropagation()" />
+                      } @else {
+                        <input type="checkbox" [checked]="hasPermission(perm.code)" disabled />
+                      }
+                      <span>{{ perm.displayName }}</span>
+                    </label>
+                  }
+                </div>
+              </div>
+            }
           }
         </div>
       }
     </div>
+  </div>
 
-    <!-- Permissions Panel -->
-    @if (selected; as r) {
-      <div class="roles-main">
-        <!-- Role Header -->
-        <div class="roles-main-header">
-          <h2>{{ r.name | uppercase }}</h2>
-          <div class="roles-main-header-actions">
-            @if (r.isSystemDefault) {
-              <span class="roles-full-access-badge">
-                <app-icon name="lock"></app-icon> Full access
+  <!-- Mobile View -->
+  <div class="mobile-only mobile-roles">
+    <!-- Mobile Page Header -->
+    <div class="mobile-page-header">
+      <div class="mobile-header-top">
+        <div>
+          <h1 class="mobile-page-title">Roles & Rights</h1>
+          <p class="mobile-page-subtitle">Create roles and manage permissions</p>
+        </div>
+        @if (session.can('CREATE_ROLE')) {
+          <button class="mobile-add-btn" (click)="openNewRole()">
+            <app-icon name="plus"></app-icon>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Roles List or Detail View -->
+    @if (!selected) {
+      <!-- Roles List -->
+      <div class="mobile-roles-content">
+        <div class="mobile-roles-list">
+          @for (r of roles; track r.id) {
+            <div class="mobile-role-card" (click)="selectRole(r)">
+              <div class="mobile-role-info">
+                <span class="mobile-role-name">{{ r.name }}</span>
+                <span class="mobile-role-members">{{ r.memberCount }} member{{ r.memberCount === 1 ? '' : 's' }}</span>
+              </div>
+              @if (r.isSystemDefault) {
+                <span class="mobile-role-badge default">Default</span>
+              }
+              <app-icon name="chevron-right" class="mobile-role-chevron"></app-icon>
+            </div>
+          }
+        </div>
+      </div>
+    } @else {
+      <!-- Role Detail View -->
+      <div class="mobile-role-detail-view">
+        <!-- Detail Header -->
+        <div class="mobile-detail-header">
+          <button class="mobile-back-btn" (click)="selected = undefined">
+            <app-icon name="arrow-left"></app-icon> Back
+          </button>
+          <div class="mobile-detail-title-row">
+            <h2 class="mobile-detail-title">{{ selected.name | uppercase }}</h2>
+            @if (selected.isSystemDefault) {
+              <span class="mobile-full-access">
+                <app-icon name="grid"></app-icon> Full access
               </span>
-            } @else if (permissionsModified && session.can('EDIT_ROLE')) {
-              <button class="btn btn-ghost btn-sm" (click)="discardChanges()">Discard</button>
-              <button class="btn btn-primary btn-sm" (click)="savePermissions()" [disabled]="savingPermissions()">
-                {{ savingPermissions() ? 'Saving...' : 'Save Changes' }}
-              </button>
             }
           </div>
         </div>
 
-        <!-- Admin Info Banner -->
-        @if (r.isSystemDefault) {
-          <div class="roles-admin-banner">
+        <!-- Admin Banner -->
+        @if (selected.isSystemDefault) {
+          <div class="mobile-admin-info">
             <app-icon name="lock"></app-icon>
             <span>Admin always has full access to every module — this can't be edited.</span>
           </div>
         }
 
+        <!-- Save Bar -->
+        @if (permissionsModified && !selected.isSystemDefault && session.can('EDIT_ROLE')) {
+          <div class="mobile-save-bar">
+            <button class="btn btn-ghost btn-sm" (click)="discardChanges()">Discard</button>
+            <button class="btn btn-primary btn-sm" (click)="savePermissions()" [disabled]="savingPermissions()">
+              {{ savingPermissions() ? 'Saving...' : 'Save Changes' }}
+            </button>
+          </div>
+        }
+
         <!-- Modules Grid -->
-        <div class="roles-modules-grid">
+        <div class="mobile-modules-grid">
           @for (module of availablePermissions; track module.module) {
-            <div class="roles-module-card clickable" 
+            <div class="mobile-module-card" 
                  [class.expanded]="module.expanded"
                  (click)="toggleModule(module)">
-              <div class="roles-module-card-content">
-                <app-icon [name]="getModuleIcon(module.module)" class="roles-module-icon"></app-icon>
-                <span class="roles-module-name">{{ module.module }}</span>
+              <div class="mobile-module-content">
+                <app-icon [name]="getModuleIcon(module.module)" class="mobile-module-icon"></app-icon>
+                <span class="mobile-module-name">{{ module.module }}</span>
               </div>
-              <span class="roles-module-count" [class.full]="r.isSystemDefault || allSelectedInModule(module)">
-                {{ r.isSystemDefault ? module.permissions.length : getModuleSelectedCount(module) }}/{{ module.permissions.length }}
+              <span class="mobile-module-count" [class.full]="selected.isSystemDefault || allSelectedInModule(module)">
+                {{ selected.isSystemDefault ? module.permissions.length : getModuleSelectedCount(module) }}/{{ module.permissions.length }}
               </span>
             </div>
           }
@@ -90,27 +227,20 @@
         <!-- Expanded Module Permissions -->
         @for (module of availablePermissions; track module.module) {
           @if (module.expanded) {
-            <div class="roles-permissions-panel">
-              <div class="roles-permissions-header">
-                <div class="roles-permissions-title">
+            <div class="mobile-permissions-panel">
+              <div class="mobile-permissions-header">
+                <div class="mobile-permissions-title">
                   <app-icon [name]="getModuleIcon(module.module)"></app-icon>
                   <span>{{ module.module }} Permissions</span>
                 </div>
-                <div class="roles-permissions-actions">
-                  @if (!r.isSystemDefault && session.can('EDIT_ROLE')) {
-                    <button class="btn btn-ghost btn-xs" (click)="allSelectedInModule(module) ? deselectAllInModule(module) : selectAllInModule(module); $event.stopPropagation()">
-                      {{ allSelectedInModule(module) ? 'Clear all' : 'Select all' }}
-                    </button>
-                  }
-                  <button class="btn btn-ghost btn-xs" (click)="toggleModule(module); $event.stopPropagation()">
-                    <app-icon name="close"></app-icon>
-                  </button>
-                </div>
+                <button class="mobile-close-btn" (click)="toggleModule(module); $event.stopPropagation()">
+                  <app-icon name="close"></app-icon>
+                </button>
               </div>
-              <div class="roles-permissions-list">
+              <div class="mobile-permissions-list">
                 @for (perm of module.permissions; track perm.code) {
-                  <label class="roles-permission-item" [class.selected]="r.isSystemDefault || hasPermission(perm.code)">
-                    @if (r.isSystemDefault) {
+                  <label class="mobile-perm-item" [class.selected]="selected.isSystemDefault || hasPermission(perm.code)">
+                    @if (selected.isSystemDefault) {
                       <input type="checkbox" checked disabled />
                     } @else if (session.can('EDIT_ROLE')) {
                       <input 

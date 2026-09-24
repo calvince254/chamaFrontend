@@ -1,4 +1,4 @@
-<div class="page-header">
+<div class="page-header desktop-only">
   <div>
     <h1>Welfare Fund</h1>
     <p>Bereavement, illness and marriage support — per-member contribution collected within 48 hours.</p>
@@ -6,6 +6,21 @@
   @if (session.can('CREATE_WELFARE_EVENT')) {
     <button class="btn btn-primary" (click)="openNew()"><app-icon name="plus"></app-icon> Report Event</button>
   }
+</div>
+
+<!-- Mobile Page Header -->
+<div class="mobile-only mobile-page-header">
+  <div class="mobile-header-top">
+    <div>
+      <h1 class="mobile-page-title">Welfare Fund</h1>
+      <p class="mobile-page-subtitle">Support events & contributions</p>
+    </div>
+    @if (session.can('CREATE_WELFARE_EVENT')) {
+      <button class="mobile-add-btn" (click)="openNew()">
+        <app-icon name="plus"></app-icon>
+      </button>
+    }
+  </div>
 </div>
 
 @if (loading()) {
@@ -25,8 +40,8 @@
     }
   </div>
 } @else {
-  <!-- Filter -->
-  <div class="filter-bar">
+  <!-- Desktop Filter -->
+  <div class="filter-bar desktop-only">
     <div class="filter-group">
       <label>Status:</label>
       <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
@@ -40,7 +55,7 @@
     }
   </div>
 
-  <div class="card">
+  <div class="card desktop-only">
     @if (events.length === 0 && hasFilters) {
       <div class="empty-filter-state">
         <app-icon name="search"></app-icon>
@@ -109,6 +124,62 @@
             </button>
           </div>
         </div>
+      }
+    }
+  </div>
+
+  <!-- ==================== MOBILE WELFARE VIEW ==================== -->
+  <div class="mobile-only mobile-welfare">
+    <!-- Mobile Filter -->
+    <div class="mobile-filter-row">
+      <select class="mobile-select" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+        <option value="">All statuses</option>
+        <option value="OPEN">Open</option>
+        <option value="CLOSED">Closed</option>
+      </select>
+    </div>
+
+    <!-- Mobile Events List -->
+    @if (events.length === 0 && hasFilters) {
+      <div class="mobile-empty-state">
+        <app-icon name="search"></app-icon>
+        <span>No events match your filters</span>
+      </div>
+    } @else if (events.length === 0) {
+      <div class="mobile-empty-state">
+        <app-icon name="heart"></app-icon>
+        <span>No welfare events</span>
+      </div>
+    } @else {
+      <div class="mobile-list">
+        @for (e of events; track e.id) {
+          <app-list-row-card
+            [title]="e.memberName"
+            [primaryActionLabel]="getMobileEventActionLabel(e)"
+            [primaryActionDisabled]="isMobileEventActionDisabled(e)"
+            (primaryAction)="handleMobileEventAction(e)">
+            <ng-container listRowSecondary>
+              {{ e.eventType }} · {{ e.relation }} · {{ e.dateReported | date:'d MMM' }}
+            </ng-container>
+            <ng-container listRowFooter>
+              <div class="mobile-welfare-footer">
+                <app-status-badge [status]="getEventStatusForBadge(e)"></app-status-badge>
+                <span class="mobile-welfare-amount">KES {{ e.amountPerMember | number }}/member</span>
+                <span class="mobile-welfare-progress">{{ e.paidCount || 0 }}/{{ e.totalInvolved }}</span>
+              </div>
+            </ng-container>
+          </app-list-row-card>
+        }
+      </div>
+
+      <!-- Mobile Pagination -->
+      @if (totalPages > 1) {
+        <app-pagination-bar
+          [currentPage]="currentPage"
+          [total]="totalElements"
+          [pageSize]="pageSize"
+          (pageChange)="goToPage($event)">
+        </app-pagination-bar>
       }
     }
   </div>
@@ -199,13 +270,13 @@
       <div class="modal-header">
         <div>
           <h3>Payment Tracking</h3>
-          <p class="modal-subtitle">{{ selectedEvent.eventType }} — {{ selectedEvent.memberName }}</p>
+          <p class="modal-subtitle">{{ selectedEvent.eventType }} · {{ selectedEvent.memberName }}</p>
         </div>
         <button class="icon-btn" (click)="closePaymentsModal()"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
-        <!-- Payment Summary -->
-        <div class="payment-summary">
+        <!-- Payment Summary - Desktop -->
+        <div class="payment-summary desktop-only">
           <div class="summary-stat">
             <span class="stat-value">{{ paidContributions.length }}</span>
             <span class="stat-label">Paid</span>
@@ -224,6 +295,26 @@
           </div>
         </div>
 
+        <!-- Payment Summary - Mobile -->
+        <div class="mobile-payment-summary mobile-only">
+          <div class="mobile-summary-stat">
+            <span class="mobile-stat-value">{{ paidContributions.length }}</span>
+            <span class="mobile-stat-label">PAID</span>
+          </div>
+          <div class="mobile-summary-stat">
+            <span class="mobile-stat-value">{{ unpaidContributions.length }}</span>
+            <span class="mobile-stat-label">PENDING</span>
+          </div>
+          <div class="mobile-summary-stat">
+            <span class="mobile-stat-value">{{ contributions.length }}</span>
+            <span class="mobile-stat-label">TOTAL</span>
+          </div>
+          <div class="mobile-summary-stat">
+            <span class="mobile-stat-value">{{ selectedEvent.amountPerMember | number:'1.0-0' }}</span>
+            <span class="mobile-stat-label">PER MBR</span>
+          </div>
+        </div>
+
         @if (loadingContributions()) {
           <div class="loading-state">
             <div class="spinner"></div>
@@ -234,17 +325,24 @@
             <p>No contributions found for this event.</p>
           </div>
         } @else {
-          <!-- Mark All Paid Button (Admin only) -->
+          <!-- Mark All Paid Button - Desktop -->
           @if (unpaidContributions.length > 0 && session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
-            <div class="action-bar">
+            <div class="action-bar desktop-only">
               <button class="btn btn-sm btn-primary" (click)="markAllPaid()" [disabled]="updatingPayment()">
                 <app-icon name="check"></app-icon> Mark All as Paid
               </button>
             </div>
           }
 
-          <!-- Contributions Table -->
-          <table class="data-table">
+          <!-- Mark All Paid Button - Mobile (Full Width) -->
+          @if (unpaidContributions.length > 0 && session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
+            <button class="mobile-mark-all-btn mobile-only" (click)="markAllPaid()" [disabled]="updatingPayment()">
+              <app-icon name="check"></app-icon> Mark All as Paid
+            </button>
+          }
+
+          <!-- Contributions Table - Desktop -->
+          <table class="data-table desktop-only">
             <thead>
               <tr>
                 <th>Member</th>
@@ -320,9 +418,41 @@
             </tbody>
           </table>
 
-          <!-- Contributions Pagination -->
+          <!-- Contributions Cards - Mobile -->
+          <div class="mobile-contributions-list mobile-only">
+            @for (c of contributions; track c.id) {
+              <div class="mobile-contrib-card" [class.paid]="c.paid">
+                <div class="mobile-contrib-left">
+                  <div class="mobile-contrib-avatar">{{ c.memberName | slice:0:2 | uppercase }}</div>
+                </div>
+                <div class="mobile-contrib-content">
+                  <div class="mobile-contrib-name">{{ c.memberName }}</div>
+                  <div class="mobile-contrib-meta">{{ c.memberNo }} · KES {{ c.amountExpected | number:'1.0-0' }}</div>
+                </div>
+                <div class="mobile-contrib-action">
+                  @if (c.paid) {
+                    <span class="mobile-contrib-paid-badge">
+                      <app-icon name="check"></app-icon>
+                    </span>
+                  } @else if (c.hasPendingClaim) {
+                    @if (session.can('VERIFY_PAYMENTS') && c.payableId) {
+                      <button class="mobile-contrib-btn confirm" (click)="confirmPayment(c.payableId!)">Confirm</button>
+                    } @else {
+                      <span class="mobile-contrib-badge pending">Pending</span>
+                    }
+                  } @else if (isOwnContribution(c)) {
+                    <button class="mobile-contrib-btn pay" (click)="openWelfarePaymentModal(c)">Pay</button>
+                  } @else if (session.can('MANAGE_WELFARE_CONTRIBUTIONS')) {
+                    <button class="mobile-contrib-btn record" (click)="openPaymentMethodModal(c)" [disabled]="updatingPayment()">Record</button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Contributions Pagination - Desktop -->
           @if (contributionTotalPages > 1) {
-            <div class="pagination">
+            <div class="pagination desktop-only">
               <div class="pagination-info">
                 Showing {{ contributionPage * contributionPageSize + 1 }} - {{ Math.min((contributionPage + 1) * contributionPageSize, contributionTotalElements) }} of {{ contributionTotalElements }}
               </div>
@@ -332,6 +462,22 @@
                 </button>
                 <span class="pagination-page-info">Page {{ contributionPage + 1 }} of {{ contributionTotalPages }}</span>
                 <button class="pagination-btn" (click)="contributionNextPage()" [disabled]="isContributionLast">
+                  <app-icon name="chevron-right"></app-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Pagination - Mobile -->
+            <div class="mobile-pagination mobile-only">
+              <div class="mobile-pagination-info">
+                Showing {{ contributionPage * contributionPageSize + 1 }}–{{ Math.min((contributionPage + 1) * contributionPageSize, contributionTotalElements) }} of {{ contributionTotalElements }}
+              </div>
+              <div class="mobile-pagination-controls">
+                <button class="mobile-pagination-btn" (click)="contributionPreviousPage()" [disabled]="isContributionFirst">
+                  <app-icon name="chevron-left"></app-icon>
+                </button>
+                <span class="mobile-pagination-page">Page {{ contributionPage + 1 }} of {{ contributionTotalPages }}</span>
+                <button class="mobile-pagination-btn" (click)="contributionNextPage()" [disabled]="isContributionLast">
                   <app-icon name="chevron-right"></app-icon>
                 </button>
               </div>

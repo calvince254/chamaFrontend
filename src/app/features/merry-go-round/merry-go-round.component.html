@@ -45,7 +45,8 @@
           </div>
           <div class="summary-content">
             <span class="summary-value">{{ summary.totalCycles }}</span>
-            <span class="summary-label">Total Cycles</span>
+            <span class="summary-label desktop-only">Total Cycles</span>
+            <span class="summary-label mobile-only">Cycles</span>
             <span class="summary-sub">{{ summary.activeCycles }} active · {{ summary.completedCycles }} completed</span>
           </div>
         </div>
@@ -55,8 +56,10 @@
             <app-icon name="trending-up"></app-icon>
           </div>
           <div class="summary-content">
-            <span class="summary-value">KES {{ summary.totalContributions | number }}</span>
-            <span class="summary-label">Total Contributions</span>
+            <span class="summary-value desktop-only">KES {{ summary.totalContributions | number }}</span>
+            <span class="summary-value mobile-only">{{ summary.totalContributions | number }}</span>
+            <span class="summary-label desktop-only">Total Contributions</span>
+            <span class="summary-label mobile-only">Contrib.</span>
             <span class="summary-sub">Collected from members</span>
           </div>
         </div>
@@ -66,8 +69,10 @@
             <app-icon name="send"></app-icon>
           </div>
           <div class="summary-content">
-            <span class="summary-value">KES {{ summary.totalPayouts | number }}</span>
-            <span class="summary-label">Total Payouts</span>
+            <span class="summary-value desktop-only">KES {{ summary.totalPayouts | number }}</span>
+            <span class="summary-value mobile-only">{{ summary.totalPayouts | number }}</span>
+            <span class="summary-label desktop-only">Total Payouts</span>
+            <span class="summary-label mobile-only">Payouts</span>
             <span class="summary-sub">Disbursed to recipients</span>
           </div>
         </div>
@@ -77,8 +82,10 @@
             <app-icon name="alert-circle"></app-icon>
           </div>
           <div class="summary-content">
-            <span class="summary-value">KES {{ summary.totalFinesCollected | number }}</span>
-            <span class="summary-label">Fines Collected</span>
+            <span class="summary-value desktop-only">KES {{ summary.totalFinesCollected | number }}</span>
+            <span class="summary-value mobile-only">{{ summary.totalFinesCollected | number }}</span>
+            <span class="summary-label desktop-only">Fines Collected</span>
+            <span class="summary-label mobile-only">Fines</span>
             @if (summary.totalFinesPending > 0) {
               <span class="summary-sub warning">KES {{ summary.totalFinesPending | number }} pending</span>
             } @else {
@@ -239,7 +246,8 @@
           }
         </div>
         <div class="card-body" style="padding: 0;">
-          <table class="data-table">
+          <!-- Desktop Table -->
+          <table class="data-table desktop-only-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -296,6 +304,54 @@
               }
             </tbody>
           </table>
+
+          <!-- Mobile Cards View -->
+          <div class="mobile-rounds-list">
+            @for (round of selectedCycle.rounds; track round.id) {
+              <div class="mobile-round-card" [class.current-round]="(round.status === 'PENDING' || round.status === 'PARTIAL') && round.position === (selectedCycle.completedRounds + 1)">
+                <div class="mobile-round-header">
+                  <div class="mobile-round-number">{{ round.position }}</div>
+                  <div class="mobile-round-info">
+                    <span class="mobile-round-name">{{ round.recipientName }}</span>
+                    <span class="mobile-round-date">{{ round.payoutDate | date:'d MMM y' }}</span>
+                  </div>
+                  <span class="badge" [ngClass]="getStatusClass(round.status)">{{ round.status }}</span>
+                </div>
+                <div class="mobile-round-stats">
+                  <div class="mobile-round-stat">
+                    <span class="stat-label">Expected</span>
+                    <span class="stat-value">{{ round.expectedAmount | number }}</span>
+                  </div>
+                  <div class="mobile-round-stat">
+                    <span class="stat-label">Collected</span>
+                    <span class="stat-value">{{ round.collectedAmount | number }}</span>
+                  </div>
+                  <div class="mobile-round-stat">
+                    <span class="stat-label">Paid Out</span>
+                    <span class="stat-value">{{ round.paidAmount | number }}</span>
+                  </div>
+                </div>
+                @if ((round.status === 'PENDING' || round.status === 'PARTIAL') && round.position === (selectedCycle.completedRounds + 1)) {
+                  <div class="mobile-round-progress">
+                    <div class="progress-bar-mini">
+                      <div class="progress-fill" [style.width.%]="(round.collectedAmount / round.expectedAmount) * 100"></div>
+                    </div>
+                  </div>
+                }
+                @if ((round.status === 'PENDING' || round.status === 'PARTIAL') && session.can('COMPLETE_MGR_ROUND')) {
+                  <div class="mobile-round-action">
+                    @if (round.payoutBalance > 0) {
+                      <button class="btn btn-sm btn-primary" (click)="markRoundPaid(round)">
+                        Pay KES {{ round.payoutBalance | number }}
+                      </button>
+                    } @else {
+                      <span class="text-muted">No funds available</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
         </div>
       </div>
     } @else if (activeTab === 'contributions') {
@@ -330,8 +386,8 @@
                     }
                   </div>
                 </div>
-                <!-- Round Contributions Table -->
-                <table class="data-table round-table">
+                <!-- Desktop: Round Contributions Table -->
+                <table class="data-table round-table desktop-only-table">
                   <thead>
                     <tr>
                       <th>Contributor</th>
@@ -381,6 +437,50 @@
                     }
                   </tbody>
                 </table>
+                <!-- Mobile: Contribution Cards -->
+                <div class="mobile-contrib-list">
+                  @for (contrib of round.contributions; track contrib.id) {
+                    <div class="mobile-contrib-card">
+                      <div class="mobile-contrib-header">
+                        <span class="mobile-contrib-name">{{ contrib.memberName }}</span>
+                        <span class="badge" [ngClass]="getStatusClass(contrib.status)">
+                          {{ contrib.status === 'PAID' ? 'Paid' : contrib.status === 'PENDING' ? 'Pending' : contrib.status }}
+                        </span>
+                      </div>
+                      <div class="mobile-contrib-details">
+                        <div class="mobile-contrib-stat">
+                          <span class="stat-label">Amount</span>
+                          <span class="stat-value">KES {{ contrib.amount | number }}</span>
+                        </div>
+                        <div class="mobile-contrib-stat">
+                          <span class="stat-label">Paid Date</span>
+                          <span class="stat-value">{{ contrib.paidDate ? (contrib.paidDate | date:'d MMM y') : '—' }}</span>
+                        </div>
+                      </div>
+                      @if (contrib.status === 'PENDING' || contrib.status === 'LATE') {
+                        <div class="mobile-contrib-actions">
+                          @if (contrib.hasPendingClaim) {
+                            <span class="badge badge-warning">Awaiting Confirmation</span>
+                            @if (session.can('VERIFY_PAYMENTS') && contrib.payableId) {
+                              <button class="btn btn-sm btn-success" (click)="confirmPayment(contrib.payableId)">Confirm</button>
+                            }
+                          } @else if (isOwnContribution(contrib)) {
+                            <button class="btn btn-sm btn-primary" (click)="openMgrPaymentModal(contrib)">Pay</button>
+                          } @else if (session.can('RECORD_MGR_CONTRIBUTION') || session.can('FULL_ACCESS')) {
+                            <button class="btn btn-sm btn-primary" (click)="markContributionPaid(contrib)">Record</button>
+                          }
+                          @if (!contrib.hasFine && !contrib.hasPendingClaim && (session.can('IMPOSE_MGR_FINE') || session.can('FULL_ACCESS'))) {
+                            <button class="btn btn-sm btn-outline" (click)="imposeFineForContribution(contrib)">Fine</button>
+                          }
+                        </div>
+                      } @else {
+                        <div class="mobile-contrib-actions">
+                          <span class="text-muted">Settled</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
               </div>
             }
           }
@@ -428,7 +528,8 @@
               }
             </div>
           } @else {
-            <table class="data-table">
+            <!-- Desktop: Fines Table -->
+            <table class="data-table desktop-only-table">
               <thead>
                 <tr>
                   <th>Member</th>
@@ -492,6 +593,54 @@
                 }
               </tbody>
             </table>
+            <!-- Mobile: Fines Cards -->
+            <div class="mobile-fines-list">
+              @for (fine of displayedFines; track fine.id) {
+                <div class="mobile-fine-card">
+                  <div class="mobile-fine-header">
+                    <span class="mobile-fine-name">{{ fine.memberName }}</span>
+                    <span class="badge" [ngClass]="getStatusClass(fine.status)">{{ fine.status }}</span>
+                  </div>
+                  <div class="mobile-fine-reason">
+                    {{ fine.reason }}
+                    @if (fine.autoImposed) {
+                      <span class="badge badge-neutral">Auto</span>
+                    }
+                  </div>
+                  <div class="mobile-fine-details">
+                    <div class="mobile-fine-stat">
+                      <span class="stat-label">Amount</span>
+                      <span class="stat-value">KES {{ fine.amount | number }}</span>
+                    </div>
+                    <div class="mobile-fine-stat">
+                      <span class="stat-label">Date</span>
+                      <span class="stat-value">{{ fine.imposedDate | date:'d MMM y' }}</span>
+                    </div>
+                  </div>
+                  @if (fine.hasPendingClaim) {
+                    <div class="mobile-fine-pending">
+                      <span class="badge badge-warning">Awaiting Confirmation</span>
+                    </div>
+                  }
+                  @if (fine.status === 'PENDING') {
+                    <div class="mobile-fine-actions">
+                      @if (isOwnFine(fine) && !fine.hasPendingClaim) {
+                        <button class="btn btn-sm btn-primary" (click)="openFinePaymentModal(fine)">Pay</button>
+                      }
+                      @if (fine.hasPendingClaim && fine.payableId && session.can('CONFIRM_MGR_FINE_PAYMENT')) {
+                        <button class="btn btn-sm btn-success" (click)="confirmFinePayment(fine.payableId)">Confirm</button>
+                      }
+                      @if (!isOwnFine(fine) && !fine.hasPendingClaim && session.can('RECORD_MGR_FINE_PAYMENT')) {
+                        <button class="btn btn-sm btn-outline" (click)="recordFinePayment(fine)">Record</button>
+                      }
+                      @if (session.can('WAIVE_MGR_FINE')) {
+                        <button class="btn btn-sm btn-ghost" (click)="waiveFine(fine)">Waive</button>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
           }
         </div>
       </div>

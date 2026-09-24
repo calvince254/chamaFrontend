@@ -546,3 +546,113 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px 16px;
 }
+
+
+/* ==========================================================================
+   Mobile Styles
+   ========================================================================== */
+
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 0;
+  }
+
+  .page-header h1 {
+    font-size: 18px;
+  }
+
+  .page-header p {
+    font-size: 12px;
+  }
+
+  /* Mobile Filters */
+  .mobile-filters {
+    margin: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-filter-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .mobile-filter-row select {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-size: 14px;
+    min-height: 44px;
+    min-width: 0;
+  }
+
+  .mobile-reset-btn {
+    padding: 10px 16px;
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    min-height: 44px;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Mobile List */
+  .mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-row-footer-text {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Modal adjustments */
+  .modal {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 90vh;
+    margin: 5vh auto;
+  }
+
+  .modal-body {
+    max-height: calc(90vh - 120px);
+    overflow-y: auto;
+  }
+
+  /* Detail modal content */
+  .modal-body pre {
+    font-size: 9px;
+    max-height: 150px;
+  }
+}

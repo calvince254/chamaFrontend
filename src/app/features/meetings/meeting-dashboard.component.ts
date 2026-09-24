@@ -655,6 +655,31 @@ export class MeetingDashboardComponent implements OnInit {
     return this.getMemberFines(memberId).reduce((sum, f) => sum + f.amount, 0);
   }
 
+  // ==================== Mobile Helpers ====================
+
+  getInitials(name: string): string {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  getAvatarColor(name: string): string {
+    const colors = [
+      'var(--color-primary)',
+      'var(--color-success)',
+      'var(--color-warning)',
+      'var(--color-info)',
+      'var(--color-danger)',
+      'var(--color-primary-dark)'
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+
   // ==================== Meeting Minutes ====================
 
   triggerMinutesUpload() {

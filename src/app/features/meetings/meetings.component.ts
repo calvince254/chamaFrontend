@@ -8,11 +8,29 @@ import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
+import { 
+  StatusBadgeComponent, 
+  LabelValueComponent, 
+  ListRowCardComponent, 
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  PaginationBarComponent 
+} from '../../shared/components';
 
 @Component({
   selector: 'app-meetings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    IconComponent,
+    StatusBadgeComponent,
+    LabelValueComponent,
+    ListRowCardComponent,
+    ListRowSecondaryDirective,
+    ListRowFooterDirective,
+    PaginationBarComponent
+  ],
   templateUrl: './meetings.component.html',
   styleUrl: './meetings.component.css',
 })

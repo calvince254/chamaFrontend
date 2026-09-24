@@ -23,12 +23,14 @@
   font-weight: 700;
   margin-bottom: 8px; 
   color: #1a1a1a;
+  text-align: center;
 }
 
 .login-panel .subtitle { 
   color: #666; 
   margin-bottom: 24px; 
-  font-size: 14px; 
+  font-size: 14px;
+  text-align: center;
 }
 
 .login-panel .form-field {
@@ -38,7 +40,7 @@
 .login-panel .form-field label {
   display: block;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: #333;
   margin-bottom: 6px;
 }
@@ -274,4 +276,176 @@ button:disabled {
 
 .contact-icon {
   margin-right: 6px;
+}
+
+
+/* ==========================================================================
+   Mobile Styles
+   ========================================================================== */
+
+@media (max-width: 767px) {
+  .login-screen {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: linear-gradient(180deg, #f8fafb 0%, #e8f0f0 100%);
+  }
+
+  .login-panel {
+    flex: 1;
+    padding: 24px 20px;
+    justify-content: flex-start;
+    padding-top: 40px;
+    background: transparent;
+  }
+
+  .login-form-container {
+    max-width: 100%;
+    width: 100%;
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .brand-logo {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 24px auto;
+  }
+
+  .brand-logo img {
+    width: 100px;
+    height: 100px;
+    border-radius: 12px;
+  }
+
+  .login-panel h1 {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .login-panel .subtitle {
+    font-size: 13px;
+    margin-bottom: 20px;
+    color: #6b7280;
+  }
+
+  .login-panel .form-field {
+    margin-bottom: 14px;
+  }
+
+  .login-panel .form-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 8px;
+  }
+
+  .login-panel .form-field input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 14px 16px;
+    min-height: 48px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+  }
+
+  .login-panel .form-field input:focus {
+    border-color: var(--color-primary, #166534);
+    box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.1);
+  }
+
+  .login-panel .form-field input::placeholder {
+    color: #9ca3af;
+    font-size: 14px;
+  }
+
+  .btn-block {
+    min-height: 48px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 8px;
+    margin-top: 12px;
+    background: #d4a056;
+    border-color: #d4a056;
+  }
+
+  .btn-block:hover:not(:disabled) {
+    background: #c4904a;
+    border-color: #c4904a;
+  }
+
+  .info-message {
+    font-size: 12px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+
+  .error-message {
+    font-size: 12px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+
+  /* Hide the side panel on mobile */
+  .login-side {
+    display: none;
+  }
+
+  /* Tenant selection mobile */
+  .tenant-list {
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .tenant-option {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .tenant-name {
+    font-size: 14px;
+  }
+
+  .tenant-role {
+    font-size: 11px;
+  }
+
+  /* Contact section mobile */
+  .onboard-contact {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .onboard-contact p {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 10px;
+  }
+
+  .contact-phone,
+  .contact-email {
+    font-size: 13px;
+    font-weight: 600;
+    color: #d4a056;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .contact-phone:hover,
+  .contact-email:hover {
+    color: #c4904a;
+  }
+
+  .contact-icon {
+    font-size: 14px;
+  }
 }

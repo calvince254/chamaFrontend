@@ -391,6 +391,11 @@ export class ContributionsComponent implements OnInit {
     return this.contributions;
   }
 
+  getPendingCount(): number {
+    // Return count of pending/overdue contributions from current data
+    return this.contributions.filter(c => c.status === 'PENDING' || c.status === 'OVERDUE' || c.status === 'PARTIAL').length;
+  }
+
   get filteredPenalties() {
     return this.penalties;
   }

@@ -121,6 +121,7 @@
           <p>No members invited yet.</p>
         </div>
       } @else {
+        <!-- Desktop Table -->
         <table class="meeting-table">
           <thead>
             <tr>
@@ -187,6 +188,58 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile List -->
+        <div class="mobile-attendee-list">
+          @for (a of attendees; track a.id) {
+            <div class="mobile-attendee-row">
+              <div class="mobile-attendee-avatar" [style.background]="getAvatarColor(a.memberName)">
+                {{ getInitials(a.memberName) }}
+              </div>
+              <div class="mobile-attendee-info" (click)="openViewFinesModal(a)">
+                <div class="mobile-attendee-name">{{ a.memberName }}</div>
+                <div class="mobile-attendee-meta">
+                  <span>{{ a.memberNo }}</span>
+                  <span class="rsvp-badge" [class]="'rsvp-' + a.rsvpStatus.toLowerCase()">
+                    {{ getRsvpStatusLabel(a.rsvpStatus) }}
+                  </span>
+                  @if (getMemberFines(a.memberId).length > 0) {
+                    <span class="fines-badge">
+                      {{ getMemberFines(a.memberId).length }} fines
+                    </span>
+                  }
+                </div>
+              </div>
+              <div class="mobile-attendee-right">
+                @if (session.can('RECORD_MEETING_ATTENDANCE')) {
+                  @if (a.attended) {
+                    <button class="attendance-btn present" (click)="toggleAttendance(a)">
+                      <app-icon name="check"></app-icon> Present
+                    </button>
+                  } @else {
+                    <button class="attendance-btn absent" (click)="toggleAttendance(a)">
+                      <app-icon name="close"></app-icon> Absent
+                    </button>
+                  }
+                } @else {
+                  <span class="attendance-status" [class.present]="a.attended">
+                    {{ a.attended ? 'Present' : 'Absent' }}
+                  </span>
+                }
+                @if (session.can('MANAGE_MEETING_FINES')) {
+                  <div class="mobile-attendee-actions">
+                    <button class="icon-btn-sm" (click)="openImposeFineModal(a)" title="Manage Fines">
+                      <app-icon name="edit"></app-icon>
+                    </button>
+                    <button class="icon-btn-sm" (click)="removeMember(a)" title="Remove">
+                      <app-icon name="trash"></app-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
       }
     </div>
   }
@@ -208,6 +261,7 @@
           <p>No fines imposed for this meeting.</p>
         </div>
       } @else {
+        <!-- Desktop Table -->
         <table class="meeting-table">
           <thead>
             <tr>
@@ -262,6 +316,37 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile List -->
+        <div class="mobile-fine-list">
+          @for (f of fines; track f.id) {
+            <div class="mobile-fine-row">
+              <div class="mobile-fine-info">
+                <div class="mobile-fine-member">{{ f.memberName }}</div>
+                <div class="mobile-fine-type">{{ f.fineTypeName }}</div>
+                <div class="mobile-fine-meta">
+                  <span class="text-success">Paid: KES {{ f.paidAmount || 0 | number }}</span>
+                  <span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span>
+                </div>
+              </div>
+              <div class="mobile-fine-right">
+                <div class="mobile-fine-amount">KES {{ f.amount | number }}</div>
+                @if (f.amount - (f.paidAmount || 0) > 0) {
+                  <div class="mobile-fine-balance">Bal: KES {{ f.amount - (f.paidAmount || 0) | number }}</div>
+                }
+                @if (f.status !== 'PAID' && f.status !== 'WAIVED') {
+                  @if (f.hasPendingClaim) {
+                    <span class="status-badge status-pending">Pending</span>
+                  } @else if (isOwnFine(f)) {
+                    <button class="btn btn-primary btn-sm" (click)="openPayFineModal(f)">Pay</button>
+                  } @else if (session.can('MANAGE_MEETING_FINES')) {
+                    <button class="btn btn-primary btn-sm" (click)="openPaymentModal(f)">Record</button>
+                  }
+                }
+              </div>
+            </div>
+          }
+        </div>
       }
     </div>
   }
@@ -440,6 +525,7 @@
             <p>No fines for this member.</p>
           </div>
         } @else {
+          <!-- Desktop Table -->
           <table class="meeting-table compact">
             <thead>
               <tr>
@@ -474,6 +560,28 @@
               }
             </tbody>
           </table>
+
+          <!-- Mobile List -->
+          <div class="mobile-modal-fine-list">
+            @for (f of selectedMemberFines; track f.id) {
+              <div class="mobile-modal-fine-item">
+                <div class="mobile-modal-fine-left">
+                  <div class="mobile-modal-fine-name">{{ f.fineTypeName }}</div>
+                  <div class="mobile-modal-fine-details">
+                    <span class="text-success">Paid: KES {{ f.paidAmount || 0 | number }}</span>
+                    <span class="text-danger">Bal: KES {{ f.amount - (f.paidAmount || 0) | number }}</span>
+                  </div>
+                </div>
+                <div class="mobile-modal-fine-right">
+                  <span style="font-weight: 600; font-size: 13px;">KES {{ f.amount | number }}</span>
+                  <span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span>
+                  @if (canPayFine(f) && isOwnFine(f) && !f.hasPendingClaim) {
+                    <button class="btn btn-primary btn-sm" (click)="closeViewFinesModal(); openPayFineModal(f)">Pay</button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
         }
       </div>
       <div class="modal-footer">
@@ -499,6 +607,7 @@
         @if (selectedMemberFines.length > 0) {
           <div class="existing-fines-section">
             <h4>Existing Fines</h4>
+            <!-- Desktop Table -->
             <table class="meeting-table compact">
               <thead>
                 <tr>
@@ -540,6 +649,39 @@
                 }
               </tbody>
             </table>
+
+            <!-- Mobile List -->
+            <div class="mobile-modal-fine-list">
+              @for (f of selectedMemberFines; track f.id) {
+                <div class="mobile-modal-fine-item">
+                  <div class="mobile-modal-fine-left">
+                    <div class="mobile-modal-fine-name">{{ f.fineTypeName }}</div>
+                    <div class="mobile-modal-fine-details">
+                      <span class="text-success">Paid: KES {{ f.paidAmount || 0 | number }}</span>
+                      <span class="text-danger">Bal: KES {{ f.amount - (f.paidAmount || 0) | number }}</span>
+                    </div>
+                  </div>
+                  <div class="mobile-modal-fine-right">
+                    <span style="font-weight: 600; font-size: 13px;">KES {{ f.amount | number }}</span>
+                    @if (f.hasPendingClaim) {
+                      <span class="status-badge status-pending">Pending</span>
+                    } @else {
+                      <span class="status-badge" [class]="'status-' + f.status.toLowerCase()">{{ f.status }}</span>
+                    }
+                    <div class="mobile-modal-fine-actions">
+                      @if (f.hasPendingClaim && f.payableId && session.can('VERIFY_PAYMENTS')) {
+                        <button class="btn btn-success btn-sm" (click)="confirmPayment(f.payableId)">Confirm</button>
+                      } @else if (f.status !== 'PAID' && f.status !== 'WAIVED' && !f.hasPendingClaim) {
+                        <button class="btn btn-primary btn-sm" (click)="openPaymentModal(f)">Pay</button>
+                      }
+                      <button class="icon-btn-sm" (click)="deleteFine(f)">
+                        <app-icon name="trash"></app-icon>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
           </div>
         }
 

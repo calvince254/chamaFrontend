@@ -299,3 +299,390 @@
   gap: 16px;
   min-width: 0; /* Prevents overflow */
 }
+
+
+/* ==========================================================================
+   Mobile Styles
+   ========================================================================== */
+
+/* Desktop/Mobile visibility helpers */
+.desktop-only {
+  display: table;
+}
+
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block !important;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 0;
+  }
+
+  .page-header h1 {
+    font-size: 18px;
+  }
+
+  .page-header p {
+    font-size: 12px;
+  }
+
+  /* Tabs - horizontal scroll */
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 4px;
+    padding-bottom: 4px;
+    margin-bottom: 12px;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabs .tab {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: 12px;
+    white-space: nowrap;
+    min-height: 44px;
+  }
+
+  /* Card adjustments */
+  .card {
+    border-radius: var(--radius-md);
+  }
+
+  .card-header {
+    padding: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .card-header h3 {
+    font-size: 14px;
+  }
+
+  .card-body {
+    padding: 12px;
+  }
+
+  /* Form Grid - single column on mobile */
+  .form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .form-two-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .form-field label {
+    font-size: 12px;
+  }
+
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    font-size: 16px; /* Prevent zoom on iOS */
+    min-height: 44px;
+  }
+
+  /* ==========================================================================
+     Settings Mobile Card Styles
+     ========================================================================== */
+
+  .mobile-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-mobile-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    transition: border-color 0.2s ease;
+  }
+
+  .settings-mobile-card.inactive {
+    opacity: 0.7;
+  }
+
+  .settings-card-header {
+    margin-bottom: 12px;
+  }
+
+  .settings-card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .settings-card-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-text);
+  }
+
+  .settings-card-description {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 4px 0 0 0;
+    line-height: 1.4;
+  }
+
+  .settings-card-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .settings-card-stats.four-col {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .settings-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .settings-stat-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .settings-stat-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+
+  .settings-stat-meta {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  .settings-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 12px;
+    justify-content: center;
+  }
+
+  .settings-card-actions .btn {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    font-size: 12px;
+    background: transparent !important;
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+
+  .settings-card-actions .btn:hover {
+    background: var(--color-bg) !important;
+  }
+
+  .settings-card-actions .btn.btn-danger {
+    color: #dc2626 !important;
+    border-color: #fecaca;
+    background: transparent !important;
+  }
+
+  .settings-card-actions .btn.btn-danger:hover {
+    background: #fef2f2 !important;
+    border-color: #fca5a5;
+  }
+
+  /* Button adjustments */
+  .btn {
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  .btn-sm {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+
+  .btn-ghost.btn-sm {
+    min-width: 44px;
+  }
+
+  /* Modal adjustments */
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 95vh;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .modal-header {
+    padding: 16px;
+  }
+
+  .modal-header h3 {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+    max-height: calc(95vh - 140px);
+    overflow-y: auto;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+  }
+
+  .modal.modal-large {
+    max-width: 100% !important;
+  }
+
+  /* Penalty settings grid */
+  .penalty-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Share settings */
+  .share-settings-container {
+    max-width: 100%;
+  }
+
+  .share-checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .share-checkbox-item {
+    min-height: 44px;
+  }
+
+  /* Payment settings */
+  .payment-settings-container {
+    max-width: 100%;
+  }
+
+  .payment-method-card {
+    padding: 12px;
+  }
+
+  .payment-method-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .payment-method-info {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .payment-method-info app-icon {
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+    margin: 0 auto;
+  }
+
+  .payment-method-info p {
+    font-size: 12px;
+  }
+
+  .payment-method-config .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Empty state */
+  .empty-state-card,
+  .empty-state-small {
+    padding: 24px 16px;
+  }
+
+  .empty-state-card h3 {
+    font-size: 16px;
+  }
+
+  /* Toggle switch */
+  .toggle-switch {
+    min-width: 44px;
+    min-height: 24px;
+  }
+
+  /* Form card */
+  .form-card {
+    margin-bottom: 12px;
+  }
+
+  .form-card-header {
+    padding: 12px;
+  }
+
+  .form-card-body {
+    padding: 12px;
+  }
+
+  /* Approval levels */
+  .approval-level-row {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+  }
+
+  .approval-level-row .level-badge {
+    align-self: flex-start;
+  }
+
+  .approval-level-row select,
+  .approval-level-row input {
+    width: 100%;
+  }
+
+  .approval-level-row .checkbox-inline {
+    margin-top: 4px;
+  }
+}

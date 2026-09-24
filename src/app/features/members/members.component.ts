@@ -9,6 +9,15 @@ import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
+import {
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  PaginationBarComponent,
+  StatStripComponent,
+  LabelValueComponent
+} from '../../shared/components';
 
 interface MemberForm extends Partial<Member> {
   password?: string;
@@ -31,7 +40,11 @@ interface MemberWithRegFee extends Member {
 @Component({
   selector: 'app-members',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [
+    CommonModule, FormsModule, IconComponent,
+    StatusBadgeComponent, ListRowCardComponent, ListRowSecondaryDirective,
+    ListRowFooterDirective, PaginationBarComponent, StatStripComponent, LabelValueComponent
+  ],
   templateUrl: './members.component.html',
   styleUrl: './members.component.css',
 })
@@ -876,5 +889,109 @@ export class MembersComponent implements OnInit {
         this.toast.error('Reset Failed', message);
       }
     });
+  }
+
+  // ==================== MOBILE HELPERS ====================
+
+  getMobileMemberActionLabel(member: MemberWithRegFee): string {
+    if (this.session.can('VIEW_MEMBER_DETAILS')) return 'View';
+    if (this.session.can('EDIT_MEMBER')) return 'Edit';
+    return 'Details';
+  }
+
+  isMobileMemberActionDisabled(member: MemberWithRegFee): boolean {
+    return !this.session.canAny('VIEW_MEMBER_DETAILS', 'EDIT_MEMBER');
+  }
+
+  handleMobileMemberAction(member: MemberWithRegFee): void {
+    if (this.session.can('VIEW_MEMBER_DETAILS')) {
+      this.viewMember(member);
+    } else if (this.session.can('EDIT_MEMBER')) {
+      this.edit(member);
+    }
+  }
+
+  getMemberStatusForBadge(member: MemberWithRegFee): string {
+    return member.status?.toLowerCase() || 'active';
+  }
+
+  // ==================== NEW MOBILE UI HELPERS ====================
+
+  /**
+   * Get initials from a name (e.g., "John Doe" -> "JD")
+   */
+  getInitials(name: string): string {
+    if (!name) return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) {
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  /**
+   * Get a consistent color index for an avatar based on the name
+   * Returns a class name that maps to system colors
+   */
+  getAvatarColor(name: string): string {
+    if (!name) return 'var(--color-primary)';
+    
+    // Use system color variables
+    const colors = [
+      'var(--color-primary)',      // Primary green
+      'var(--color-primary-dark)', // Dark green
+      'var(--color-info)',         // Blue
+      'var(--color-warning)',      // Orange/amber
+      'var(--color-success)',      // Success green
+      'var(--color-primary-light)', // Light green
+    ];
+    
+    // Simple hash based on name
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  /**
+   * Get subtext for member (role/status info)
+   */
+  getMemberSubtext(member: MemberWithRegFee): string {
+    if (member.role && member.role !== 'Member') {
+      return member.role;
+    }
+    if (member.status === 'SUSPENDED') {
+      return 'Suspended';
+    }
+    if (member.status === 'EXITED') {
+      return 'Exited';
+    }
+    if (this.isRegFeeRequired() && (!member.regFeeStatus || member.regFeeStatus === 'PENDING')) {
+      return 'Fee unpaid';
+    }
+    return 'Active';
+  }
+
+  /**
+   * Check if we should show a registration fee badge instead of amount
+   */
+  shouldShowRegFeeBadge(member: MemberWithRegFee): boolean {
+    if (!this.isRegFeeRequired()) return false;
+    return !member.regFeeStatus || member.regFeeStatus === 'PENDING' || member.regFeeStatus === 'REJECTED';
+  }
+
+  /**
+   * Format amount in compact form (e.g., 148,500 -> "148.5K")
+   */
+  formatAmount(amount: number | undefined): string {
+    if (!amount || amount === 0) return '0';
+    if (amount >= 1000000) {
+      return (amount / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+    if (amount >= 1000) {
+      return (amount / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    }
+    return amount.toLocaleString();
   }
 }

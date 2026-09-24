@@ -7,11 +7,18 @@ import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
 import { IconComponent } from '../../shared/icon.component';
 import { Resource, PageResponse } from '../../core/models/models';
+import {
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  LabelValueComponent,
+  PaginationBarComponent
+} from '../../shared/components';
 
 @Component({
   selector: 'app-resources',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, ListRowCardComponent, ListRowSecondaryDirective, ListRowFooterDirective, LabelValueComponent, PaginationBarComponent],
   templateUrl: './resources.component.html',
   styleUrl: './resources.component.css',
 })
@@ -290,5 +297,19 @@ export class ResourcesComponent implements OnInit {
     } catch {
       return dateStr;
     }
+  }
+
+  // ==================== Mobile Helpers ====================
+
+  handleMobileResourceAction(resource: Resource) {
+    if (this.session.can('DOWNLOAD_RESOURCE')) {
+      this.downloadResource(resource);
+    } else {
+      this.viewResource(resource);
+    }
+  }
+
+  getMobileResourceActionLabel(resource: Resource): string {
+    return this.session.can('DOWNLOAD_RESOURCE') ? 'Download' : 'View';
   }
 }

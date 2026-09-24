@@ -128,6 +128,83 @@
         </div>
       }
 
+      <!-- Mobile Stats Summary -->
+      <div class="mobile-loan-stats">
+        <div class="mobile-loan-stat">
+          <span class="mobile-loan-stat-label">Active</span>
+          <span class="mobile-loan-stat-value">{{ getActiveLoansCount() }}</span>
+        </div>
+        <div class="mobile-loan-stat">
+          <span class="mobile-loan-stat-label">Outstanding</span>
+          <span class="mobile-loan-stat-value">KES {{ getTotalOutstanding() | number }}</span>
+        </div>
+      </div>
+
+      <!-- Mobile Loan List -->
+      <div class="mobile-loan-list">
+        @for (loan of currentLoans; track loan.id) {
+          <div class="mobile-loan-card">
+            <div class="mobile-loan-header">
+              <div>
+                <div class="mobile-loan-product">{{ loan.loanProductName || 'Custom Loan' }}</div>
+                @if (activeTab !== 'my-loans' && loan.memberName) {
+                  <div class="mobile-loan-member">{{ loan.memberName }}</div>
+                }
+              </div>
+              <span class="badge" [ngClass]="getStatusBadgeClass(loan.status)">
+                {{ loan.status?.replace('_', ' ') | titlecase }}
+              </span>
+            </div>
+            
+            <div class="mobile-loan-balance-row">
+              <span class="mobile-loan-balance-label">Balance</span>
+              <span class="mobile-loan-balance-value" [class.cleared]="loan.balanceOutstanding === 0">
+                KES {{ loan.balanceOutstanding | number }}
+              </span>
+            </div>
+            
+            <div class="mobile-loan-terms">
+              {{ loan.termMonths }}mo · {{ loan.interestRate }}% · of KES {{ loan.totalAmount | number }}
+            </div>
+            
+            <div class="mobile-loan-footer">
+              <div class="mobile-loan-due">
+                @if (loan.nextDueDate) {
+                  Next due <strong>{{ loan.nextDueDate | date:'d MMM yyyy' }}</strong>
+                } @else {
+                  <span style="color: var(--color-text-muted);">No due date</span>
+                }
+              </div>
+              <div class="mobile-loan-actions">
+                <button class="btn btn-sm btn-ghost" (click)="viewLoanDetails(loan)" title="View Details">
+                  <app-icon name="eye"></app-icon>
+                </button>
+                @if (canApprove(loan)) {
+                  <button class="btn btn-sm btn-success" (click)="openApprovalModal(loan, 'approve')" title="Approve">
+                    <app-icon name="check"></app-icon>
+                  </button>
+                  <button class="btn btn-sm btn-danger" (click)="openApprovalModal(loan, 'reject')" title="Reject">
+                    <app-icon name="close"></app-icon>
+                  </button>
+                } @else if (activeTab === 'awaiting-disbursement' && loan.status === 'APPROVED' && session.can('DISBURSE_LOAN')) {
+                  <button class="btn btn-sm btn-primary" (click)="openDisbursementModal(loan)">Disburse</button>
+                } @else if (activeTab === 'awaiting-confirmation' && loan.hasPendingClaim && loan.payableId) {
+                  <button class="btn btn-sm btn-success" (click)="confirmPayment(loan.payableId)">Confirm</button>
+                } @else if (canPayLoan(loan)) {
+                  @if (loan.hasPendingClaim) {
+                    <span class="badge badge-warning" style="font-size: 10px;">Pending</span>
+                  } @else if (isOwnLoan(loan)) {
+                    <button class="btn btn-sm btn-primary" (click)="openLoanRepaymentPaymentModal(loan)">Pay</button>
+                  } @else if (session.can('RECORD_LOAN_REPAYMENT')) {
+                    <button class="btn btn-sm btn-outline" (click)="openRepaymentModal(loan)">Record</button>
+                  }
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
       <div class="card">
         <table class="data-table loans-table">
           <thead>
@@ -296,6 +373,53 @@
         <p>{{ activeTab === 'penalties' ? 'No loan penalties have been imposed.' : 'You have no loan penalties.' }}</p>
       </div>
     } @else {
+      <!-- Mobile Penalty List -->
+      <div class="mobile-penalty-list">
+        @for (penalty of loanPenalties; track penalty.id) {
+          <div class="mobile-penalty-card">
+            <div class="mobile-penalty-header">
+              <div class="mobile-penalty-info">
+                <div class="mobile-penalty-product">{{ penalty.loanProductName || 'Loan Penalty' }}</div>
+                @if (activeTab === 'penalties') {
+                  <div class="mobile-penalty-member">{{ penalty.memberName }} · {{ penalty.memberNo }}</div>
+                }
+                <div class="mobile-penalty-reason">{{ penalty.reason }}</div>
+              </div>
+              <span class="badge" [ngClass]="getPenaltyStatusClass(penalty.status)">
+                {{ penalty.status }}
+              </span>
+            </div>
+            
+            <div class="mobile-penalty-balance-row">
+              <span class="mobile-penalty-balance-label">Balance</span>
+              <span class="mobile-penalty-balance-value" [style.color]="penalty.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'">
+                KES {{ penalty.balance | number }}
+              </span>
+            </div>
+            
+            <div class="mobile-penalty-footer">
+              <div class="mobile-penalty-date">
+                Imposed {{ penalty.imposedAt | date:'d MMM yyyy' }}
+              </div>
+              <div class="mobile-penalty-actions">
+                @if (penalty.status === 'PAID' || penalty.status === 'WAIVED') {
+                  <span style="font-size: 11px; color: var(--color-text-muted);">{{ penalty.status === 'WAIVED' ? 'Waived' : 'Settled' }}</span>
+                } @else if (penalty.hasPendingClaim) {
+                  <span class="badge badge-warning" style="font-size: 10px;">Pending</span>
+                  @if (session.can('VERIFY_PAYMENTS') && penalty.payableId) {
+                    <button class="btn btn-sm btn-success" (click)="confirmPayment(penalty.payableId)">Confirm</button>
+                  }
+                } @else if (isOwnLoanPenalty(penalty)) {
+                  <button class="btn btn-sm btn-primary" (click)="openLoanPenaltyPaymentModal(penalty)">Pay</button>
+                } @else if (isAdmin()) {
+                  <button class="btn btn-sm btn-ghost" (click)="waivePenalty(penalty)">Waive</button>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+
       <div class="card">
         <table class="data-table">
           <thead>
@@ -1643,7 +1767,7 @@
           @if (myCreditScore.loanHistory) {
             <div style="margin-bottom: 20px;">
               <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px;">Your Loan History</div>
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+              <div class="credit-score-history-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
                 <div style="text-align: center; padding: 12px; background: var(--color-surface); border-radius: 8px;">
                   <div style="font-size: 24px; font-weight: 700; color: var(--color-text);">{{ myCreditScore.loanHistory.totalLoansCount }}</div>
                   <div style="font-size: 11px; color: var(--color-text-muted);">Total Loans</div>
@@ -1687,10 +1811,10 @@
           <!-- How Score is Calculated -->
           <div>
             <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px;">How Credit Score is Calculated</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="credit-score-calc-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
               <!-- Factors Table -->
               <div>
-                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                <table class="credit-score-table" style="width: 100%; font-size: 12px; border-collapse: collapse;">
                   <thead>
                     <tr style="background: var(--color-surface);">
                       <th style="text-align: left; padding: 8px 10px; border: 1px solid var(--color-border);">Factor</th>

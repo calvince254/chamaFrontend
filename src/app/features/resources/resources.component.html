@@ -4,105 +4,180 @@
     <p>Shared documents and files for members to download.</p>
   </div>
   @if (session.can('UPLOAD_RESOURCE')) {
-    <button class="btn btn-primary" (click)="openUploadForm()">
+    <button class="btn btn-primary desktop-only" (click)="openUploadForm()">
       <app-icon name="upload"></app-icon> Upload Resource
     </button>
   }
 </div>
 
-<!-- Search -->
-<div class="toolbar">
-  <div class="search-box">
-    <app-icon name="search"></app-icon>
-    <input type="text" placeholder="Search resources..." [(ngModel)]="search" (ngModelChange)="onSearchChange()" />
+<!-- Desktop View -->
+<div class="desktop-only">
+  <!-- Search -->
+  <div class="toolbar">
+    <div class="search-box">
+      <app-icon name="search"></app-icon>
+      <input type="text" placeholder="Search resources..." [(ngModel)]="search" (ngModelChange)="onSearchChange()" />
+    </div>
+    <div class="spacer"></div>
+    <span class="count-badge">{{ totalElements }} resources</span>
   </div>
-  <div class="spacer"></div>
-  <span class="count-badge">{{ totalElements }} resources</span>
-</div>
 
-<!-- Loading State -->
-@if (loading()) {
-  <div class="loading-state">
-    <div class="spinner"></div>
-    <p>Loading resources...</p>
-  </div>
-} @else if (resources.length === 0) {
-  <div class="empty-state-card">
-    <app-icon name="folder" class="empty-icon"></app-icon>
-    <h3>No resources yet</h3>
-    <p>Upload files for members to access and download.</p>
-    @if (session.can('UPLOAD_RESOURCE')) {
-      <button class="btn btn-primary" (click)="openUploadForm()">
-        <app-icon name="upload"></app-icon> Upload First Resource
-      </button>
-    }
-  </div>
-} @else {
-  <!-- Resources Grid - 4 items per row -->
-  <div class="resources-grid">
-    @for (r of resources; track r.id) {
-      <div class="resource-card">
-        <div class="resource-header">
-          <div class="resource-icon" [ngClass]="'icon-' + r.fileExtension?.toLowerCase()">
-            <app-icon [name]="getFileIcon(r.fileExtension)"></app-icon>
-          </div>
-          <div class="resource-title">
-            <div class="resource-name" [title]="r.name">{{ r.name }}</div>
-            <div class="resource-meta">
-              <span class="resource-ext">.{{ r.fileExtension }}</span>
-              <span class="separator">·</span>
-              <span>{{ formatFileSize(r.fileSize) }}</span>
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading resources...</p>
+    </div>
+  } @else if (resources.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="folder" class="empty-icon"></app-icon>
+      <h3>No resources yet</h3>
+      <p>Upload files for members to access and download.</p>
+      @if (session.can('UPLOAD_RESOURCE')) {
+        <button class="btn btn-primary" (click)="openUploadForm()">
+          <app-icon name="upload"></app-icon> Upload First Resource
+        </button>
+      }
+    </div>
+  } @else {
+    <!-- Resources Grid - 4 items per row -->
+    <div class="resources-grid">
+      @for (r of resources; track r.id) {
+        <div class="resource-card">
+          <div class="resource-header">
+            <div class="resource-icon" [ngClass]="'icon-' + r.fileExtension?.toLowerCase()">
+              <app-icon [name]="getFileIcon(r.fileExtension)"></app-icon>
+            </div>
+            <div class="resource-title">
+              <div class="resource-name" [title]="r.name">{{ r.name }}</div>
+              <div class="resource-meta">
+                <span class="resource-ext">.{{ r.fileExtension }}</span>
+                <span class="separator">·</span>
+                <span>{{ formatFileSize(r.fileSize) }}</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="resource-uploaded">
-          {{ r.uploadedByName || 'Unknown' }} · {{ formatDate(r.createdAt) }}
-        </div>
-        <div class="resource-downloads">
-          {{ r.downloadCount }} downloads
-        </div>
-        <div class="resource-actions">
-          @if (session.can('DOWNLOAD_RESOURCE')) {
-            <button class="action-btn" (click)="downloadResource(r)" title="Download">
-              <app-icon name="download"></app-icon>
+          <div class="resource-uploaded">
+            {{ r.uploadedByName || 'Unknown' }} · {{ formatDate(r.createdAt) }}
+          </div>
+          <div class="resource-downloads">
+            {{ r.downloadCount }} downloads
+          </div>
+          <div class="resource-actions">
+            @if (session.can('DOWNLOAD_RESOURCE')) {
+              <button class="action-btn" (click)="downloadResource(r)" title="Download">
+                <app-icon name="download"></app-icon>
+              </button>
+            }
+            <button class="action-btn" (click)="viewResource(r)" title="View Details">
+              <app-icon name="eye"></app-icon>
             </button>
-          }
-          <button class="action-btn" (click)="viewResource(r)" title="View Details">
-            <app-icon name="eye"></app-icon>
+            @if (session.can('EDIT_RESOURCE')) {
+              <button class="action-btn" (click)="openEditForm(r)" title="Edit">
+                <app-icon name="edit"></app-icon>
+              </button>
+            }
+            @if (session.can('DELETE_RESOURCE')) {
+              <button class="action-btn action-btn-danger" (click)="deleteResource(r)" title="Delete">
+                <app-icon name="trash"></app-icon>
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages > 1) {
+      <div class="pagination">
+        <div class="pagination-info">
+          Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
+            <app-icon name="chevron-left"></app-icon> Previous
           </button>
-          @if (session.can('EDIT_RESOURCE')) {
-            <button class="action-btn" (click)="openEditForm(r)" title="Edit">
-              <app-icon name="edit"></app-icon>
-            </button>
-          }
-          @if (session.can('DELETE_RESOURCE')) {
-            <button class="action-btn action-btn-danger" (click)="deleteResource(r)" title="Delete">
-              <app-icon name="trash"></app-icon>
-            </button>
-          }
+          <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+          <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+            Next <app-icon name="chevron-right"></app-icon>
+          </button>
         </div>
       </div>
     }
+  }
+</div>
+
+<!-- Mobile View -->
+<div class="mobile-only">
+  <!-- Mobile Search & Upload FAB -->
+  <div class="mobile-toolbar">
+    <div class="mobile-search-box">
+      <app-icon name="search"></app-icon>
+      <input type="text" placeholder="Search resources..." [(ngModel)]="search" (ngModelChange)="onSearchChange()" />
+    </div>
   </div>
 
-  <!-- Pagination -->
-  @if (totalPages > 1) {
-    <div class="pagination">
-      <div class="pagination-info">
-        Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
-      </div>
-      <div class="pagination-controls">
-        <button class="pagination-btn" (click)="prevPage()" [disabled]="isFirst">
-          <app-icon name="chevron-left"></app-icon> Previous
-        </button>
-        <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
-        <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
-          Next <app-icon name="chevron-right"></app-icon>
-        </button>
-      </div>
-    </div>
+  @if (session.can('UPLOAD_RESOURCE')) {
+    <button class="mobile-fab" (click)="openUploadForm()">
+      <app-icon name="upload"></app-icon>
+    </button>
   }
-}
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading resources...</p>
+    </div>
+  } @else if (resources.length === 0) {
+    <div class="empty-state-card">
+      <app-icon name="folder" class="empty-icon"></app-icon>
+      <h3>No resources yet</h3>
+      <p>Upload files for members to access and download.</p>
+    </div>
+  } @else {
+    <div class="mobile-list">
+      @for (r of resources; track r.id) {
+        <app-list-row-card
+          [title]="r.name"
+          [primaryActionLabel]="getMobileResourceActionLabel(r)"
+          (primaryAction)="handleMobileResourceAction(r)">
+          <ng-container listRowSecondary>
+            <app-label-value label="Type" [value]="'.' + r.fileExtension"></app-label-value>
+            <app-label-value label="Size" [value]="formatFileSize(r.fileSize)"></app-label-value>
+            <app-label-value label="Downloads" [value]="r.downloadCount + ''"></app-label-value>
+          </ng-container>
+          <ng-container listRowFooter>
+            <span class="mobile-row-footer-text">{{ r.uploadedByName || 'Unknown' }} · {{ formatDate(r.createdAt) }}</span>
+            <div class="mobile-row-actions">
+              <button class="icon-action-btn" (click)="viewResource(r); $event.stopPropagation()" title="View Details">
+                <app-icon name="eye"></app-icon>
+              </button>
+              @if (session.can('EDIT_RESOURCE')) {
+                <button class="icon-action-btn" (click)="openEditForm(r); $event.stopPropagation()" title="Edit">
+                  <app-icon name="edit"></app-icon>
+                </button>
+              }
+              @if (session.can('DELETE_RESOURCE')) {
+                <button class="icon-action-btn danger" (click)="deleteResource(r); $event.stopPropagation()" title="Delete">
+                  <app-icon name="trash"></app-icon>
+                </button>
+              }
+            </div>
+          </ng-container>
+        </app-list-row-card>
+      }
+    </div>
+
+    @if (totalPages > 1) {
+      <app-pagination-bar
+        [currentPage]="currentPage"
+        [total]="totalElements"
+        [pageSize]="pageSize"
+        (pageChange)="goToPage($event)">
+      </app-pagination-bar>
+    }
+  }
+</div>
 
 <!-- Upload Modal -->
 @if (showUploadForm) {

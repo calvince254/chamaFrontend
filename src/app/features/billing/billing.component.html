@@ -30,49 +30,206 @@
   </div>
 }
 
-<!-- Stats Strip -->
-<div class="stats-strip" style="margin-bottom:14px;">
-  <div class="stats-strip-item">
-    <div class="stats-strip-label">License Status</div>
-    @if (loadingLicense) {
-      <div class="stats-strip-value">Loading...</div>
-    } @else if (license) {
-      <span class="badge" [ngClass]="{
-        'badge-success': license.status === 'ACTIVE',
-        'badge-warning': license.status === 'SUSPENDED',
-        'badge-danger': license.status === 'TERMINATED',
-        'badge-neutral': license.status === 'PENDING'
-      }">{{ license.status }}</span>
-    } @else {
-      <span class="badge badge-neutral">No license</span>
-    }
-  </div>
-  <div class="stats-strip-item">
-    <div class="stats-strip-label">Current Month Fees</div>
-    <div class="stats-strip-value" style="color: var(--color-primary);">
+<!-- Desktop View -->
+<div class="desktop-only">
+  <!-- Stats Strip -->
+  <div class="stats-strip" style="margin-bottom:14px;">
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">License Status</div>
       @if (loadingLicense) {
-        Loading...
+        <div class="stats-strip-value">Loading...</div>
+      } @else if (license) {
+        <span class="badge" [ngClass]="{
+          'badge-success': license.status === 'ACTIVE',
+          'badge-warning': license.status === 'SUSPENDED',
+          'badge-danger': license.status === 'TERMINATED',
+          'badge-neutral': license.status === 'PENDING'
+        }">{{ license.status }}</span>
       } @else {
-        KES {{ (license?.uninvoicedAmount || 0) | number:'1.2-2' }}
+        <span class="badge badge-neutral">No license</span>
       }
     </div>
-  </div>
-  <div class="stats-strip-item">
-    <div class="stats-strip-label">Outstanding Balance</div>
-    <div class="stats-strip-value" [style.color]="hasOutstanding ? 'var(--color-danger)' : 'var(--color-success)'">
-      KES {{ totalOutstanding | number:'1.2-2' }}
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Current Month Fees</div>
+      <div class="stats-strip-value" style="color: var(--color-primary);">
+        @if (loadingLicense) {
+          Loading...
+        } @else {
+          KES {{ (license?.uninvoicedAmount || 0) | number:'1.2-2' }}
+        }
+      </div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Outstanding Balance</div>
+      <div class="stats-strip-value" [style.color]="hasOutstanding ? 'var(--color-danger)' : 'var(--color-success)'">
+        KES {{ totalOutstanding | number:'1.2-2' }}
+      </div>
+    </div>
+    <div class="stats-strip-item">
+      <div class="stats-strip-label">Total Invoices</div>
+      <div class="stats-strip-value">{{ totalElements }}</div>
     </div>
   </div>
-  <div class="stats-strip-item">
-    <div class="stats-strip-label">Total Invoices</div>
-    <div class="stats-strip-value">{{ totalElements }}</div>
+
+  <!-- Invoices Table -->
+  <div class="card">
+    <div class="card-header">
+      <h3>Invoices</h3>
+    </div>
+
+    @if (loading) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading invoices...</p>
+      </div>
+    } @else if (invoices.length === 0 && !hasFilters && totalElements === 0) {
+      <div class="empty-state-card" style="border:none;border-radius:0;">
+        <app-icon name="file-text"></app-icon>
+        <h3>No invoices yet</h3>
+        <p>Invoices will appear here once your billing cycle begins</p>
+      </div>
+    } @else {
+      <!-- Filter - only show when there are invoices -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label>Status:</label>
+          <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+            <option value="">All</option>
+            <option value="DRAFT">Draft</option>
+            <option value="SENT">Sent</option>
+            <option value="PARTIAL">Partial</option>
+            <option value="OVERDUE">Overdue</option>
+            <option value="PAID">Paid</option>
+            <option value="PENDING_CONFIRMATION">Pending Verification</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+        @if (statusFilter) {
+          <button class="reset-filters" (click)="statusFilter = ''; onFilterChange()">Reset filters</button>
+        }
+      </div>
+
+      @if (invoices.length === 0 && hasFilters) {
+        <div class="empty-filter-state">
+          <app-icon name="search"></app-icon>
+          <p>No invoices match your filters</p>
+          <button class="btn btn-outline btn-sm" (click)="resetFilters()">Reset filters</button>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Period</th>
+              <th>Due Date</th>
+              <th style="text-align:right;">Amount</th>
+              <th style="text-align:right;">Balance</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (invoice of invoices; track invoice.id) {
+              <tr>
+                <td>
+                  <span style="font-weight:600;">{{ invoice.invoiceNumber }}</span>
+                  @if (invoice.isAdhoc) {
+                    <span class="badge badge-neutral" style="margin-left:6px;">Ad-hoc</span>
+                  }
+                </td>
+                <td>{{ formatPeriod(invoice.periodStart, invoice.periodEnd) }}</td>
+                <td [style.color]="isOverdue(invoice.dueDate) && invoice.status !== 'PAID' ? 'var(--color-danger)' : 'inherit'">
+                  {{ invoice.dueDate | date:'MMM d, yyyy' }}
+                </td>
+                <td style="text-align:right;font-weight:600;">KES {{ invoice.totalAmount | number:'1.2-2' }}</td>
+                <td style="text-align:right;">
+                  <span [style.color]="invoice.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'" style="font-weight:600;">
+                    KES {{ invoice.balance | number:'1.2-2' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="{
+                    'badge-success': invoice.status === 'PAID',
+                    'badge-warning': invoice.status === 'PARTIAL' || invoice.status === 'SENT',
+                    'badge-danger': invoice.status === 'OVERDUE',
+                    'badge-info': invoice.status === 'PENDING_CONFIRMATION',
+                    'badge-neutral': invoice.status === 'DRAFT' || invoice.status === 'CANCELLED'
+                  }">{{ getStatusLabel(invoice.status) }}</span>
+                </td>
+                <td>
+                  <button class="btn btn-ghost btn-sm" (click)="viewInvoice(invoice)" title="View Details">
+                    <app-icon name="eye"></app-icon>
+                  </button>
+                  <button class="btn btn-ghost btn-sm" (click)="downloadInvoice(invoice)" title="Download PDF">
+                    <app-icon name="download"></app-icon>
+                  </button>
+                  @if (canConfirmPayment(invoice)) {
+                    <button class="btn btn-primary btn-sm" (click)="openPaymentModal(invoice)" title="Confirm Payment">
+                      <app-icon name="check-circle"></app-icon> Confirm Payment
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <!-- Pagination -->
+        @if (totalPages > 1) {
+          <div class="pagination">
+            <div class="pagination-info">
+              Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
+            </div>
+            <div class="pagination-controls">
+              <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
+                <app-icon name="chevron-left"></app-icon>
+              </button>
+              <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
+              <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
+                <app-icon name="chevron-right"></app-icon>
+              </button>
+            </div>
+          </div>
+        }
+      }
+    }
   </div>
+
+  <!-- Payment Instructions -->
+  @if (hasOutstanding) {
+    <div class="success-banner" style="background:var(--color-info-bg);border-color:var(--color-info);color:var(--color-info);margin-top:14px;">
+      <app-icon name="info"></app-icon>
+      <div>
+        <strong>Payment Instructions:</strong> Make your payment via M-PESA or bank transfer as instructed in your invoice, then click "Confirm Payment" to notify us. We will verify and update your account.
+      </div>
+    </div>
+  }
 </div>
 
-<!-- Invoices Table -->
-<div class="card">
-  <div class="card-header">
-    <h3>Invoices</h3>
+<!-- Mobile View -->
+<div class="mobile-only">
+  <!-- Mobile Stats -->
+  <app-stat-strip>
+    <app-stat-chip label="Status" [value]="license?.status || 'N/A'"></app-stat-chip>
+    <app-stat-chip label="Outstanding" [value]="formatMobileCurrency(totalOutstanding)"></app-stat-chip>
+    <app-stat-chip label="Invoices" [value]="totalElements + ''"></app-stat-chip>
+  </app-stat-strip>
+
+  <!-- Mobile Filter -->
+  <div class="mobile-filter-bar">
+    <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+      <option value="">All Status</option>
+      <option value="DRAFT">Draft</option>
+      <option value="SENT">Sent</option>
+      <option value="PARTIAL">Partial</option>
+      <option value="OVERDUE">Overdue</option>
+      <option value="PAID">Paid</option>
+      <option value="PENDING_CONFIRMATION">Pending</option>
+      <option value="CANCELLED">Cancelled</option>
+    </select>
+    @if (statusFilter) {
+      <button class="mobile-reset-btn" (click)="statusFilter = ''; onFilterChange()">Reset</button>
+    }
   </div>
 
   @if (loading) {
@@ -80,128 +237,59 @@
       <div class="spinner"></div>
       <p>Loading invoices...</p>
     </div>
-  } @else if (invoices.length === 0 && !hasFilters && totalElements === 0) {
-    <div class="empty-state-card" style="border:none;border-radius:0;">
+  } @else if (invoices.length === 0) {
+    <div class="empty-state-card">
       <app-icon name="file-text"></app-icon>
       <h3>No invoices yet</h3>
       <p>Invoices will appear here once your billing cycle begins</p>
     </div>
   } @else {
-    <!-- Filter - only show when there are invoices -->
-    <div class="filter-bar">
-      <div class="filter-group">
-        <label>Status:</label>
-        <select [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
-          <option value="">All</option>
-          <option value="DRAFT">Draft</option>
-          <option value="SENT">Sent</option>
-          <option value="PARTIAL">Partial</option>
-          <option value="OVERDUE">Overdue</option>
-          <option value="PAID">Paid</option>
-          <option value="PENDING_CONFIRMATION">Pending Verification</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
-      </div>
-      @if (statusFilter) {
-        <button class="reset-filters" (click)="statusFilter = ''; onFilterChange()">Reset filters</button>
+    <div class="mobile-list">
+      @for (invoice of invoices; track invoice.id) {
+        <app-list-row-card
+          [title]="invoice.invoiceNumber"
+          [primaryActionLabel]="getMobileInvoiceActionLabel(invoice)"
+          (primaryAction)="handleMobileInvoiceAction(invoice)">
+          <ng-container listRowSecondary>
+            <app-label-value label="Amount" [value]="formatMobileCurrency(invoice.totalAmount)"></app-label-value>
+            <app-label-value label="Balance" [value]="formatMobileCurrency(invoice.balance)"></app-label-value>
+            <app-status-badge [status]="invoice.status" [label]="getStatusLabel(invoice.status)"></app-status-badge>
+          </ng-container>
+          <ng-container listRowFooter>
+            <span class="mobile-row-footer-text">{{ formatPeriod(invoice.periodStart, invoice.periodEnd) }}</span>
+            <div class="mobile-row-actions">
+              <button class="icon-action-btn" (click)="downloadInvoice(invoice); $event.stopPropagation()" title="Download">
+                <app-icon name="download"></app-icon>
+              </button>
+              @if (canConfirmPayment(invoice)) {
+                <button class="icon-action-btn primary" (click)="openPaymentModal(invoice); $event.stopPropagation()" title="Confirm Payment">
+                  <app-icon name="check-circle"></app-icon>
+                </button>
+              }
+            </div>
+          </ng-container>
+        </app-list-row-card>
       }
     </div>
 
-    @if (invoices.length === 0 && hasFilters) {
-      <div class="empty-filter-state">
-        <app-icon name="search"></app-icon>
-        <p>No invoices match your filters</p>
-        <button class="btn btn-outline btn-sm" (click)="resetFilters()">Reset filters</button>
-      </div>
-    } @else {
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Invoice #</th>
-            <th>Period</th>
-            <th>Due Date</th>
-            <th style="text-align:right;">Amount</th>
-            <th style="text-align:right;">Balance</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (invoice of invoices; track invoice.id) {
-            <tr>
-              <td>
-                <span style="font-weight:600;">{{ invoice.invoiceNumber }}</span>
-                @if (invoice.isAdhoc) {
-                  <span class="badge badge-neutral" style="margin-left:6px;">Ad-hoc</span>
-                }
-              </td>
-              <td>{{ formatPeriod(invoice.periodStart, invoice.periodEnd) }}</td>
-              <td [style.color]="isOverdue(invoice.dueDate) && invoice.status !== 'PAID' ? 'var(--color-danger)' : 'inherit'">
-                {{ invoice.dueDate | date:'MMM d, yyyy' }}
-              </td>
-              <td style="text-align:right;font-weight:600;">KES {{ invoice.totalAmount | number:'1.2-2' }}</td>
-              <td style="text-align:right;">
-                <span [style.color]="invoice.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'" style="font-weight:600;">
-                  KES {{ invoice.balance | number:'1.2-2' }}
-                </span>
-              </td>
-              <td>
-                <span class="badge" [ngClass]="{
-                  'badge-success': invoice.status === 'PAID',
-                  'badge-warning': invoice.status === 'PARTIAL' || invoice.status === 'SENT',
-                  'badge-danger': invoice.status === 'OVERDUE',
-                  'badge-info': invoice.status === 'PENDING_CONFIRMATION',
-                  'badge-neutral': invoice.status === 'DRAFT' || invoice.status === 'CANCELLED'
-                }">{{ getStatusLabel(invoice.status) }}</span>
-              </td>
-              <td>
-                <button class="btn btn-ghost btn-sm" (click)="viewInvoice(invoice)" title="View Details">
-                  <app-icon name="eye"></app-icon>
-                </button>
-                <button class="btn btn-ghost btn-sm" (click)="downloadInvoice(invoice)" title="Download PDF">
-                  <app-icon name="download"></app-icon>
-                </button>
-                @if (canConfirmPayment(invoice)) {
-                  <button class="btn btn-primary btn-sm" (click)="openPaymentModal(invoice)" title="Confirm Payment">
-                    <app-icon name="check-circle"></app-icon> Confirm Payment
-                  </button>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-
-      <!-- Pagination -->
-      @if (totalPages > 1) {
-        <div class="pagination">
-          <div class="pagination-info">
-            Showing {{ currentPage * pageSize + 1 }} - {{ Math.min((currentPage + 1) * pageSize, totalElements) }} of {{ totalElements }}
-          </div>
-          <div class="pagination-controls">
-            <button class="pagination-btn" (click)="previousPage()" [disabled]="isFirst">
-              <app-icon name="chevron-left"></app-icon>
-            </button>
-            <span class="pagination-page-info">Page {{ currentPage + 1 }} of {{ totalPages }}</span>
-            <button class="pagination-btn" (click)="nextPage()" [disabled]="isLast">
-              <app-icon name="chevron-right"></app-icon>
-            </button>
-          </div>
-        </div>
-      }
+    @if (totalPages > 1) {
+      <app-pagination-bar
+        [currentPage]="currentPage"
+        [total]="totalElements"
+        [pageSize]="pageSize"
+        (pageChange)="goToPage($event)">
+      </app-pagination-bar>
     }
   }
-</div>
 
-<!-- Payment Instructions -->
-@if (hasOutstanding) {
-  <div class="success-banner" style="background:var(--color-info-bg);border-color:var(--color-info);color:var(--color-info);margin-top:14px;">
-    <app-icon name="info"></app-icon>
-    <div>
-      <strong>Payment Instructions:</strong> Make your payment via M-PESA or bank transfer as instructed in your invoice, then click "Confirm Payment" to notify us. We will verify and update your account.
+  <!-- Mobile Payment Instructions -->
+  @if (hasOutstanding) {
+    <div class="mobile-info-banner">
+      <app-icon name="info"></app-icon>
+      <span>Make payment via M-PESA, then click "Confirm Payment" to notify us.</span>
     </div>
-  </div>
-}
+  }
+</div>
 
 <!-- Invoice Details Modal -->
 @if (selectedInvoice) {

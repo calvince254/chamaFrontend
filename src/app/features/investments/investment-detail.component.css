@@ -1,1 +1,321 @@
 /* Investment Detail component styles */
+
+/* ==========================================================================
+   Mobile Styles (< 768px)
+   ========================================================================== */
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  /* Mobile Detail Header */
+  .mobile-detail-header {
+    padding: 12px 16px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .mobile-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    padding: 0;
+    margin-bottom: 10px;
+    cursor: pointer;
+  }
+
+  .mobile-detail-title-section {
+    padding-left: 4px;
+    border-left: 3px solid var(--color-primary);
+  }
+
+  .mobile-detail-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0 0 8px 0;
+  }
+
+  .mobile-detail-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Mobile Detail Content */
+  .mobile-detail-content {
+    padding: 12px 16px;
+  }
+
+  /* Mobile Section */
+  .mobile-section {
+    margin-bottom: 20px;
+  }
+
+  .mobile-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+  }
+
+  /* Mobile Financial Grid - 2x2 */
+  .mobile-financial-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .mobile-financial-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .mobile-financial-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+
+  .mobile-financial-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .mobile-financial-value.positive {
+    color: var(--color-success);
+  }
+
+  .mobile-financial-value.negative {
+    color: var(--color-danger);
+  }
+
+  .mobile-financial-sub {
+    font-size: 9px;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+
+  /* Mobile Alert Banner */
+  .mobile-alert-banner {
+    padding: 14px;
+    border-radius: var(--radius-lg);
+    margin-bottom: 20px;
+  }
+
+  .mobile-alert-banner.danger {
+    background: #fef2f2;
+    border-left: 4px solid var(--color-danger);
+  }
+
+  .mobile-alert-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-danger);
+    margin-bottom: 4px;
+  }
+
+  .mobile-alert-banner p {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 0 0 4px 0;
+  }
+
+  .mobile-alert-banner strong {
+    font-size: 12px;
+    color: var(--color-text);
+  }
+
+  /* Mobile Details Card */
+  .mobile-details-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .mobile-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .mobile-detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .mobile-detail-row.column {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .mobile-detail-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .mobile-detail-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text);
+    text-align: right;
+  }
+
+  .mobile-detail-row.column .mobile-detail-value {
+    text-align: left;
+  }
+
+  /* Mobile Chart Container */
+  .mobile-chart-container {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  /* Mobile History List */
+  .mobile-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mobile-history-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+  }
+
+  .mobile-history-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .mobile-history-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .mobile-history-change {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .mobile-history-change.positive {
+    color: var(--color-success);
+  }
+
+  .mobile-history-change.negative {
+    color: var(--color-danger);
+  }
+
+  .mobile-history-initial {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    background: #f3f4f6;
+    color: #4b5563;
+    border-radius: 4px;
+  }
+
+  .mobile-history-date {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .mobile-history-notes {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+  }
+
+  /* Mobile Loading State */
+  .mobile-loading-state {
+    display: flex;
+    justify-content: center;
+    padding: 40px;
+  }
+
+  /* Mobile Empty Card */
+  .mobile-empty-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 30px;
+    text-align: center;
+  }
+
+  .mobile-empty-card p {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  /* Mobile Actions Bar */
+  .mobile-actions-bar {
+    display: flex;
+    gap: 10px;
+    padding: 16px 0;
+    margin-top: 10px;
+  }
+
+  .mobile-action-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+  }
+
+  .mobile-action-btn.primary {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .mobile-action-btn.secondary {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}

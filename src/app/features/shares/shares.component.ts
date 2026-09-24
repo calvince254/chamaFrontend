@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, signal, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -11,11 +11,26 @@ import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
 import { ToastService } from '../../shared/toast.service';
+import {
+  StatStripComponent,
+  StatChipComponent,
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  PaginationBarComponent,
+  LabelValueComponent
+} from '../../shared/components';
 
 @Component({
   selector: 'app-shares',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, IconComponent],
+  imports: [
+    CommonModule, RouterModule, FormsModule, IconComponent,
+    StatStripComponent, StatChipComponent, StatusBadgeComponent, ListRowCardComponent,
+    ListRowSecondaryDirective, ListRowFooterDirective, PaginationBarComponent,
+    LabelValueComponent
+  ],
   templateUrl: './shares.component.html',
   styleUrl: './shares.component.css',
 })
@@ -81,12 +96,13 @@ export class SharesComponent implements OnInit {
 
   private confirmDialog = inject(ConfirmDialogService);
   private toast = inject(ToastService);
+  private cdr = inject(ChangeDetectorRef);
 
   constructor(private api: ApiService, public session: SessionService) {}
 
   ngOnInit() {
-    // Only load data if user has permission to view shares
-    if (this.session.can('VIEW_SHARES') || this.session.can('VIEW_SHARE_CALCULATION')) {
+    // Always attempt to load if user is logged in - let backend handle permissions
+    if (this.session.isLoggedIn()) {
       this.loadShareCalculation();
     }
   }
@@ -113,6 +129,7 @@ export class SharesComponent implements OnInit {
         this.loading.set(false);
         // Load paginated member shares
         this.loadMemberSharesPaginated();
+        this.cdr.detectChanges();
       },
       error: (err) => {
         this.loading.set(false);
@@ -122,6 +139,7 @@ export class SharesComponent implements OnInit {
           this.error.set('Failed to load share calculation.');
           console.error('Failed to load share calculation:', err);
         }
+        this.cdr.detectChanges();
       }
     });
   }
@@ -134,9 +152,11 @@ export class SharesComponent implements OnInit {
         this.shareTotalPages = response.totalPages;
         this.shareIsFirst = response.first;
         this.shareIsLast = response.last;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Failed to load paginated member shares:', err);
+        this.cdr.detectChanges();
       }
     });
   }
@@ -640,6 +660,35 @@ export class SharesComponent implements OnInit {
       case 'PAID': return 'badge-success';
       case 'CANCELLED': return 'badge-danger';
       default: return 'badge-neutral';
+    }
+  }
+
+  // ==================== MOBILE HELPERS ====================
+
+  handleMobileShareAction(share: MemberShare): void {
+    // Could navigate to member detail or show info modal
+  }
+
+  handleMobilePayoutAction(payout: Payout): void {
+    this.openPayoutDetail(payout);
+  }
+
+  getMobilePayoutActionLabel(payout: Payout): string {
+    return 'View';
+  }
+
+  isMobilePayoutActionDisabled(payout: Payout): boolean {
+    return false;
+  }
+
+  getPayoutStatusForBadge(status: string): string {
+    switch (status) {
+      case 'DRAFT': return 'draft';
+      case 'PENDING': return 'pending';
+      case 'APPROVED': return 'approved';
+      case 'COMPLETED': return 'paid';
+      case 'CANCELLED': return 'cancelled';
+      default: return status.toLowerCase();
     }
   }
 }

@@ -1,8 +1,8 @@
 @if (loading) {
   <div class="loading-state"><div class="spinner"></div><p>Loading investment...</p></div>
 } @else if (investment) {
-  <!-- Header -->
-  <div class="page-header">
+  <!-- Desktop Header -->
+  <div class="page-header desktop-only">
     <div style="display:flex;align-items:center;gap:12px;">
       <button type="button" class="btn btn-ghost" onclick="console.log('back')" (click)="goBack()" title="Back to investments" style="padding:6px 10px;">
         <app-icon name="arrow-left"></app-icon> Back
@@ -51,8 +51,182 @@
     </div>
   </div>
 
-  <!-- Dashboard Grid -->
-  <div class="dashboard-grid">
+  <!-- Mobile Header -->
+  <div class="mobile-only mobile-detail-header">
+    <button class="mobile-back-btn" (click)="goBack()">
+      <app-icon name="arrow-left"></app-icon> Back
+    </button>
+    <div class="mobile-detail-title-section">
+      <h1 class="mobile-detail-title">{{ investment.name }}</h1>
+      <div class="mobile-detail-badges">
+        <span class="badge badge-neutral">{{ getCategoryLabel(investment.category) }}</span>
+        <span class="badge" [ngClass]="getStatusClass(investment.status)">{{ investment.status }}</span>
+        <span class="badge" [ngClass]="getApprovalClass(investment.approvalStatus)">{{ investment.approvalStatus }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Content -->
+  <div class="mobile-only mobile-detail-content">
+    <!-- Financial Overview -->
+    <section class="mobile-section">
+      <h2 class="mobile-section-title">FINANCIAL OVERVIEW</h2>
+      <div class="mobile-financial-grid">
+        <div class="mobile-financial-card">
+          <span class="mobile-financial-label">{{ investment.hasPartialSales ? 'REMAINING PRINCIPAL' : 'TOTAL INVESTED' }}</span>
+          <span class="mobile-financial-value">KES {{ investment.amountInvested | number:'1.0-0' }}</span>
+          @if (investment.hasPartialSales && investment.totalPrincipalSold) {
+            <span class="mobile-financial-sub">Withdrawn: {{ investment.totalPrincipalSold | number }}</span>
+          }
+        </div>
+        <div class="mobile-financial-card">
+          <span class="mobile-financial-label">CURRENT VALUE</span>
+          <span class="mobile-financial-value">KES {{ investment.currentValue | number:'1.0-0' }}</span>
+          @if (investment.hasPartialSales) {
+            <span class="mobile-financial-sub">After withdrawals</span>
+          }
+        </div>
+        <div class="mobile-financial-card">
+          <span class="mobile-financial-label">UNREALIZED G/L</span>
+          <span class="mobile-financial-value" [class.positive]="(investment.unrealizedGain || investment.netGain || 0) >= 0" [class.negative]="(investment.unrealizedGain || investment.netGain || 0) < 0">
+            {{ (investment.unrealizedGain || investment.netGain || 0) >= 0 ? '+' : '' }}KES {{ investment.unrealizedGain || investment.netGain | number:'1.0-0' }}
+          </span>
+          <span class="mobile-financial-sub">Paper, not withdrawn</span>
+        </div>
+        <div class="mobile-financial-card">
+          <span class="mobile-financial-label">RETURN %</span>
+          <span class="mobile-financial-value" [class.positive]="(investment.returnPercentage || 0) >= 0" [class.negative]="(investment.returnPercentage || 0) < 0">
+            {{ (investment.returnPercentage || 0) >= 0 ? '+' : '' }}{{ investment.returnPercentage | number:'1.1-1' }}%
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Written Off Banner -->
+    @if (investment.status === 'WRITTEN_OFF') {
+      <div class="mobile-alert-banner danger">
+        <div class="mobile-alert-title">⚠ WRITTEN OFF</div>
+        <p>This investment was written off.</p>
+        <strong>Loss: KES {{ investment.amountInvested | number }}</strong>
+      </div>
+    }
+
+    <!-- Details Section -->
+    <section class="mobile-section">
+      <h2 class="mobile-section-title">DETAILS</h2>
+      <div class="mobile-details-card">
+        <div class="mobile-detail-row">
+          <span class="mobile-detail-label">Category</span>
+          <span class="mobile-detail-value">{{ getCategoryLabel(investment.category) }}</span>
+        </div>
+        <div class="mobile-detail-row">
+          <span class="mobile-detail-label">Date invested</span>
+          <span class="mobile-detail-value">{{ investment.dateInvested | date:'d MMM yyyy' }}</span>
+        </div>
+        <div class="mobile-detail-row">
+          <span class="mobile-detail-label">Created by</span>
+          <span class="mobile-detail-value">{{ investment.createdByMemberName || 'Unknown' }}</span>
+        </div>
+        @if (investment.approvedBy) {
+          <div class="mobile-detail-row">
+            <span class="mobile-detail-label">Approved by</span>
+            <span class="mobile-detail-value">{{ investment.approvedBy }}</span>
+          </div>
+        }
+        @if (investment.description) {
+          <div class="mobile-detail-row column">
+            <span class="mobile-detail-label">Description</span>
+            <span class="mobile-detail-value">{{ investment.description }}</span>
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- Value History Chart -->
+    <section class="mobile-section">
+      <h2 class="mobile-section-title">VALUE HISTORY</h2>
+      @if (loadingHistory) {
+        <div class="mobile-loading-state">
+          <div class="spinner"></div>
+        </div>
+      } @else if (valueHistory.length < 2) {
+        <div class="mobile-empty-card">
+          <p>Not enough data for chart</p>
+        </div>
+      } @else {
+        <div class="mobile-chart-container">
+          <canvas #chartCanvas style="width:100%;height:200px;"></canvas>
+        </div>
+      }
+    </section>
+
+    <!-- Value History Log -->
+    @if (valueHistory.length > 0) {
+      <section class="mobile-section">
+        <h2 class="mobile-section-title">VALUE HISTORY LOG</h2>
+        <div class="mobile-history-list">
+          @for (h of valueHistory; track h.id) {
+            <div class="mobile-history-card">
+              <div class="mobile-history-main">
+                <span class="mobile-history-value">KES {{ h.recordedValue | number:'1.0-0' }}</span>
+                @if (h.previousValue != null) {
+                  <span class="mobile-history-change" [class.positive]="(h.valueChange || 0) >= 0" [class.negative]="(h.valueChange || 0) < 0">
+                    {{ (h.valueChange || 0) >= 0 ? '+' : '' }}{{ h.valueChange | number:'1.0-0' }} ({{ h.previousValue ? (((h.valueChange || 0) / h.previousValue) * 100) : 0 | number:'1.0-1' }}%)
+                  </span>
+                } @else {
+                  <span class="mobile-history-initial">INITIAL</span>
+                }
+              </div>
+              <div class="mobile-history-date">{{ h.valueDate | date:'d MMM yyyy, HH:mm' }}</div>
+              @if (h.notes) {
+                <div class="mobile-history-notes">{{ h.notes }}</div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Sale History -->
+    @if (saleHistory.length > 0) {
+      <section class="mobile-section">
+        <h2 class="mobile-section-title">SALE HISTORY</h2>
+        <div class="mobile-history-list">
+          @for (s of saleHistory; track s.id) {
+            <div class="mobile-history-card">
+              <div class="mobile-history-main">
+                <span class="mobile-history-value">{{ s.unitsSold | number:'1.0-4' }} units — KES {{ s.totalSaleAmount | number:'1.0-0' }}</span>
+                <span class="mobile-history-change" [class.positive]="s.realizedGain >= 0" [class.negative]="s.realizedGain < 0">
+                  {{ s.realizedGain >= 0 ? '+' : '' }}KES {{ s.realizedGain | number:'1.0-0' }} ({{ s.gainPercentage | number:'1.0-0' }}%)
+                </span>
+              </div>
+              <div class="mobile-history-date">{{ s.saleDate | date:'d MMM yyyy' }} · Cost basis KES {{ s.principalPortion | number:'1.0-0' }}</div>
+              <div class="mobile-history-notes">Sold by {{ s.soldBy || '—' }}</div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Mobile Actions -->
+    @if (investment.status === 'ACTIVE' && investment.approvalStatus === 'APPROVED') {
+      <div class="mobile-actions-bar">
+        @if (session.can('UPDATE_INVESTMENT_VALUE')) {
+          <button class="mobile-action-btn secondary" (click)="openUpdateValueModal()">
+            <app-icon name="edit-2"></app-icon> Update Value
+          </button>
+        }
+        @if (session.can('SELL_INVESTMENT')) {
+          <button class="mobile-action-btn primary" (click)="openSellModal()">
+            <app-icon name="dollar-sign"></app-icon> {{ actionTerm }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Desktop Dashboard Grid -->
+  <div class="dashboard-grid desktop-only">
     <!-- Left Column: Stats + Chart -->
     <div class="dashboard-main">
       <!-- Financial Overview -->

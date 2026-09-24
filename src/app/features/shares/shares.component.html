@@ -1,4 +1,4 @@
-<div class="page-header">
+<div class="page-header desktop-only">
   <div>
     <h1>Member Shares</h1>
     <p>Ownership distribution based on contributions and profit pool value.</p>
@@ -8,8 +8,21 @@
   </button>
 </div>
 
+<!-- Mobile Page Header -->
+<div class="mobile-only mobile-page-header">
+  <div class="mobile-header-top">
+    <div>
+      <h1 class="mobile-page-title">Member Shares</h1>
+      <p class="mobile-page-subtitle">Ownership & payouts</p>
+    </div>
+    <button class="mobile-icon-btn" (click)="refresh()" [disabled]="loading() || loadingPayouts()">
+      <app-icon name="refresh"></app-icon>
+    </button>
+  </div>
+</div>
+
 <!-- Tabs -->
-<div class="tabs">
+<div class="tabs desktop-only">
   <button class="tab" [class.active]="activeTab === 'ownership'" (click)="onTabChange('ownership')">
     Member Ownership
   </button>
@@ -22,6 +35,8 @@
 
 <!-- ==================== MEMBER OWNERSHIP TAB ==================== -->
 @if (activeTab === 'ownership') {
+  <!-- Desktop View -->
+  <div class="desktop-only">
   @if (loading()) {
     <div class="loading-state">
       <div class="spinner"></div>
@@ -170,11 +185,12 @@
       }
     </div>
   }
+  </div>
 }
 
 <!-- ==================== PAYOUTS TAB ==================== -->
 @if (activeTab === 'payouts') {
-  <div class="payouts-container">
+  <div class="payouts-container desktop-only">
     <!-- Liquidity Breakdown -->
     @if (loadingLiquidity()) {
       <div class="loading-inline">
@@ -311,6 +327,179 @@
     </div>
   </div>
 }
+
+<!-- ==================== MOBILE SHARES VIEW ==================== -->
+<div class="mobile-only mobile-shares">
+  <!-- Mobile Tab Pills -->
+  <div class="mobile-tab-pills">
+    <button class="mobile-tab-pill" [class.active]="activeTab === 'ownership'" (click)="onTabChange('ownership')">
+      Ownership
+    </button>
+    @if (session.can('VIEW_PAYOUTS')) {
+      <button class="mobile-tab-pill" [class.active]="activeTab === 'payouts'" (click)="onTabChange('payouts')">
+        Payouts
+      </button>
+    }
+  </div>
+
+  <!-- Mobile Ownership View -->
+  @if (activeTab === 'ownership') {
+    @if (loading()) {
+      <div class="mobile-loading-state">
+        <div class="spinner"></div>
+        <p>Calculating shares...</p>
+      </div>
+    } @else if (error()) {
+      <div class="mobile-empty-state">
+        <app-icon name="alert-circle"></app-icon>
+        <span>{{ error() }}</span>
+      </div>
+    } @else if (!isConfigured) {
+      <div class="mobile-empty-state">
+        <app-icon name="pie-chart"></app-icon>
+        <span>Share calculation not configured</span>
+      </div>
+    } @else if (calculation) {
+      <!-- Mobile Pool Stats -->
+      <app-stat-strip>
+        <app-stat-chip label="Total Pool" [value]="totalPoolValue" [isCurrency]="true" [highlight]="totalPoolValue >= 0" [danger]="totalPoolValue < 0"></app-stat-chip>
+        <app-stat-chip label="Contributions" [value]="totalShareContributions" [isCurrency]="true"></app-stat-chip>
+      </app-stat-strip>
+
+      <!-- Mobile Info Button -->
+      <button class="mobile-info-btn" (click)="showInfoModal = true">
+        <app-icon name="info"></app-icon>
+        <span>How shares are calculated</span>
+      </button>
+
+      <!-- Mobile Member Shares List -->
+      @if (paginatedMemberShares.length === 0) {
+        <div class="mobile-empty-state">
+          <app-icon name="users"></app-icon>
+          <span>No member shares yet</span>
+        </div>
+      } @else {
+        <div class="mobile-list">
+          @for (share of paginatedMemberShares; track share.memberId) {
+            <div class="mobile-share-card">
+              <div class="mobile-share-header">
+                <span class="mobile-share-name">{{ share.memberName }}</span>
+                <span class="mobile-share-pct-badge">{{ share.sharePercentage | number:'1.2-2' }}%</span>
+              </div>
+              <div class="mobile-share-row">
+                <span class="mobile-share-label">Contributed</span>
+                <span class="mobile-share-amount">KES {{ share.contributionAmount | number }}</span>
+              </div>
+              <div class="mobile-share-row mobile-share-value-row">
+                <span class="mobile-share-label">Est. Value</span>
+                <span class="mobile-share-value" [class.negative]="share.memberValue < 0">
+                  KES {{ share.memberValue | number:'1.0-0' }}
+                </span>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Mobile Pagination -->
+        @if (shareTotalPages > 1) {
+          <app-pagination-bar
+            [currentPage]="sharePage"
+            [total]="shareTotalElements"
+            [pageSize]="sharePageSize"
+            (pageChange)="shareGoToPage($event)">
+          </app-pagination-bar>
+        }
+      }
+    }
+  }
+
+  <!-- Mobile Payouts View -->
+  @if (activeTab === 'payouts') {
+    @if (loadingLiquidity()) {
+      <div class="mobile-loading-state">
+        <div class="spinner"></div>
+        <p>Loading liquidity...</p>
+      </div>
+    } @else if (liquidity) {
+      <!-- Mobile Liquidity Stats -->
+      <app-stat-strip>
+        <app-stat-chip label="Liquid" [value]="liquidity.liquidCash" [isCurrency]="true" [success]="true"></app-stat-chip>
+        <app-stat-chip label="Locked" [value]="liquidity.lockedInInvestments" [isCurrency]="true"></app-stat-chip>
+        <app-stat-chip label="Loans Out" [value]="liquidity.outstandingLoans" [isCurrency]="true"></app-stat-chip>
+      </app-stat-strip>
+
+      @if (liquidity.hasActivePayout) {
+        <div class="mobile-warning-banner">
+          <app-icon name="alert-triangle"></app-icon>
+          <span>Active payout in progress</span>
+        </div>
+      }
+
+      <!-- Mobile New Payout Button -->
+      @if (session.can('CREATE_PAYOUT') && !liquidity.hasActivePayout) {
+        <button class="mobile-action-btn" (click)="openNewPayoutModal()">
+          <app-icon name="plus"></app-icon>
+          <span>New Payout</span>
+        </button>
+      }
+    }
+
+    <!-- Mobile Filter -->
+    <div class="mobile-filter-row">
+      <select class="mobile-select" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+        <option value="ALL">All statuses</option>
+        <option value="DRAFT">Draft</option>
+        <option value="PENDING">Pending</option>
+        <option value="APPROVED">Approved</option>
+        <option value="COMPLETED">Completed</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+    </div>
+
+    <!-- Mobile Payouts List -->
+    @if (loadingPayouts()) {
+      <div class="mobile-loading-state">
+        <div class="spinner"></div>
+        <p>Loading payouts...</p>
+      </div>
+    } @else if (payouts.length === 0) {
+      <div class="mobile-empty-state">
+        <app-icon name="file-text"></app-icon>
+        <span>No payouts yet</span>
+      </div>
+    } @else {
+      <div class="mobile-list">
+        @for (payout of payouts; track payout.id) {
+          <app-list-row-card
+            [title]="getPayoutTypeLabel(payout.payoutType)"
+            [primaryActionLabel]="getMobilePayoutActionLabel(payout)"
+            [primaryActionDisabled]="isMobilePayoutActionDisabled(payout)"
+            (primaryAction)="handleMobilePayoutAction(payout)">
+            <ng-container listRowSecondary>
+              {{ payout.createdAt | date:'d MMM y' }} · {{ payout.paidCount }}/{{ payout.memberCount }} paid
+            </ng-container>
+            <ng-container listRowFooter>
+              <div class="mobile-payout-footer">
+                <app-status-badge [status]="getPayoutStatusForBadge(payout.status)"></app-status-badge>
+                <span class="mobile-payout-amount">KES {{ payout.payoutAmount | number }}</span>
+              </div>
+            </ng-container>
+          </app-list-row-card>
+        }
+      </div>
+
+      <!-- Mobile Pagination -->
+      @if (totalPages > 1) {
+        <app-pagination-bar
+          [currentPage]="currentPage"
+          [total]="totalElements"
+          [pageSize]="pageSize"
+          (pageChange)="goToPage($event)">
+        </app-pagination-bar>
+      }
+    }
+  }
+</div>
 
 <!-- ==================== MODALS ==================== -->
 
@@ -640,8 +829,8 @@
         <button class="icon-btn" (click)="closePayoutDetailModal()"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
-        <!-- Payout Info -->
-        <div class="payout-detail-info">
+        <!-- Desktop: Payout Info -->
+        <div class="payout-detail-info desktop-only-block">
           <div class="detail-row">
             <span class="detail-label">Type</span>
             <span class="detail-value">{{ getPayoutTypeLabel(selectedPayout.payoutType) }}</span>
@@ -674,12 +863,57 @@
           }
         </div>
 
-        <!-- Progress -->
-        <div class="payout-progress">
+        <!-- Mobile: Payout Info Grid -->
+        <div class="mobile-payout-info mobile-only-block">
+          <div class="mobile-payout-grid">
+            <div class="mobile-payout-item">
+              <span class="mobile-payout-label">TYPE</span>
+              <span class="mobile-payout-value">{{ getPayoutTypeLabel(selectedPayout.payoutType) }}</span>
+            </div>
+            <div class="mobile-payout-item">
+              <span class="mobile-payout-label">AMOUNT</span>
+              <span class="mobile-payout-value mobile-payout-amount">KES {{ selectedPayout.payoutAmount | number }}</span>
+            </div>
+            <div class="mobile-payout-item">
+              <span class="mobile-payout-label">INITIATED BY</span>
+              <span class="mobile-payout-value">{{ selectedPayout.initiatedByName || '-' }}</span>
+            </div>
+            @if (selectedPayout.approvedByName) {
+              <div class="mobile-payout-item">
+                <span class="mobile-payout-label">APPROVED BY</span>
+                <span class="mobile-payout-value">{{ selectedPayout.approvedByName }}</span>
+              </div>
+            }
+          </div>
+          @if (selectedPayout.description) {
+            <div class="mobile-payout-description">
+              <span class="mobile-payout-label">DESCRIPTION</span>
+              <span class="mobile-payout-value">{{ selectedPayout.description }}</span>
+            </div>
+          }
+          @if (selectedPayout.cancellationReason) {
+            <div class="mobile-payout-description">
+              <span class="mobile-payout-label">CANCELLATION REASON</span>
+              <span class="mobile-payout-value">{{ selectedPayout.cancellationReason }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Progress - shared -->
+        <div class="payout-progress desktop-only-block">
           <span>{{ selectedPayout.paidCount }} of {{ selectedPayout.memberCount }} members paid</span>
           <div class="progress-bar">
             <div class="progress-fill" [style.width.%]="(selectedPayout.paidCount / selectedPayout.memberCount) * 100"></div>
           </div>
+        </div>
+
+        <!-- Mobile: Progress Banner -->
+        <div class="mobile-payout-progress mobile-only-block" 
+             [class.complete]="selectedPayout.paidCount === selectedPayout.memberCount">
+          @if (selectedPayout.paidCount === selectedPayout.memberCount) {
+            <app-icon name="check"></app-icon>
+          }
+          <span>{{ selectedPayout.paidCount }} of {{ selectedPayout.memberCount }} members paid</span>
         </div>
 
         <!-- Actions -->
@@ -691,8 +925,8 @@
           </div>
         }
 
-        <!-- Member Payouts Table -->
-        <div class="payout-members-section">
+        <!-- Desktop: Member Payouts Table -->
+        <div class="payout-members-section desktop-only-block">
           <h4>Member Payments</h4>
           <table class="data-table">
             <thead>
@@ -729,6 +963,41 @@
               }
             </tbody>
           </table>
+        </div>
+
+        <!-- Mobile: Member Payouts Cards -->
+        <div class="mobile-member-payments mobile-only-block">
+          <h4>Member Payments</h4>
+          <div class="mobile-payment-list">
+            @for (mp of selectedPayout.memberPayouts; track mp.id) {
+              <div class="mobile-payment-card" [class.paid]="mp.status === 'PAID'">
+                <div class="mobile-payment-header">
+                  <span class="mobile-payment-name">{{ mp.memberName }}</span>
+                  <span class="mobile-payment-pct">{{ mp.sharePercentage | number:'1.0-0' }}%</span>
+                </div>
+                <div class="mobile-payment-body">
+                  <span class="mobile-payment-amount">KES {{ mp.payoutAmount | number }}</span>
+                  @if (mp.status === 'PAID') {
+                    <span class="mobile-payment-badge paid">
+                      <app-icon name="check"></app-icon> PAID
+                    </span>
+                  } @else {
+                    <span class="mobile-payment-badge pending">PENDING</span>
+                  }
+                </div>
+                @if (mp.status === 'PENDING' && selectedPayout.status === 'APPROVED' && session.can('PROCESS_PAYOUT')) {
+                  <div class="mobile-payment-actions">
+                    <button class="btn btn-ghost btn-sm" (click)="markMemberPaid(selectedPayout.id, mp.memberId)">
+                      <app-icon name="check"></app-icon> Mark Paid
+                    </button>
+                  </div>
+                }
+                @if (mp.paymentReference) {
+                  <div class="mobile-payment-ref">Ref: {{ mp.paymentReference }}</div>
+                }
+              </div>
+            }
+          </div>
         </div>
       </div>
       <div class="modal-footer">

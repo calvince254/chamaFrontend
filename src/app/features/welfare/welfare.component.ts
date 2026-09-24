@@ -6,11 +6,23 @@ import { WelfareEvent, WelfareContribution, Member, PageResponse, ContributionBa
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
+import {
+  StatStripComponent,
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  PaginationBarComponent
+} from '../../shared/components';
 
 @Component({
   selector: 'app-welfare',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [
+    CommonModule, FormsModule, IconComponent,
+    StatStripComponent, StatusBadgeComponent, ListRowCardComponent,
+    ListRowSecondaryDirective, ListRowFooterDirective, PaginationBarComponent
+  ],
   templateUrl: './welfare.component.html',
   styleUrl: './welfare.component.css',
 })
@@ -581,5 +593,23 @@ export class WelfareComponent implements OnInit {
         this.toast.error('Failed', err.error?.message || 'Could not process payment from contribution fund');
       }
     });
+  }
+
+  // ==================== MOBILE HELPERS ====================
+
+  handleMobileEventAction(event: WelfareEvent): void {
+    this.openPaymentsModal(event);
+  }
+
+  getMobileEventActionLabel(event: WelfareEvent): string {
+    return 'Payments';
+  }
+
+  isMobileEventActionDisabled(event: WelfareEvent): boolean {
+    return false;
+  }
+
+  getEventStatusForBadge(event: WelfareEvent): string {
+    return event.status === 'CLOSED' ? 'paid' : 'pending';
   }
 }

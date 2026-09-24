@@ -6,11 +6,24 @@ import { ApiService } from '../../core/services/api.service';
 import { Investment, InvestmentApproval, Member, PageResponse, Liquidity } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
+import {
+  StatStripComponent,
+  StatChipComponent,
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  PaginationBarComponent
+} from '../../shared/components';
 
 @Component({
   selector: 'app-investments',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [
+    CommonModule, FormsModule, IconComponent,
+    StatStripComponent, StatChipComponent, StatusBadgeComponent, ListRowCardComponent,
+    ListRowSecondaryDirective, ListRowFooterDirective, PaginationBarComponent
+  ],
   templateUrl: './investments.component.html',
   styleUrl: './investments.component.css',
 })
@@ -334,5 +347,37 @@ export class InvestmentsComponent implements OnInit {
 
   getApprovalClass(status: string): string {
     return status === 'APPROVED' ? 'badge-success' : status === 'PENDING' ? 'badge-warning' : 'badge-danger';
+  }
+
+  // ==================== MOBILE HELPERS ====================
+
+  handleMobileInvestmentAction(inv: Investment): void {
+    this.viewInvestment(inv);
+  }
+
+  getMobileInvestmentActionLabel(inv: Investment): string {
+    return 'View';
+  }
+
+  isMobileInvestmentActionDisabled(inv: Investment): boolean {
+    return false;
+  }
+
+  getInvestmentStatusForBadge(status: string): string {
+    switch (status) {
+      case 'ACTIVE': return 'active';
+      case 'SOLD': return 'paid';
+      case 'WRITTEN_OFF': return 'cancelled';
+      default: return status.toLowerCase();
+    }
+  }
+
+  getApprovalStatusForBadge(status: string): string {
+    switch (status) {
+      case 'APPROVED': return 'approved';
+      case 'PENDING': return 'pending';
+      case 'REJECTED': return 'rejected';
+      default: return status.toLowerCase();
+    }
   }
 }

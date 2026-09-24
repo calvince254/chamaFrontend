@@ -7,6 +7,15 @@ import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
 import { ConfirmDialogService } from '../../shared/confirm-dialog.service';
+import {
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  LabelValueComponent,
+  CollapsibleSectionComponent,
+  CollapsedContentDirective,
+  ExpandedContentDirective
+} from '../../shared/components';
 
 /**
  * Module permissions structure from the backend
@@ -25,7 +34,7 @@ interface PermissionItem {
 @Component({
   selector: 'app-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, ListRowCardComponent, ListRowSecondaryDirective, ListRowFooterDirective, LabelValueComponent, CollapsibleSectionComponent, CollapsedContentDirective, ExpandedContentDirective],
   templateUrl: './roles.component.html',
   styleUrl: './roles.component.css',
 })
@@ -315,5 +324,26 @@ export class RolesComponent implements OnInit {
       'Billing': 'file-text'
     };
     return iconMap[moduleName] || 'folder';
+  }
+
+  // ==================== Mobile Helpers ====================
+
+  handleMobileRoleAction(role: Role & { permissionCodes?: string[] }) {
+    this.selectRole(role);
+  }
+
+  getMobileRoleActionLabel(role: Role): string {
+    return 'View Permissions';
+  }
+
+  getTotalPermissionCount(): number {
+    return this.availablePermissions.reduce((sum, m) => sum + m.permissions.length, 0);
+  }
+
+  getRolePermissionCount(role: Role & { permissionCodes?: string[] }): number {
+    if (role.isSystemDefault) {
+      return this.getTotalPermissionCount();
+    }
+    return role.permissionCodes?.length || 0;
   }
 }

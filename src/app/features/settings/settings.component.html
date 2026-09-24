@@ -134,7 +134,8 @@
           </button>
         </div>
       } @else {
-        <table class="data-table">
+        <!-- Desktop Table -->
+        <table class="data-table desktop-only">
           <thead>
             <tr>
               <th>Name</th>
@@ -184,6 +185,57 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile Cards -->
+        <div class="mobile-cards-list mobile-only">
+          @for (ft of fineTypes; track ft.id) {
+            <div class="settings-mobile-card" [class.inactive]="!ft.active">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <span class="settings-card-name">{{ ft.name }}</span>
+                  <span class="badge" [ngClass]="ft.active ? 'badge-success' : 'badge-neutral'">
+                    {{ ft.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+                @if (ft.description) {
+                  <p class="settings-card-description">{{ ft.description }}</p>
+                }
+              </div>
+              <div class="settings-card-stats">
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Amount</span>
+                  <span class="settings-stat-value">{{ ft.amount | number }} KES</span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Type</span>
+                  <span class="settings-stat-value">
+                    @if (ft.automatic) {
+                      <span class="badge badge-info">Auto: {{ ft.triggerType === 'MEETING_ABSENT' ? 'Absent' : 'Late Payment' }}</span>
+                    } @else {
+                      <span class="badge badge-neutral">Manual</span>
+                    }
+                  </span>
+                </div>
+              </div>
+              <div class="settings-card-actions">
+                @if (session.can('EDIT_FINE_TYPE')) {
+                  <button class="btn btn-ghost btn-sm" (click)="editFineType(ft)">
+                    <app-icon name="edit"></app-icon> Edit
+                  </button>
+                  <button class="btn btn-ghost btn-sm" (click)="toggleFineTypeActive(ft)">
+                    <app-icon [name]="ft.active ? 'close' : 'check'"></app-icon>
+                    {{ ft.active ? 'Deactivate' : 'Activate' }}
+                  </button>
+                }
+                @if (session.can('DELETE_FINE_TYPE')) {
+                  <button class="btn btn-ghost btn-sm btn-danger" (click)="deleteFineType(ft)">
+                    <app-icon name="trash"></app-icon> Delete
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
       }
     </div>
   </div>
@@ -293,7 +345,8 @@
           </button>
         </div>
       } @else {
-        <table class="data-table">
+        <!-- Desktop Table -->
+        <table class="data-table desktop-only">
           <thead>
             <tr>
               <th>Name</th>
@@ -355,6 +408,70 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile Cards -->
+        <div class="mobile-cards-list mobile-only">
+          @for (ct of contributionTypes; track ct.id) {
+            <div class="settings-mobile-card" [class.inactive]="!ct.active">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <span class="settings-card-name">{{ ct.name }}</span>
+                  <span class="badge" [ngClass]="ct.active ? 'badge-success' : 'badge-neutral'">
+                    {{ ct.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+                @if (ct.description) {
+                  <p class="settings-card-description">{{ ct.description }}</p>
+                }
+              </div>
+              <div class="settings-card-stats">
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Amount</span>
+                  <span class="settings-stat-value">{{ ct.amount | number }} KES</span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Frequency</span>
+                  <span class="settings-stat-value">
+                    <span class="badge badge-info">{{ getFrequencyLabel(ct.frequency) }}</span>
+                  </span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Due Day</span>
+                  <span class="settings-stat-value">{{ ct.dueDay ? 'Day ' + ct.dueDay : '-' }}</span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Late Fine</span>
+                  <span class="settings-stat-value">
+                    @if (ct.lateFineEnabled) {
+                      {{ ct.lateFineAmount | number }} KES
+                      @if (ct.gracePeriodDays && ct.gracePeriodDays > 0) {
+                        <span class="settings-stat-meta">({{ ct.gracePeriodDays }}d grace)</span>
+                      }
+                    } @else {
+                      -
+                    }
+                  </span>
+                </div>
+              </div>
+              <div class="settings-card-actions">
+                @if (session.can('EDIT_CONTRIBUTION_TYPE')) {
+                  <button class="btn btn-ghost btn-sm" (click)="editContributionType(ct)">
+                    <app-icon name="edit"></app-icon> Edit
+                  </button>
+                  <button class="btn btn-ghost btn-sm" (click)="toggleContributionTypeActive(ct)">
+                    <app-icon [name]="ct.active ? 'close' : 'check'"></app-icon>
+                    {{ ct.active ? 'Deactivate' : 'Activate' }}
+                  </button>
+                }
+                @if (session.can('DELETE_CONTRIBUTION_TYPE')) {
+                  <button class="btn btn-ghost btn-sm btn-danger" (click)="deleteContributionType(ct)">
+                    <app-icon name="trash"></app-icon> Delete
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
       }
     </div>
   </div>
@@ -481,7 +598,8 @@
           </button>
         </div>
       } @else {
-        <table class="data-table">
+        <!-- Desktop Table -->
+        <table class="data-table desktop-only">
           <thead>
             <tr>
               <th>Name</th>
@@ -562,6 +680,83 @@
             }
           </tbody>
         </table>
+
+        <!-- Mobile Cards -->
+        <div class="mobile-cards-list mobile-only">
+          @for (lp of loanProducts; track lp.id) {
+            <div class="settings-mobile-card" [class.inactive]="!lp.active">
+              <div class="settings-card-header">
+                <div class="settings-card-title">
+                  <span class="settings-card-name">{{ lp.name }}</span>
+                  <span class="badge" [ngClass]="lp.active ? 'badge-success' : 'badge-neutral'">
+                    {{ lp.active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+                @if (lp.description) {
+                  <p class="settings-card-description">{{ lp.description }}</p>
+                }
+              </div>
+              <div class="settings-card-stats four-col">
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Interest</span>
+                  <span class="settings-stat-value">{{ lp.interestRate }}%</span>
+                  <span class="settings-stat-meta">{{ getInterestTypeLabel(lp.interestType) }}</span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Repayment</span>
+                  <span class="settings-stat-value">{{ lp.repaymentPeriod }} {{ getPeriodTypeLabel(lp.repaymentPeriodType) }}</span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Limits (KES)</span>
+                  <span class="settings-stat-value">
+                    @if (lp.minAmount || lp.maxAmount) {
+                      {{ lp.minAmount | number }} - {{ lp.maxAmount | number }}
+                    } @else {
+                      No limits
+                    }
+                  </span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Penalty</span>
+                  <span class="settings-stat-value">
+                    @if (lp.penaltyEnabled) {
+                      {{ lp.penaltyRate }}%
+                      <span class="settings-stat-meta">({{ lp.gracePeriodDays }}d grace)</span>
+                    } @else {
+                      -
+                    }
+                  </span>
+                </div>
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Approval</span>
+                  <span class="settings-stat-value">
+                    @if (lp.requiresApproval) {
+                      <span class="badge badge-info">{{ lp.approvalLevels }} Level{{ lp.approvalLevels > 1 ? 's' : '' }}</span>
+                    } @else {
+                      <span class="badge badge-neutral">Auto</span>
+                    }
+                  </span>
+                </div>
+              </div>
+              <div class="settings-card-actions">
+                @if (session.can('EDIT_LOAN_PRODUCT')) {
+                  <button class="btn btn-ghost btn-sm" (click)="editLoanProduct(lp)">
+                    <app-icon name="edit"></app-icon> Edit
+                  </button>
+                  <button class="btn btn-ghost btn-sm" (click)="toggleLoanProductActive(lp)">
+                    <app-icon [name]="lp.active ? 'close' : 'check'"></app-icon>
+                    {{ lp.active ? 'Deactivate' : 'Activate' }}
+                  </button>
+                }
+                @if (session.can('DELETE_LOAN_PRODUCT')) {
+                  <button class="btn btn-ghost btn-sm btn-danger" (click)="deleteLoanProduct(lp)">
+                    <app-icon name="trash"></app-icon> Delete
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
       }
     </div>
   </div>

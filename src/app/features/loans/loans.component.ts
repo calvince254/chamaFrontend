@@ -1027,6 +1027,20 @@ export class LoansComponent implements OnInit {
   }
 
   /**
+   * Get count of active loans for mobile stats
+   */
+  getActiveLoansCount(): number {
+    return this.currentLoans.filter(l => l.status === 'ACTIVE' || l.status === 'OVERDUE').length;
+  }
+
+  /**
+   * Get total outstanding for mobile stats
+   */
+  getTotalOutstanding(): number {
+    return this.currentLoans.reduce((sum, l) => sum + (l.balanceOutstanding || 0), 0);
+  }
+
+  /**
    * Check if loan can receive repayment (ACTIVE or OVERDUE)
    */
   canPayLoan(loan: LoanExtended): boolean {

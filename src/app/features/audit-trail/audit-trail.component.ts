@@ -6,11 +6,21 @@ import { SessionService } from '../../core/services/session.service';
 import { ToastService } from '../../shared/toast.service';
 import { IconComponent } from '../../shared/icon.component';
 import { AuditLog, PageResponse, Member } from '../../core/models/models';
+import {
+  StatStripComponent,
+  StatChipComponent,
+  StatusBadgeComponent,
+  ListRowCardComponent,
+  ListRowSecondaryDirective,
+  ListRowFooterDirective,
+  LabelValueComponent,
+  PaginationBarComponent
+} from '../../shared/components';
 
 @Component({
   selector: 'app-audit-trail',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, StatStripComponent, StatChipComponent, StatusBadgeComponent, ListRowCardComponent, ListRowSecondaryDirective, ListRowFooterDirective, LabelValueComponent, PaginationBarComponent],
   templateUrl: './audit-trail.component.html',
   styleUrl: './audit-trail.component.css',
 })
@@ -269,5 +279,31 @@ export class AuditTrailComponent implements OnInit {
     }).catch(() => {
       this.toast.error('Failed to copy', 'Please try again');
     });
+  }
+
+  // ==================== Mobile Helpers ====================
+
+  handleMobileLogAction(log: AuditLog) {
+    this.viewLog(log);
+  }
+
+  getMobileLogActionLabel(log: AuditLog): string {
+    return 'Details';
+  }
+
+  formatMobileTimestamp(timestamp: string): string {
+    if (!timestamp) return '';
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleDateString('en-GB', { 
+        day: '2-digit', 
+        month: 'short'
+      }) + ', ' + date.toLocaleTimeString('en-GB', { 
+        hour: '2-digit', 
+        minute: '2-digit'
+      });
+    } catch {
+      return timestamp;
+    }
   }
 }
