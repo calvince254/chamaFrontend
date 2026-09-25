@@ -58,6 +58,7 @@
   /* Mobile Section */
   .mobile-section {
     margin-bottom: 20px;
+    width: 100%;
   }
 
   .mobile-section-title {
@@ -97,9 +98,16 @@
   }
 
   .mobile-financial-value {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--color-text);
+    word-break: break-word;
+    line-height: 1.2;
+  }
+
+  /* Smaller font for very large numbers */
+  .mobile-financial-value.compact {
+    font-size: 12px;
   }
 
   .mobile-financial-value.positive {
@@ -196,6 +204,14 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     padding: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mobile-chart-container canvas {
+    width: 100% !important;
+    height: 200px;
+    display: block;
   }
 
   /* Mobile History List */
@@ -282,7 +298,8 @@
 
   /* Mobile Actions Bar */
   .mobile-actions-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
     padding: 16px 0;
     margin-top: 10px;
@@ -311,6 +328,11 @@
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     color: var(--color-text);
+  }
+
+  .mobile-action-btn.danger {
+    background: var(--color-danger);
+    color: white;
   }
 }
 

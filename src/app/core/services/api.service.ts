@@ -1111,13 +1111,15 @@ export class ApiService {
     );
   }
 
-  getTransactionsPaginated(page: number = 0, size: number = 10, type?: string, direction?: string, memberId?: number): Observable<PageResponse<Transaction>> {
+  getTransactionsPaginated(page: number = 0, size: number = 10, type?: string, direction?: string, memberId?: number, startDate?: string, endDate?: string): Observable<PageResponse<Transaction>> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString());
     if (type) params = params.set('type', type);
     if (direction) params = params.set('direction', direction);
     if (memberId) params = params.set('memberId', memberId.toString());
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
     
     return this.http.get<PageResponse<Transaction>>(`${this.baseUrl}/finance/transactions/paginated`, { params });
   }
@@ -1477,6 +1479,27 @@ export class ApiService {
     });
   }
 
+  // Download Finance Report PDF
+  downloadFinanceReportPdf(params: {
+    startDate?: string;
+    endDate?: string;
+    type?: string;
+    direction?: string;
+    memberId?: number;
+  }): Observable<Blob> {
+    let httpParams = new HttpParams();
+    if (params.startDate) httpParams = httpParams.set('startDate', params.startDate);
+    if (params.endDate) httpParams = httpParams.set('endDate', params.endDate);
+    if (params.type) httpParams = httpParams.set('type', params.type);
+    if (params.direction) httpParams = httpParams.set('direction', params.direction);
+    if (params.memberId) httpParams = httpParams.set('memberId', params.memberId.toString());
+    
+    return this.http.get(`${this.baseUrl}/finance/report/pdf`, {
+      params: httpParams,
+      responseType: 'blob'
+    });
+  }
+
   // ==================== DASHBOARD ANALYTICS ====================
   getDashboardAnalytics(): Observable<DashboardAnalytics> {
     return this.http.get<DashboardAnalytics>(`${this.baseUrl}/dashboard/analytics`);
@@ -1730,6 +1753,7 @@ export interface PlatformContactInfo {
   contactPhone: string;
   contactEmail: string;
   contactName: string;
+  officialWebsite: string;
 }
 
 // Dashboard Analytics Types

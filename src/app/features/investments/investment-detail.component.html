@@ -74,22 +74,22 @@
       <div class="mobile-financial-grid">
         <div class="mobile-financial-card">
           <span class="mobile-financial-label">{{ investment.hasPartialSales ? 'REMAINING PRINCIPAL' : 'TOTAL INVESTED' }}</span>
-          <span class="mobile-financial-value">KES {{ investment.amountInvested | number:'1.0-0' }}</span>
+          <span class="mobile-financial-value" [class.compact]="isLargeNumber(investment.amountInvested)">KES {{ isLargeNumber(investment.amountInvested) ? formatCompact(investment.amountInvested) : (investment.amountInvested | number:'1.0-0') }}</span>
           @if (investment.hasPartialSales && investment.totalPrincipalSold) {
-            <span class="mobile-financial-sub">Withdrawn: {{ investment.totalPrincipalSold | number }}</span>
+            <span class="mobile-financial-sub">Withdrawn: {{ formatCompact(investment.totalPrincipalSold) }}</span>
           }
         </div>
         <div class="mobile-financial-card">
           <span class="mobile-financial-label">CURRENT VALUE</span>
-          <span class="mobile-financial-value">KES {{ investment.currentValue | number:'1.0-0' }}</span>
+          <span class="mobile-financial-value" [class.compact]="isLargeNumber(investment.currentValue)">KES {{ isLargeNumber(investment.currentValue) ? formatCompact(investment.currentValue) : (investment.currentValue | number:'1.0-0') }}</span>
           @if (investment.hasPartialSales) {
             <span class="mobile-financial-sub">After withdrawals</span>
           }
         </div>
         <div class="mobile-financial-card">
           <span class="mobile-financial-label">UNREALIZED G/L</span>
-          <span class="mobile-financial-value" [class.positive]="(investment.unrealizedGain || investment.netGain || 0) >= 0" [class.negative]="(investment.unrealizedGain || investment.netGain || 0) < 0">
-            {{ (investment.unrealizedGain || investment.netGain || 0) >= 0 ? '+' : '' }}KES {{ investment.unrealizedGain || investment.netGain | number:'1.0-0' }}
+          <span class="mobile-financial-value" [class.positive]="(investment.unrealizedGain || investment.netGain || 0) >= 0" [class.negative]="(investment.unrealizedGain || investment.netGain || 0) < 0" [class.compact]="isLargeNumber(investment.unrealizedGain || investment.netGain)">
+            {{ (investment.unrealizedGain || investment.netGain || 0) >= 0 ? '+' : '' }}KES {{ isLargeNumber(investment.unrealizedGain || investment.netGain) ? formatCompact(investment.unrealizedGain || investment.netGain) : (investment.unrealizedGain || investment.netGain | number:'1.0-0') }}
           </span>
           <span class="mobile-financial-sub">Paper, not withdrawn</span>
         </div>
@@ -154,8 +154,8 @@
           <p>Not enough data for chart</p>
         </div>
       } @else {
-        <div class="mobile-chart-container">
-          <canvas #chartCanvas style="width:100%;height:200px;"></canvas>
+        <div class="mobile-chart-container" #mobileChartContainer>
+          <canvas #mobileChartCanvas></canvas>
         </div>
       }
     </section>
@@ -165,7 +165,7 @@
       <section class="mobile-section">
         <h2 class="mobile-section-title">VALUE HISTORY LOG</h2>
         <div class="mobile-history-list">
-          @for (h of valueHistory; track h.id) {
+          @for (h of valueHistory; track $index) {
             <div class="mobile-history-card">
               <div class="mobile-history-main">
                 <span class="mobile-history-value">KES {{ h.recordedValue | number:'1.0-0' }}</span>
@@ -208,9 +208,40 @@
       </section>
     }
 
+    <!-- Principal Top-ups -->
+    @if (topupHistory.length > 0) {
+      <section class="mobile-section">
+        <h2 class="mobile-section-title">PRINCIPAL TOP-UPS</h2>
+        <div class="mobile-history-list">
+          @for (t of topupHistory; track t.id) {
+            <div class="mobile-history-card">
+              <div class="mobile-history-main">
+                <span class="mobile-history-value text-success">+KES {{ t.amount | number:'1.0-0' }}</span>
+              </div>
+              <div class="mobile-history-date">{{ t.topupDate | date:'d MMM yyyy' }}</div>
+              <div class="mobile-history-notes">
+                {{ t.previousPrincipal | number:'1.0-0' }} → {{ t.newPrincipal | number:'1.0-0' }}
+                @if (t.recordedByName) {
+                  · by {{ t.recordedByName }}
+                }
+              </div>
+              @if (t.notes) {
+                <div class="mobile-history-notes">{{ t.notes }}</div>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+
     <!-- Mobile Actions -->
     @if (investment.status === 'ACTIVE' && investment.approvalStatus === 'APPROVED') {
       <div class="mobile-actions-bar">
+        @if (session.can('TOPUP_INVESTMENT')) {
+          <button class="mobile-action-btn secondary" (click)="openTopupModal()">
+            <app-icon name="plus-circle"></app-icon> Add Principal
+          </button>
+        }
         @if (session.can('UPDATE_INVESTMENT_VALUE')) {
           <button class="mobile-action-btn secondary" (click)="openUpdateValueModal()">
             <app-icon name="edit-2"></app-icon> Update Value
@@ -219,6 +250,11 @@
         @if (session.can('SELL_INVESTMENT')) {
           <button class="mobile-action-btn primary" (click)="openSellModal()">
             <app-icon name="dollar-sign"></app-icon> {{ actionTerm }}
+          </button>
+        }
+        @if (session.can('WRITE_OFF_INVESTMENT')) {
+          <button class="mobile-action-btn danger" (click)="openWriteOffModal()">
+            <app-icon name="x-circle"></app-icon> Write Off
           </button>
         }
       </div>
@@ -310,7 +346,9 @@
               <p>Add more value updates to see the trend.</p>
             </div>
           } @else {
-            <canvas #chartCanvas style="width:100%;height:320px;"></canvas>
+            <div #desktopChartContainer style="width:100%;">
+              <canvas #desktopChartCanvas></canvas>
+            </div>
           }
         </div>
       </div>
@@ -334,7 +372,7 @@
                 </tr>
               </thead>
               <tbody>
-                @for (h of valueHistory; track h.id) {
+                @for (h of valueHistory; track $index) {
                   <tr>
                     <td>{{ h.valueDate | date:'d MMM yyyy, HH:mm' }}</td>
                     <td><strong>{{ h.recordedValue | number }}</strong></td>

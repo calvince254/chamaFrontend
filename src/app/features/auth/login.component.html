@@ -67,7 +67,7 @@
         </button>
       }
 
-      @if (contactInfo().contactPhone || contactInfo().contactEmail) {
+      @if (contactInfo().contactPhone || contactInfo().contactEmail || contactInfo().officialWebsite) {
         <div class="onboard-contact">
           <p>To onboard your Chama, please contact:</p>
           @if (contactInfo().contactPhone) {
@@ -78,6 +78,11 @@
           @if (contactInfo().contactEmail) {
             <a [href]="'mailto:' + contactInfo().contactEmail" class="contact-email">
               <span class="contact-icon">✉️</span> {{ contactInfo().contactEmail }}
+            </a>
+          }
+          @if (contactInfo().officialWebsite) {
+            <a [href]="contactInfo().officialWebsite" class="contact-website" target="_blank">
+              <span class="contact-icon">🌐</span> {{ contactInfo().officialWebsite.replace('https://', '').replace('http://', '') }}
             </a>
           }
         </div>

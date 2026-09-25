@@ -433,9 +433,9 @@
 
 
 /* ==========================================================================
-   Mobile Styles (< 768px)
+   Mobile/Tablet Styles (< 860px)
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 859px) {
   .desktop-only {
     display: none !important;
   }
@@ -906,7 +906,7 @@
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 860px) {
   .mobile-only {
     display: none !important;
   }
@@ -917,5 +917,28 @@
 
   .desktop-only-block {
     display: block !important;
+  }
+}
+
+/* Tablet-specific adjustments (480px - 859px) */
+@media (min-width: 480px) and (max-width: 859px) {
+  .mobile-shares {
+    padding: 16px;
+  }
+
+  .mobile-share-card {
+    padding: 14px;
+  }
+}
+
+/* Small phones (< 480px) - Touch target enforcement */
+@media (max-width: 479px) {
+  .mobile-tab-pill {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+
+  .mobile-action-btn {
+    min-height: 48px;
   }
 }

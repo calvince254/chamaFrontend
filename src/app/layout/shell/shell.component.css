@@ -323,10 +323,10 @@
 }
 
 /* ==========================================================================
-   Mobile Navigation Drawer (< 768px)
+   Mobile Navigation Drawer (< 860px - phones and small tablets)
    ========================================================================== */
 
-@media (max-width: 767px) {
+@media (max-width: 859px) {
   /* Shell adjustments for mobile */
   .shell {
     padding: 0;
@@ -387,11 +387,6 @@
   }
 
   .sidebar .brand-tenant {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  .sidebar .brand-tenant {
     display: none;
   }
 
@@ -404,8 +399,8 @@
   /* Show drawer close button on mobile */
   .drawer-close-btn {
     display: flex;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     margin: 0;
     background: transparent;
     border: none;
@@ -539,8 +534,8 @@
 
   /* Topbar adjustments */
   .topbar {
-    padding: 0 12px;
-    height: 56px;
+    padding: 0 16px;
+    height: 52px;
   }
 
   .topbar-title {
@@ -565,13 +560,13 @@
 
   /* User dropdown adjustments */
   .user-dropdown {
-    width: 260px;
+    width: 280px;
     right: -8px;
   }
 
   /* Content area */
   .content {
-    padding: 12px;
+    padding: 16px;
   }
 
   /* Sidebar warning */
@@ -580,27 +575,58 @@
   }
 }
 
-/* Extra small screens (320px) */
-@media (max-width: 359px) {
+/* Tablet (860px - 1199px) */
+@media (min-width: 860px) and (max-width: 1199px) {
+  .shell {
+    padding: 12px 24px;
+  }
+  
+  .topbar {
+    height: 56px;
+  }
+  
+  .content {
+    padding: 24px;
+  }
+}
+
+/* Desktop (1200px+) */
+@media (min-width: 1200px) {
+  .shell {
+    padding: 12px 40px;
+  }
+  
+  .topbar {
+    height: 64px;
+  }
+  
+  .content {
+    padding: 32px;
+  }
+}
+
+/* Extra small screens (below 480px) */
+@media (max-width: 479px) {
   .sidebar {
     width: 90%;
   }
 
   .sidebar .nav-item {
-    padding: 10px 12px;
-    font-size: 11px;
+    padding: 12px 14px;
+    font-size: 13px;
   }
 
   .topbar {
-    padding: 0 8px;
+    padding: 0 12px;
   }
 
   .content {
-    padding: 8px;
+    padding: 12px;
   }
 
   .user-dropdown {
-    width: 240px;
+    width: 260px;
+    right: -4px;
   }
 }
 

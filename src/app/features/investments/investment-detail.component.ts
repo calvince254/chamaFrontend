@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -14,7 +14,8 @@ import { IconComponent } from '../../shared/icon.component';
   templateUrl: './investment-detail.component.html',
   styleUrl: './investment-detail.component.css',
 })
-export class InvestmentDetailComponent implements OnInit {
+export class InvestmentDetailComponent implements OnInit, OnDestroy {
+  private resizeObserver: ResizeObserver | null = null;
   investment: Investment | null = null;
   valueHistory: InvestmentValueHistory[] = [];
   loading = true;
@@ -110,7 +111,10 @@ export class InvestmentDetailComponent implements OnInit {
   sellPercentage = 50; // Default to 50%
   sellByPercentage = true; // For assets, default to percentage mode
 
-  @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('mobileChartCanvas') mobileChartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('desktopChartCanvas') desktopChartCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('mobileChartContainer') mobileChartContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('desktopChartContainer') desktopChartContainer!: ElementRef<HTMLDivElement>;
 
   constructor(
     private route: ActivatedRoute,
@@ -175,10 +179,11 @@ export class InvestmentDetailComponent implements OnInit {
     this.loadingHistory = true;
     this.api.getInvestmentValueHistory(investmentId).subscribe({
       next: (data) => {
-        this.valueHistory = data;
+        this.valueHistory = data || [];
         this.loadingHistory = false;
         this.cdr.detectChanges();
-        setTimeout(() => this.drawChart(), 100);
+        // Try drawing chart multiple times to ensure canvas is ready
+        this.drawChartWithRetry(3);
       },
       error: () => {
         this.valueHistory = [];
@@ -186,6 +191,55 @@ export class InvestmentDetailComponent implements OnInit {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  private drawChartWithRetry(retries: number) {
+    setTimeout(() => {
+      this.cdr.detectChanges();
+      const drawn = this.drawChart();
+      if (!drawn && retries > 0) {
+        this.drawChartWithRetry(retries - 1);
+      } else if (!drawn) {
+        // Still not drawn after retries - set up ResizeObserver as fallback
+        this.setupResizeObserver();
+      }
+    }, 200);
+  }
+
+  private setupResizeObserver() {
+    // Clean up any existing observer
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+
+    this.resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          this.drawChart();
+          // Only need to draw once when size is available
+          this.resizeObserver?.disconnect();
+          break;
+        }
+      }
+    });
+
+    // Observe both containers
+    const mobileContainer = this.mobileChartContainer?.nativeElement;
+    const desktopContainer = this.desktopChartContainer?.nativeElement;
+    
+    if (mobileContainer) {
+      this.resizeObserver.observe(mobileContainer);
+    }
+    if (desktopContainer) {
+      this.resizeObserver.observe(desktopContainer);
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
   }
 
   loadTopupHistory(investmentId: number) {
@@ -520,27 +574,89 @@ export class InvestmentDetailComponent implements OnInit {
     return value.toLocaleString();
   }
 
-  drawChart() {
-    if (!this.chartCanvas?.nativeElement || this.valueHistory.length < 2) return;
-    const canvas = this.chartCanvas.nativeElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // Format numbers compactly for mobile display
+  formatCompact(value: number | null | undefined): string {
+    if (value == null) return '0';
+    const absValue = Math.abs(value);
+    const sign = value < 0 ? '-' : '';
+    if (absValue >= 1000000000) {
+      return sign + (absValue / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+    } else if (absValue >= 1000000) {
+      return sign + (absValue / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    } else if (absValue >= 100000) {
+      return sign + (absValue / 1000).toFixed(0) + 'K';
+    }
+    return value.toLocaleString();
+  }
 
-    // Set canvas size for high DPI
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
-    ctx.scale(2, 2);
+  // Check if number is large enough to need compact display
+  isLargeNumber(value: number | null | undefined): boolean {
+    if (value == null) return false;
+    return Math.abs(value) >= 100000;
+  }
+
+  drawChart(): boolean {
+    if (this.valueHistory.length < 2) return false;
+    
+    // Try to find a visible container and its canvas
+    let canvas: HTMLCanvasElement | null = null;
+    let containerWidth = 0;
+    let containerHeight = 200; // Default height
+    
+    // Check mobile container first
+    const mobileContainer = this.mobileChartContainer?.nativeElement;
+    if (mobileContainer) {
+      const rect = mobileContainer.getBoundingClientRect();
+      if (rect.width > 50) { // Has meaningful width
+        canvas = this.mobileChartCanvas?.nativeElement;
+        // Account for padding (12px on each side)
+        containerWidth = rect.width - 24;
+        containerHeight = 200;
+      }
+    }
+    
+    // If mobile not visible, try desktop
+    if (!canvas || containerWidth === 0) {
+      const desktopContainer = this.desktopChartContainer?.nativeElement;
+      if (desktopContainer) {
+        const rect = desktopContainer.getBoundingClientRect();
+        if (rect.width > 50) {
+          canvas = this.desktopChartCanvas?.nativeElement;
+          containerWidth = rect.width;
+          containerHeight = 320;
+        }
+      }
+    }
+    
+    if (!canvas || containerWidth === 0) return false;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return false;
+
+    // Set canvas actual pixel dimensions based on container
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = containerWidth * dpr;
+    canvas.height = containerHeight * dpr;
+    
+    // Set CSS display size
+    canvas.style.width = containerWidth + 'px';
+    canvas.style.height = containerHeight + 'px';
+    
+    ctx.scale(dpr, dpr);
+
+    // Use the calculated dimensions
+    const width = containerWidth;
+    const height = containerHeight;
 
     // Increased left padding for large number labels
     const leftPadding = 70;
     const rightPadding = 30;
     const topPadding = 30;
     const bottomPadding = 40;
-    const width = rect.width - leftPadding - rightPadding;
-    const height = rect.height - topPadding - bottomPadding;
+    const chartWidth = width - leftPadding - rightPadding;
+    const chartHeight = height - topPadding - bottomPadding;
 
-    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.clearRect(0, 0, width, height);
 
     const values = this.valueHistory.map(h => h.recordedValue);
     const minVal = Math.min(...values) * 0.9;
@@ -551,10 +667,10 @@ export class InvestmentDetailComponent implements OnInit {
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 5; i++) {
-      const y = topPadding + (height * i / 5);
+      const y = topPadding + (chartHeight * i / 5);
       ctx.beginPath();
       ctx.moveTo(leftPadding, y);
-      ctx.lineTo(rect.width - rightPadding, y);
+      ctx.lineTo(width - rightPadding, y);
       ctx.stroke();
       
       // Y-axis labels with formatted numbers
@@ -569,28 +685,28 @@ export class InvestmentDetailComponent implements OnInit {
     const step = Math.max(1, Math.floor(this.valueHistory.length / 6));
     this.valueHistory.forEach((h, i) => {
       if (i % step === 0 || i === this.valueHistory.length - 1) {
-        const x = leftPadding + (width * i / (this.valueHistory.length - 1));
+        const x = leftPadding + (chartWidth * i / (this.valueHistory.length - 1));
         ctx.fillStyle = '#6b7280';
         ctx.font = '11px sans-serif';
         ctx.textAlign = 'center';
         const date = new Date(h.valueDate);
-        ctx.fillText(date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), x, rect.height - bottomPadding + 20);
+        ctx.fillText(date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), x, height - bottomPadding + 20);
       }
     });
 
     // Gradient fill
-    const gradient = ctx.createLinearGradient(0, topPadding, 0, rect.height - bottomPadding);
+    const gradient = ctx.createLinearGradient(0, topPadding, 0, height - bottomPadding);
     gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
     gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
 
     ctx.beginPath();
-    ctx.moveTo(leftPadding, rect.height - bottomPadding);
+    ctx.moveTo(leftPadding, height - bottomPadding);
     this.valueHistory.forEach((h, i) => {
-      const x = leftPadding + (width * i / (this.valueHistory.length - 1));
-      const y = topPadding + height - ((h.recordedValue - minVal) / range) * height;
+      const x = leftPadding + (chartWidth * i / (this.valueHistory.length - 1));
+      const y = topPadding + chartHeight - ((h.recordedValue - minVal) / range) * chartHeight;
       ctx.lineTo(x, y);
     });
-    ctx.lineTo(leftPadding + width, rect.height - bottomPadding);
+    ctx.lineTo(leftPadding + chartWidth, height - bottomPadding);
     ctx.closePath();
     ctx.fillStyle = gradient;
     ctx.fill();
@@ -602,8 +718,8 @@ export class InvestmentDetailComponent implements OnInit {
     ctx.lineCap = 'round';
     ctx.beginPath();
     this.valueHistory.forEach((h, i) => {
-      const x = leftPadding + (width * i / (this.valueHistory.length - 1));
-      const y = topPadding + height - ((h.recordedValue - minVal) / range) * height;
+      const x = leftPadding + (chartWidth * i / (this.valueHistory.length - 1));
+      const y = topPadding + chartHeight - ((h.recordedValue - minVal) / range) * chartHeight;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -611,8 +727,8 @@ export class InvestmentDetailComponent implements OnInit {
 
     // Points
     this.valueHistory.forEach((h, i) => {
-      const x = leftPadding + (width * i / (this.valueHistory.length - 1));
-      const y = topPadding + height - ((h.recordedValue - minVal) / range) * height;
+      const x = leftPadding + (chartWidth * i / (this.valueHistory.length - 1));
+      const y = topPadding + chartHeight - ((h.recordedValue - minVal) / range) * chartHeight;
       
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, Math.PI * 2);
@@ -622,6 +738,8 @@ export class InvestmentDetailComponent implements OnInit {
       ctx.lineWidth = 2;
       ctx.stroke();
     });
+    
+    return true;
   }
 
   getStatusClass(status: string): string {

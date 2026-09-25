@@ -741,7 +741,7 @@ tr.overdue {
    MOBILE STYLES - Merry-Go-Round Header Only
    ========================================================================== */
 
-@media (max-width: 768px) {
+@media (max-width: 859px) {
   /* Show/hide helpers for mobile */
   .summary-card .summary-content .desktop-only {
     display: none !important;
@@ -891,7 +891,7 @@ tr.overdue {
 }
 
 /* Desktop: hide mobile-only, show desktop-only */
-@media (min-width: 769px) {
+@media (min-width: 860px) {
   .summary-card .summary-content .mobile-only {
     display: none !important;
   }
@@ -910,10 +910,10 @@ tr.overdue {
 }
 
 /* ==========================================================================
-   MOBILE STYLES - Cycle Detail View
+   MOBILE/TABLET STYLES - Merry-Go-Round Cycle Detail View
    ========================================================================== */
 
-@media (max-width: 768px) {
+@media (max-width: 859px) {
   /* Hide desktop table, show mobile cards */
   .desktop-only-table {
     display: none !important;

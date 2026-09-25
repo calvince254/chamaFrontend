@@ -13,16 +13,9 @@
 }
 
 /* ==========================================================================
-   Mobile Styles (< 768px)
+   Mobile/Tablet Styles (< 860px)
    ========================================================================== */
-@media (max-width: 767px) {
-  .desktop-only {
-    display: none !important;
-  }
-
-  .mobile-only {
-    display: block;
-  }
+@media (max-width: 859px) {
 
   /* Mobile Page Header */
   .mobile-page-header {
@@ -84,6 +77,29 @@
     font-size: 12px;
     background: var(--color-surface);
     cursor: pointer;
+    width: 100%;
+  }
+
+  .mobile-filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mobile-filter-label {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  .mobile-date-input {
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    background: var(--color-surface);
+    width: 100%;
   }
 
   /* Mobile List */
@@ -147,8 +163,168 @@
   }
 }
 
-@media (min-width: 768px) {
-  .mobile-only {
-    display: none !important;
+/* Tablet-specific adjustments (480px - 859px) */
+@media (min-width: 480px) and (max-width: 859px) {
+  .mobile-finance {
+    padding: 16px;
+  }
+}
+
+/* Small phones (< 480px) - Touch target enforcement */
+@media (max-width: 479px) {
+  .mobile-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-select {
+    min-height: 48px;
+  }
+}
+
+
+/* ==========================================================================
+   Date Input Styles
+   ========================================================================== */
+.date-input {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  min-width: 130px;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* ==========================================================================
+   Export Modal Styles
+   ========================================================================== */
+.export-modal {
+  max-width: 560px;
+  width: 95%;
+}
+
+.export-description {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 20px;
+}
+
+.export-section {
+  margin-bottom: 20px;
+}
+
+.export-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.period-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.period-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.period-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light, rgba(22, 101, 52, 0.05));
+}
+
+.export-date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.export-field label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.export-field input,
+.export-field select {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.export-field input:focus,
+.export-field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.export-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+/* Spinner for loading state */
+.spinner-small {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Mobile Export Modal adjustments */
+@media (max-width: 599px) {
+  .export-modal {
+    max-width: 100%;
+    margin: 10px;
+  }
+  
+  .period-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .export-date-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .export-filters-grid {
+    grid-template-columns: 1fr;
   }
 }

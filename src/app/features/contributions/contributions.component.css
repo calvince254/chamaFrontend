@@ -172,10 +172,10 @@
 
 
 /* ==========================================================================
-   MOBILE STYLES - Contributions
+   MOBILE/TABLET STYLES - Contributions
    ========================================================================== */
 
-@media (max-width: 768px) {
+@media (max-width: 859px) {
   /* Page Header */
   .page-header {
     margin-bottom: 12px;
@@ -556,7 +556,7 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 859px) {
   .mobile-contribution-list,
   .mobile-penalty-list,
   .mobile-topup-list,
@@ -567,5 +567,59 @@
   /* Hide tables on mobile */
   .table-container {
     display: none;
+  }
+}
+
+/* Tablet-specific adjustments (480px - 859px) */
+@media (min-width: 480px) and (max-width: 859px) {
+  .stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .toolbar .btn-primary {
+    width: auto;
+    order: 0;
+  }
+
+  .date-picker-group {
+    width: auto;
+  }
+
+  .mobile-contribution-row,
+  .mobile-penalty-row,
+  .mobile-topup-row {
+    padding: 16px 20px;
+  }
+}
+
+/* Small phones (< 480px) - Touch target enforcement */
+@media (max-width: 479px) {
+  .type-chip {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .mobile-status-tab {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+
+  .mobile-contribution-row,
+  .mobile-penalty-row,
+  .mobile-topup-row {
+    min-height: 80px;
+  }
+
+  .mobile-contrib-action .btn,
+  .mobile-penalty-action .btn,
+  .mobile-topup-action .btn {
+    min-height: 44px;
+    padding: 10px 14px;
   }
 }

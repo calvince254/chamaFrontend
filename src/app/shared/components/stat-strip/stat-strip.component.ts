@@ -65,7 +65,7 @@ import { CommonModule } from '@angular/common';
       color: var(--color-success);
     }
 
-    @media (max-width: 767px) {
+    @media (max-width: 859px) {
       .stat-chip {
         padding: 8px 12px;
         min-width: 80px;
@@ -149,7 +149,7 @@ export class StatChipComponent {
     }
 
     /* Desktop: allow wrapping if there's space */
-    @media (min-width: 768px) {
+    @media (min-width: 860px) {
       .stat-strip {
         overflow-x: visible;
       }
@@ -160,7 +160,7 @@ export class StatChipComponent {
     }
 
     /* Mobile: always horizontal scroll */
-    @media (max-width: 767px) {
+    @media (max-width: 859px) {
       .stat-strip-inner {
         flex-wrap: nowrap;
       }

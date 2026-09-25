@@ -259,7 +259,8 @@ button:disabled {
 }
 
 .contact-phone,
-.contact-email {
+.contact-email,
+.contact-website {
   display: block;
   font-size: 14px;
   font-weight: 500;
@@ -269,7 +270,8 @@ button:disabled {
 }
 
 .contact-phone:hover,
-.contact-email:hover {
+.contact-email:hover,
+.contact-website:hover {
   color: #14532d;
   text-decoration: underline;
 }
@@ -429,7 +431,8 @@ button:disabled {
   }
 
   .contact-phone,
-  .contact-email {
+  .contact-email,
+  .contact-website {
     font-size: 13px;
     font-weight: 600;
     color: #d4a056;
@@ -441,7 +444,8 @@ button:disabled {
   }
 
   .contact-phone:hover,
-  .contact-email:hover {
+  .contact-email:hover,
+  .contact-website:hover {
     color: #c4904a;
   }
 

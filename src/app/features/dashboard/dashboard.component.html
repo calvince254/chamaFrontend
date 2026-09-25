@@ -48,15 +48,6 @@
     </div>
   </div>
 
-  <!-- Mobile Stat Strip -->
-  <div class="mobile-only">
-    <app-stat-strip>
-      <app-stat-chip label="Savings" [value]="analytics.totalSavings" [isCurrency]="true"></app-stat-chip>
-      <app-stat-chip label="Loans Out" [value]="analytics.loansOutstanding" [isCurrency]="true"></app-stat-chip>
-      <app-stat-chip label="Balance" [value]="analytics.ledgerBalance" [isCurrency]="true" [success]="analytics.ledgerBalance >= 0" [danger]="analytics.ledgerBalance < 0"></app-stat-chip>
-    </app-stat-strip>
-  </div>
-
   <!-- Charts Row -->
   <div class="dash-row desktop-only">
     <!-- Fund Growth Chart (Line Graph) -->

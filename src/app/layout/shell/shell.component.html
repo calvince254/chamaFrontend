@@ -353,6 +353,15 @@
             placeholder="Platform Admin"
             [disabled]="platformSettingsSaving()" />
         </div>
+
+        <div class="form-field">
+          <label>Official Website</label>
+          <input 
+            type="url" 
+            [(ngModel)]="platformSettingsForm.officialWebsite" 
+            placeholder="https://www.yourwebsite.com"
+            [disabled]="platformSettingsSaving()" />
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" (click)="closePlatformSettingsModal()" [disabled]="platformSettingsSaving()">

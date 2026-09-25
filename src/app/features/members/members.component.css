@@ -455,9 +455,9 @@
 
 
 /* ==========================================================================
-   Mobile Styles (< 768px)
+   Mobile/Tablet Styles (< 860px)
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 859px) {
   .desktop-only {
     display: none !important;
   }
@@ -916,8 +916,62 @@
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 860px) {
   .mobile-only {
     display: none !important;
+  }
+}
+
+/* Tablet-specific adjustments (480px - 859px) */
+@media (min-width: 480px) and (max-width: 859px) {
+  .mobile-page-header {
+    padding: 20px;
+  }
+
+  .mobile-page-title {
+    font-size: 20px;
+  }
+
+  .mobile-search-row {
+    padding: 14px 20px;
+  }
+
+  .mobile-member-row {
+    padding: 16px 20px;
+  }
+
+  .mobile-member-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .modal-fullscreen .modal-body {
+    padding: 20px;
+  }
+
+  .stat-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Small phones (< 480px) - Touch target enforcement */
+@media (max-width: 479px) {
+  .mobile-add-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-member-row {
+    min-height: 72px;
+    padding: 14px 16px;
+  }
+
+  .mobile-alert-btn {
+    min-height: 44px;
+  }
+
+  .detail-tab {
+    min-height: 44px;
+    padding: 12px 14px;
   }
 }

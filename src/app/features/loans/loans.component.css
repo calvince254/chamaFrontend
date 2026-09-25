@@ -270,10 +270,10 @@
 
 
 /* ==========================================================================
-   MOBILE STYLES - Loans
+   MOBILE/TABLET STYLES - Loans
    ========================================================================== */
 
-@media (max-width: 768px) {
+@media (max-width: 859px) {
   /* Page Header */
   .page-header {
     flex-direction: column;
@@ -686,11 +686,61 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 859px) {
   .mobile-loan-list,
   .mobile-loan-stats,
   .mobile-penalty-list,
   .mobile-income-list {
     display: flex;
+  }
+}
+
+/* Tablet-specific adjustments (480px - 859px) */
+@media (min-width: 480px) and (max-width: 859px) {
+  .mobile-loan-stats {
+    gap: 24px;
+    padding: 16px 20px;
+  }
+
+  .mobile-loan-card,
+  .mobile-penalty-card,
+  .mobile-income-item {
+    padding: 18px;
+  }
+
+  .loan-detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .loan-amounts-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .loan-amounts-grid .loan-amount-item {
+    border-right: 1px solid var(--color-border);
+    border-bottom: none;
+  }
+
+  .loan-amounts-grid .loan-amount-item:last-child {
+    border-right: none;
+  }
+}
+
+/* Small phones (< 480px) - Touch target enforcement */
+@media (max-width: 479px) {
+  .tabs .tab {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .mobile-loan-card,
+  .mobile-penalty-card {
+    min-height: 120px;
+  }
+
+  .mobile-loan-actions .btn,
+  .mobile-penalty-actions .btn {
+    min-height: 44px;
+    padding: 10px 16px;
   }
 }

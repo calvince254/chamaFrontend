@@ -253,7 +253,7 @@
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 859px) {
   .desktop-only {
     display: none !important;
   }
@@ -504,8 +504,53 @@
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 860px) {
   .mobile-only {
     display: none !important;
+  }
+}
+
+/* Tablet-specific adjustments (480px - 859px) */
+@media (min-width: 480px) and (max-width: 859px) {
+  .mobile-page-header {
+    padding: 20px;
+  }
+
+  .mobile-page-title {
+    font-size: 20px;
+  }
+
+  .mobile-search-row {
+    padding: 14px 20px;
+  }
+
+  .mobile-meeting-row {
+    padding: 16px 20px;
+  }
+
+  .mobile-meeting-date-col {
+    width: 52px;
+    height: 52px;
+  }
+
+  .mobile-meeting-day {
+    font-size: 18px;
+  }
+}
+
+/* Small phones (< 480px) - Touch target enforcement */
+@media (max-width: 479px) {
+  .mobile-add-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-meeting-row {
+    min-height: 72px;
+  }
+
+  .rsvp-actions .btn {
+    min-height: 44px;
+    padding: 10px 16px;
   }
 }

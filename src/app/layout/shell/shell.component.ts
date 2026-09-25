@@ -95,7 +95,8 @@ export class ShellComponent implements OnInit, OnDestroy {
   platformSettingsForm = {
     contactPhone: '',
     contactEmail: '',
-    contactName: ''
+    contactName: '',
+    officialWebsite: ''
   };
   platformSettingsError = signal('');
   platformSettingsSuccess = signal('');
@@ -464,7 +465,8 @@ export class ShellComponent implements OnInit, OnDestroy {
         this.platformSettingsForm = {
           contactPhone: info.contactPhone || '',
           contactEmail: info.contactEmail || '',
-          contactName: info.contactName || ''
+          contactName: info.contactName || '',
+          officialWebsite: info.officialWebsite || ''
         };
         this.showPlatformSettingsModal.set(true);
       },
@@ -472,7 +474,8 @@ export class ShellComponent implements OnInit, OnDestroy {
         this.platformSettingsForm = {
           contactPhone: '+254 703 878 878',
           contactEmail: 'admin@chamamanager.app',
-          contactName: 'Platform Admin'
+          contactName: 'Platform Admin',
+          officialWebsite: ''
         };
         this.showPlatformSettingsModal.set(true);
       }
@@ -498,7 +501,8 @@ export class ShellComponent implements OnInit, OnDestroy {
     this.api.updatePlatformContactInfo({
       contactPhone: this.platformSettingsForm.contactPhone,
       contactEmail: this.platformSettingsForm.contactEmail,
-      contactName: this.platformSettingsForm.contactName
+      contactName: this.platformSettingsForm.contactName,
+      officialWebsite: this.platformSettingsForm.officialWebsite
     }).subscribe({
       next: () => {
         this.platformSettingsSaving.set(false);

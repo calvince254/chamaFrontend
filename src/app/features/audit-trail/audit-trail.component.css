@@ -560,7 +560,7 @@
   display: none;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 859px) {
   .desktop-only {
     display: none !important;
   }

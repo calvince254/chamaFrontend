@@ -3,7 +3,11 @@
     <h1>Finance</h1>
     <p>Consolidated financial position and transaction ledger. Externally audited annually once funds exceed KES 500,000.</p>
   </div>
-  <button class="btn btn-outline">Export Statement</button>
+  @if (session.can('DOWNLOAD_FINANCE_REPORT')) {
+    <button class="btn btn-outline" (click)="openExportModal()">
+      <app-icon name="download"></app-icon> Export Statement
+    </button>
+  }
 </div>
 
 <!-- Mobile Page Header -->
@@ -13,9 +17,11 @@
       <h1 class="mobile-page-title">Finance</h1>
       <p class="mobile-page-subtitle">Transaction ledger</p>
     </div>
-    <button class="mobile-icon-btn">
-      <app-icon name="download"></app-icon>
-    </button>
+    @if (session.can('DOWNLOAD_FINANCE_REPORT')) {
+      <button class="mobile-icon-btn" (click)="openExportModal()">
+        <app-icon name="download"></app-icon>
+      </button>
+    }
   </div>
 </div>
 
@@ -55,10 +61,11 @@
           <option value="LOAN_REPAYMENT">Loan Repayment</option>
           <option value="LOAN_INTEREST">Loan Interest</option>
           <option value="PROCESSING_FEE">Processing Fee</option>
+          <option value="FINE">Fine</option>
           <option value="PENALTY">Penalty</option>
           <option value="WELFARE">Welfare</option>
           <option value="INVESTMENT">Investment</option>
-          <option value="SHARE_PAYOUT">Share Payout</option>
+          <option value="PAYOUT">Payout</option>
           <option value="OTHER">Other</option>
         </select>
       </div>
@@ -79,8 +86,16 @@
           }
         </select>
       </div>
-      @if (typeFilter || directionFilter || memberFilter) {
-        <button class="reset-filters" (click)="typeFilter = ''; directionFilter = ''; memberFilter = null; onFilterChange()">Reset filters</button>
+      <div class="filter-group">
+        <label>From:</label>
+        <input type="date" class="date-input" [(ngModel)]="startDate" (ngModelChange)="onFilterChange()">
+      </div>
+      <div class="filter-group">
+        <label>To:</label>
+        <input type="date" class="date-input" [(ngModel)]="endDate" (ngModelChange)="onFilterChange()">
+      </div>
+      @if (typeFilter || directionFilter || memberFilter || startDate || endDate) {
+        <button class="reset-filters" (click)="resetFilters()">Reset filters</button>
       }
     </div>
 
@@ -143,22 +158,37 @@
 
     <!-- Mobile Filters -->
     <div class="mobile-filter-grid">
-      <select class="mobile-select" [(ngModel)]="typeFilter" (ngModelChange)="onFilterChange()">
-        <option value="">All types</option>
-        <option value="CONTRIBUTION">Contribution</option>
-        <option value="LOAN_DISBURSEMENT">Loan Disbursement</option>
-        <option value="LOAN_REPAYMENT">Loan Repayment</option>
-        <option value="LOAN_INTEREST">Loan Interest</option>
-        <option value="PENALTY">Penalty</option>
-        <option value="WELFARE">Welfare</option>
-        <option value="INVESTMENT">Investment</option>
-        <option value="SHARE_PAYOUT">Share Payout</option>
-      </select>
-      <select class="mobile-select" [(ngModel)]="directionFilter" (ngModelChange)="onFilterChange()">
-        <option value="">All</option>
-        <option value="IN">Income</option>
-        <option value="OUT">Expense</option>
-      </select>
+      <div class="mobile-filter-item">
+        <label class="mobile-filter-label">From</label>
+        <input type="date" class="mobile-date-input" [(ngModel)]="startDate" (ngModelChange)="onFilterChange()">
+      </div>
+      <div class="mobile-filter-item">
+        <label class="mobile-filter-label">To</label>
+        <input type="date" class="mobile-date-input" [(ngModel)]="endDate" (ngModelChange)="onFilterChange()">
+      </div>
+      <div class="mobile-filter-item">
+        <label class="mobile-filter-label">Type</label>
+        <select class="mobile-select" [(ngModel)]="typeFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All types</option>
+          <option value="CONTRIBUTION">Contribution</option>
+          <option value="LOAN_DISBURSEMENT">Loan Disbursement</option>
+          <option value="LOAN_REPAYMENT">Loan Repayment</option>
+          <option value="LOAN_INTEREST">Loan Interest</option>
+          <option value="FINE">Fine</option>
+          <option value="PENALTY">Penalty</option>
+          <option value="WELFARE">Welfare</option>
+          <option value="INVESTMENT">Investment</option>
+          <option value="PAYOUT">Payout</option>
+        </select>
+      </div>
+      <div class="mobile-filter-item">
+        <label class="mobile-filter-label">Direction</label>
+        <select class="mobile-select" [(ngModel)]="directionFilter" (ngModelChange)="onFilterChange()">
+          <option value="">All</option>
+          <option value="IN">Income</option>
+          <option value="OUT">Expense</option>
+        </select>
+      </div>
     </div>
 
     <!-- Mobile Transactions List -->
@@ -205,5 +235,100 @@
         </app-pagination-bar>
       }
     }
+  </div>
+}
+
+<!-- ==================== EXPORT MODAL ==================== -->
+@if (showExportModal) {
+  <div class="modal-backdrop" (click)="closeExportModal()">
+    <div class="modal export-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Export Finance Report</h3>
+        <button class="modal-close" (click)="closeExportModal()">
+          <app-icon name="x"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="export-description">Generate a PDF report of your financial transactions. Select a period or custom date range.</p>
+        
+        <!-- Quick Period Selection -->
+        <div class="export-section">
+          <label class="export-label">Quick Select Period</label>
+          <div class="period-buttons">
+            <button class="period-btn" (click)="setExportPeriod('week')">Last Week</button>
+            <button class="period-btn" (click)="setExportPeriod('month')">Last Month</button>
+            <button class="period-btn" (click)="setExportPeriod('quarter')">Last Quarter</button>
+            <button class="period-btn" (click)="setExportPeriod('year')">Last Year</button>
+            <button class="period-btn" (click)="setExportPeriod('all')">All Time</button>
+          </div>
+        </div>
+
+        <!-- Custom Date Range -->
+        <div class="export-section">
+          <label class="export-label">Or Custom Date Range</label>
+          <div class="export-date-row">
+            <div class="export-field">
+              <label>From</label>
+              <input type="date" [(ngModel)]="exportStartDate">
+            </div>
+            <div class="export-field">
+              <label>To</label>
+              <input type="date" [(ngModel)]="exportEndDate">
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Options -->
+        <div class="export-section">
+          <label class="export-label">Filter Options (Optional)</label>
+          <div class="export-filters-grid">
+            <div class="export-field">
+              <label>Transaction Type</label>
+              <select [(ngModel)]="exportType">
+                <option value="">All Types</option>
+                <option value="CONTRIBUTION">Contribution</option>
+                <option value="LOAN_DISBURSEMENT">Loan Disbursement</option>
+                <option value="LOAN_REPAYMENT">Loan Repayment</option>
+                <option value="LOAN_INTEREST">Loan Interest</option>
+                <option value="PROCESSING_FEE">Processing Fee</option>
+                <option value="FINE">Fine</option>
+                <option value="PENALTY">Penalty</option>
+                <option value="WELFARE">Welfare</option>
+                <option value="INVESTMENT">Investment</option>
+                <option value="PAYOUT">Payout</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div class="export-field">
+              <label>Direction</label>
+              <select [(ngModel)]="exportDirection">
+                <option value="">All</option>
+                <option value="IN">Income Only</option>
+                <option value="OUT">Expense Only</option>
+              </select>
+            </div>
+            <div class="export-field">
+              <label>Member</label>
+              <select [(ngModel)]="exportMember">
+                <option [ngValue]="null">All Members</option>
+                @for (m of members; track m.id) {
+                  <option [ngValue]="m.id">{{ m.name }}</option>
+                }
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeExportModal()">Cancel</button>
+        <button class="btn btn-primary" (click)="exportReport()" [disabled]="isExporting">
+          @if (isExporting) {
+            <span class="spinner-small"></span> Generating...
+          } @else {
+            <app-icon name="download"></app-icon> Download PDF
+          }
+        </button>
+      </div>
+    </div>
   </div>
 }

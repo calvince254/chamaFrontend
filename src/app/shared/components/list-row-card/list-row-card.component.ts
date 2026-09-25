@@ -198,7 +198,7 @@ export class ListRowFooterDirective {}
     }
 
     /* Mobile optimization */
-    @media (max-width: 767px) {
+    @media (max-width: 859px) {
       .list-row-card {
         padding: 10px;
       }
@@ -209,8 +209,8 @@ export class ListRowFooterDirective {}
       }
     }
 
-    /* 320px width support */
-    @media (max-width: 320px) {
+    /* Small phone support */
+    @media (max-width: 479px) {
       .list-row-footer {
         flex-wrap: wrap;
       }

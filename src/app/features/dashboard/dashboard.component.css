@@ -424,9 +424,9 @@
 
 
 /* ==========================================================================
-   Mobile Styles (< 768px) - Redesigned Dashboard
+   Mobile/Tablet Styles (< 860px) - Redesigned Dashboard
    ========================================================================== */
-@media (max-width: 767px) {
+@media (max-width: 859px) {
   .desktop-only {
     display: none !important;
   }
@@ -970,8 +970,66 @@
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 860px) {
   .mobile-only {
     display: none !important;
+  }
+}
+
+/* Tablet-specific adjustments (480px - 859px) */
+@media (min-width: 480px) and (max-width: 859px) {
+  .mobile-dashboard {
+    padding: 20px;
+  }
+
+  .mobile-hero-card {
+    padding: 28px 24px;
+  }
+
+  .mobile-hero-amount {
+    font-size: 36px;
+  }
+
+  .mobile-stats-grid {
+    gap: 12px;
+  }
+
+  .mobile-stat-tile {
+    padding: 16px 12px;
+  }
+
+  .mobile-stat-value {
+    font-size: 16px;
+  }
+
+  .mobile-activity-item,
+  .mobile-alert-item,
+  .mobile-approval-item {
+    padding: 14px 16px;
+  }
+}
+
+/* Small phones (< 480px) - Ensure touch targets */
+@media (max-width: 479px) {
+  .mobile-section-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 0;
+  }
+
+  .mobile-activity-item,
+  .mobile-alert-item,
+  .mobile-approval-item {
+    min-height: 64px;
+  }
+
+  .mobile-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mobile-stat-tile:nth-child(5),
+  .mobile-stat-tile:nth-child(6) {
+    grid-column: span 1;
   }
 }

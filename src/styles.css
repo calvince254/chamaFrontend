@@ -186,12 +186,7 @@ table.data-table tbody tr:hover { background: #f7faf9; }
 .page-header h1 { font-size: 14px; }
 .page-header p { color: var(--color-text-muted); margin-top: 2px; font-size: 10px; }
 
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
+/* Note: .stat-grid responsive styles defined in responsive section below */
 .stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1537,13 +1532,8 @@ table.data-table.compact td {
   color: white;
 }
 
-/* Investment list stat grid */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
+/* Investment list stat grid - uses global .stat-grid */
+/* .stat-grid - defined in responsive section below */
 
 .stat-card {
   background: var(--color-surface);
@@ -2463,4 +2453,759 @@ table.data-table.compact td {
 
 .payment-status app-icon {
   font-size: 18px;
+}
+
+
+/* ==========================================================================
+   RESPONSIVE DESIGN SYSTEM
+   Mobile-first responsive foundation per ChamaManager specification
+   
+   Breakpoints:
+   - Base (mobile): < 480px (small phones)
+   - Tablet: >= 860px (large phones landscape & tablets)  
+   - Desktop: >= 1200px (full desktop layout)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   CSS Custom Properties for Responsive Values
+   -------------------------------------------------------------------------- */
+:root {
+  /* Responsive spacing */
+  --page-padding: 16px;
+  --card-padding: 12px;
+  --topbar-height: 52px;
+  
+  /* Responsive typography base (mobile-first) */
+  --font-h1: 19px;
+  --font-h2: 15px;
+  --font-body: 13.5px;
+  --font-label: 10.5px;
+  
+  /* Touch targets */
+  --min-tap-target: 44px;
+  --tap-gap: 8px;
+  
+  /* Safe areas for notch devices */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Tablet breakpoint (860px+) */
+@media (min-width: 860px) {
+  :root {
+    --page-padding: 24px;
+    --card-padding: 14px;
+    --topbar-height: 56px;
+    --font-h1: 22px;
+    --font-h2: 16px;
+    --font-body: 14px;
+    --font-label: 11.5px;
+  }
+}
+
+/* Desktop breakpoint (1200px+) */
+@media (min-width: 1200px) {
+  :root {
+    --page-padding: 32px;
+    --card-padding: 16px;
+    --topbar-height: 64px;
+    --font-h1: 25px;
+    --font-h2: 18px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Typography
+   -------------------------------------------------------------------------- */
+h1 { font-size: var(--font-h1); }
+h2 { font-size: var(--font-h2); }
+body, p { font-size: var(--font-body); }
+label, .form-field label { font-size: var(--font-label); }
+
+/* --------------------------------------------------------------------------
+   Responsive Content Padding
+   -------------------------------------------------------------------------- */
+.content {
+  padding: var(--page-padding);
+}
+
+/* --------------------------------------------------------------------------
+   Touch-Friendly Controls (Mobile & Tablet)
+   -------------------------------------------------------------------------- */
+@media (max-width: 1199px) {
+  /* Buttons - minimum tap target */
+  .btn {
+    min-height: var(--min-tap-target);
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  
+  .btn-sm {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  
+  /* Form inputs - minimum tap target */
+  .form-field input,
+  .form-field select,
+  .form-field textarea,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="search"],
+  select,
+  textarea {
+    min-height: var(--min-tap-target);
+    padding: 10px 12px;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+  
+  /* Tab buttons */
+  .tab, .tabs button {
+    min-height: var(--min-tap-target);
+    padding: 10px 14px;
+  }
+  
+  /* Icon buttons and action buttons */
+  .btn-icon,
+  .action-btn,
+  .icon-btn {
+    min-width: var(--min-tap-target);
+    min-height: var(--min-tap-target);
+  }
+  
+  /* Checkbox and radio buttons */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .checkbox-label {
+    min-height: var(--min-tap-target);
+    padding: 8px 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Stat Grid
+   Mobile: 2 per row (or scrollable if >4)
+   Tablet: 3 per row
+   Desktop: 5 per row (for Finance and similar pages)
+   -------------------------------------------------------------------------- */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+@media (min-width: 860px) {
+  .stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .stat-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+}
+
+/* Scrollable stat strip for >4 stats on mobile */
+.stat-grid.scrollable-mobile {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.stat-grid.scrollable-mobile::-webkit-scrollbar {
+  display: none;
+}
+
+.stat-grid.scrollable-mobile .stat-card {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+@media (min-width: 860px) {
+  .stat-grid.scrollable-mobile {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    overflow-x: visible;
+  }
+  
+  .stat-grid.scrollable-mobile .stat-card {
+    min-width: auto;
+  }
+}
+
+@media (min-width: 1200px) {
+  .stat-grid.scrollable-mobile {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Tables → Card Layout (below 860px)
+   -------------------------------------------------------------------------- */
+
+/* Show desktop table on tablet+ */
+.desktop-table {
+  display: none;
+}
+
+@media (min-width: 860px) {
+  .desktop-table {
+    display: table;
+  }
+  
+  .mobile-cards {
+    display: none !important;
+  }
+}
+
+/* Mobile card list */
+.mobile-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Individual mobile card */
+.mobile-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.mobile-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mobile-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.mobile-card-subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.mobile-card-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mobile-card-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-card-stat-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.mobile-card-stat-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.mobile-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tap-gap);
+  padding-top: 10px;
+  justify-content: flex-start;
+}
+
+.mobile-card-actions .btn {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Filter/Tab Rows
+   -------------------------------------------------------------------------- */
+
+/* Filter bar - horizontal scroll on mobile */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+}
+
+@media (max-width: 859px) {
+  .filter-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 8px;
+  }
+  
+  .filter-bar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .filter-bar .filter-group {
+    flex-shrink: 0;
+  }
+  
+  /* Period selectors - 2 dropdowns side by side */
+  .filter-bar .period-selectors {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  
+  .filter-bar .period-selectors select {
+    flex: 1;
+    min-width: 100px;
+  }
+}
+
+/* Tabs - horizontal scroll on mobile */
+.tabs {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 2px;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 859px) {
+  .tabs {
+    margin: 0 calc(var(--page-padding) * -1);
+    padding: 0 var(--page-padding);
+  }
+  
+  .tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Modals → Bottom Sheets (below 860px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 859px) {
+  .modal-backdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+  
+  .modal,
+  .modal-wide,
+  .modal-large,
+  .modal-lg,
+  .modal-sm {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100dvh;
+    min-height: 50dvh;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease;
+  }
+  
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  
+  .modal-header {
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    background: var(--color-surface);
+    z-index: 10;
+    padding: 16px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  
+  .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .modal-footer {
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    background: var(--color-surface);
+    z-index: 10;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border);
+    gap: 8px;
+  }
+  
+  .modal-footer .btn {
+    flex: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Form Grids
+   Single column below 860px, 2 columns above
+   -------------------------------------------------------------------------- */
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 860px) {
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 16px;
+  }
+  
+  .form-grid .form-field.full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Charts
+   -------------------------------------------------------------------------- */
+.chart-container {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+}
+
+@media (min-width: 860px) {
+  .chart-container {
+    min-height: 300px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Page Header
+   -------------------------------------------------------------------------- */
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-header h1 {
+  font-size: var(--font-h1);
+}
+
+.page-header p {
+  font-size: 12px;
+}
+
+@media (min-width: 860px) {
+  .page-header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  
+  .page-header .btn {
+    flex-shrink: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Visibility Utilities
+   -------------------------------------------------------------------------- */
+.hide-mobile {
+  display: none !important;
+}
+
+.hide-tablet {
+  display: block;
+}
+
+.hide-desktop {
+  display: block;
+}
+
+@media (min-width: 860px) {
+  .hide-mobile {
+    display: block !important;
+  }
+  
+  .hide-tablet {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1200px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Visibility Utilities
+   -------------------------------------------------------------------------- */
+
+/* Desktop-only: Visible by default, hidden below 860px */
+/* Note: We don't set display here so elements keep their natural display (grid, flex, etc.) */
+.desktop-only {
+  /* Visible by default - element uses its natural display property */
+}
+
+/* Mobile-only: Hidden by default, shown below 860px */
+.mobile-only {
+  display: none;
+}
+
+/* Tablet-only: Only visible between 860px and 1199px */
+.tablet-only {
+  display: none;
+}
+
+@media (max-width: 859px) {
+  .desktop-only {
+    display: none !important;
+  }
+  
+  /* Reset mobile-only to allow natural display */
+  .mobile-only {
+    display: block;
+  }
+  
+  /* Grid containers that are mobile-only should display as grid */
+  .mobile-only.stat-grid,
+  .mobile-only[class*="grid"] {
+    display: grid;
+  }
+  
+  /* Flex containers that are mobile-only should display as flex */
+  .mobile-only.mobile-list,
+  .mobile-only[class*="flex"] {
+    display: flex;
+  }
+}
+
+@media (min-width: 860px) and (max-width: 1199px) {
+  .tablet-only {
+    display: block;
+  }
+}
+
+@media (min-width: 1200px) {
+  .tablet-only {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Card Adjustments
+   -------------------------------------------------------------------------- */
+.card {
+  border-radius: var(--radius-md);
+}
+
+.card-body {
+  padding: var(--card-padding);
+}
+
+.card-header {
+  padding: var(--card-padding);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+@media (min-width: 860px) {
+  .card-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Table Tweaks (for tablet+ where tables show)
+   -------------------------------------------------------------------------- */
+@media (min-width: 860px) {
+  table.data-table th {
+    font-size: 10px;
+    padding: 10px 14px;
+  }
+  
+  table.data-table td {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1200px) {
+  table.data-table th {
+    padding: 12px 16px;
+  }
+  
+  table.data-table td {
+    padding: 14px 16px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Stats Strip
+   -------------------------------------------------------------------------- */
+.stats-strip {
+  display: flex;
+  flex-direction: column;
+}
+
+.stats-strip-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.stats-strip-item:last-child {
+  border-bottom: none;
+}
+
+@media (min-width: 860px) {
+  .stats-strip {
+    flex-direction: row;
+  }
+  
+  .stats-strip-item {
+    flex: 1;
+    border-bottom: none;
+    border-right: 1px solid var(--color-border);
+  }
+  
+  .stats-strip-item:last-child {
+    border-right: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Empty States
+   -------------------------------------------------------------------------- */
+.empty-state-card {
+  padding: 32px var(--page-padding);
+}
+
+@media (min-width: 860px) {
+  .empty-state-card {
+    padding: 48px 32px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Toolbar
+   -------------------------------------------------------------------------- */
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.toolbar .search-box {
+  width: 100%;
+  max-width: none;
+}
+
+@media (min-width: 860px) {
+  .toolbar {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .toolbar .search-box {
+    max-width: 280px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Action Buttons Gap for Touch
+   -------------------------------------------------------------------------- */
+@media (max-width: 859px) {
+  .actions-cell {
+    display: flex;
+    gap: var(--tap-gap);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Pagination
+   -------------------------------------------------------------------------- */
+.pagination {
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px var(--page-padding);
+}
+
+.pagination-controls {
+  width: 100%;
+  justify-content: space-between;
+}
+
+@media (min-width: 860px) {
+  .pagination {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  
+  .pagination-controls {
+    width: auto;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Badge Sizes
+   -------------------------------------------------------------------------- */
+.badge {
+  font-size: 10px;
+  padding: 4px 8px;
+}
+
+@media (min-width: 860px) {
+  .badge {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
 }

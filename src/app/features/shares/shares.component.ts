@@ -1,5 +1,5 @@
-import { Component, OnInit, signal, inject, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, signal, inject, ChangeDetectorRef, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
@@ -97,10 +97,15 @@ export class SharesComponent implements OnInit {
   private confirmDialog = inject(ConfirmDialogService);
   private toast = inject(ToastService);
   private cdr = inject(ChangeDetectorRef);
+  private platformId = inject(PLATFORM_ID);
 
   constructor(private api: ApiService, public session: SessionService) {}
 
   ngOnInit() {
+    // Only make API calls in browser (not during SSR)
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
     // Always attempt to load if user is logged in - let backend handle permissions
     if (this.session.isLoggedIn()) {
       this.loadShareCalculation();

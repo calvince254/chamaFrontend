@@ -39,7 +39,8 @@ export class LoginComponent implements OnInit {
   contactInfo = signal<PlatformContactInfo>({
     contactPhone: '',
     contactEmail: '',
-    contactName: ''
+    contactName: '',
+    officialWebsite: ''
   });
 
   constructor(
