@@ -7,21 +7,26 @@
 
 <!-- Main Tabs -->
 <div class="tabs" style="margin-bottom: 12px;">
-  <button class="tab" [class.active]="activeTab === 'contributions'" (click)="activeTab = 'contributions'">
+  <button class="tab" [class.active]="activeTab === 'contributions'" (click)="onTabChange('contributions')">
     Contributions
   </button>
-  <button class="tab" [class.active]="activeTab === 'penalties'" (click)="activeTab = 'penalties'">
+  <button class="tab" [class.active]="activeTab === 'penalties'" (click)="onTabChange('penalties')">
     Penalties
     @if (unpaidPenaltiesCount > 0) {
       <span class="badge badge-danger" style="margin-left: 4px;">{{ unpaidPenaltiesCount }}</span>
     }
   </button>
-  <button class="tab" [class.active]="activeTab === 'topups'" (click)="activeTab = 'topups'; loadTopUps()">
+  <button class="tab" [class.active]="activeTab === 'topups'" (click)="onTabChange('topups')">
     Manual Top-Up
     @if (pendingTopUpsCount > 0) {
       <span class="badge badge-warning" style="margin-left: 4px;">{{ pendingTopUpsCount }}</span>
     }
   </button>
+  @if (session.can('VIEW_CONTRIBUTION_REPORTS')) {
+    <button class="tab" [class.active]="activeTab === 'reports'" (click)="onTabChange('reports')">
+      Reports
+    </button>
+  }
 </div>
 
 <!-- ==================== CONTRIBUTIONS TAB ==================== -->
@@ -611,6 +616,250 @@
         </div>
         <div class="pagination-page-info">
           Page {{ topUpPage + 1 }} of {{ topUpTotalPages }}
+        </div>
+      </div>
+    }
+  }
+}
+
+<!-- ==================== REPORTS TAB ==================== -->
+@if (activeTab === 'reports') {
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>From:</label>
+      <input type="date" class="date-input" [(ngModel)]="reportStartDate" (ngModelChange)="onReportFilterChange()">
+    </div>
+    <div class="filter-group">
+      <label>To:</label>
+      <input type="date" class="date-input" [(ngModel)]="reportEndDate" (ngModelChange)="onReportFilterChange()">
+    </div>
+    <div class="filter-divider"></div>
+    <div class="filter-group searchable-select">
+      <label>Member:</label>
+      <div class="searchable-select-wrapper">
+        <input 
+          type="text" 
+          class="searchable-input"
+          placeholder="All Members"
+          [value]="reportMemberId ? selectedMemberName : reportMemberSearch"
+          (input)="onMemberInputChange($any($event.target).value)"
+          (focus)="showMemberSearchDropdown = true"
+          (blur)="onMemberSearchBlur()">
+        @if (reportMemberId) {
+          <button type="button" class="searchable-clear" (mousedown)="clearReportMember(); $event.preventDefault()">
+            <app-icon name="x"></app-icon>
+          </button>
+        } @else {
+          <app-icon name="chevron-down" class="searchable-arrow"></app-icon>
+        }
+        @if (showMemberSearchDropdown) {
+          <div class="searchable-dropdown">
+            <div class="searchable-option" (mousedown)="selectMemberOption(null, 'All Members'); $event.preventDefault()">
+              All Members
+            </div>
+            @for (m of filteredMembers; track m.id) {
+              <div class="searchable-option" [class.selected]="reportMemberId === m.id" (mousedown)="selectMemberOption(m.id, m.name); $event.preventDefault()">
+                {{ m.name }} <span class="member-no-hint">{{ m.memberNo }}</span>
+              </div>
+            }
+            @if (filteredMembers.length === 0 && reportMemberSearch) {
+              <div class="searchable-no-results">No members found</div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Contribution Type:</label>
+      <select [(ngModel)]="reportContributionTypeId" (ngModelChange)="onReportFilterChange()">
+        <option [ngValue]="null">All Types</option>
+        @for (ct of contributionTypes; track ct.id) {
+          <option [ngValue]="ct.id">{{ ct.name }}</option>
+        }
+      </select>
+    </div>
+    @if (hasReportFilters) {
+      <button class="reset-filters" (click)="resetReportFilters()">Reset filters</button>
+    }
+    <div class="spacer"></div>
+    @if (session.can('DOWNLOAD_CONTRIBUTION_REPORT') && reportItems.length > 0) {
+      <button class="btn btn-outline" (click)="downloadReportPdf()" [disabled]="downloadingReport()">
+        <app-icon name="download"></app-icon>
+        {{ downloadingReport() ? 'Downloading...' : 'Download PDF' }}
+      </button>
+    }
+  </div>
+
+  <!-- Mobile Report Filters -->
+  <div class="mobile-report-filters">
+    <div class="mobile-filter-row">
+      <div class="mobile-filter-item">
+        <label>From</label>
+        <input type="date" [(ngModel)]="reportStartDate" (ngModelChange)="onReportFilterChange()">
+      </div>
+      <div class="mobile-filter-item">
+        <label>To</label>
+        <input type="date" [(ngModel)]="reportEndDate" (ngModelChange)="onReportFilterChange()">
+      </div>
+    </div>
+    <div class="mobile-filter-row">
+      <div class="mobile-filter-item mobile-searchable-select">
+        <label>Member</label>
+        <div class="mobile-searchable-wrapper">
+          <input 
+            type="text" 
+            class="mobile-searchable-input"
+            placeholder="All Members"
+            [value]="reportMemberId ? selectedMemberName : reportMemberSearch"
+            (input)="onMemberInputChange($any($event.target).value)"
+            (focus)="showMemberSearchDropdown = true"
+            (blur)="onMemberSearchBlur()">
+          @if (reportMemberId) {
+            <button type="button" class="mobile-searchable-clear" (mousedown)="clearReportMember(); $event.preventDefault()">
+              <app-icon name="x"></app-icon>
+            </button>
+          } @else {
+            <app-icon name="chevron-down" class="mobile-searchable-arrow"></app-icon>
+          }
+          @if (showMemberSearchDropdown) {
+            <div class="mobile-searchable-dropdown">
+              <div class="mobile-searchable-option" (mousedown)="selectMemberOption(null, 'All Members'); $event.preventDefault()">
+                All Members
+              </div>
+              @for (m of filteredMembers; track m.id) {
+                <div class="mobile-searchable-option" [class.selected]="reportMemberId === m.id" (mousedown)="selectMemberOption(m.id, m.name); $event.preventDefault()">
+                  <span class="mobile-option-name">{{ m.name }}</span>
+                  <span class="mobile-option-no">{{ m.memberNo }}</span>
+                </div>
+              }
+              @if (filteredMembers.length === 0 && reportMemberSearch) {
+                <div class="mobile-searchable-empty">No members found</div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+      <div class="mobile-filter-item">
+        <label>Type</label>
+        <select [(ngModel)]="reportContributionTypeId" (ngModelChange)="onReportFilterChange()">
+          <option [ngValue]="null">All Types</option>
+          @for (ct of contributionTypes; track ct.id) {
+            <option [ngValue]="ct.id">{{ ct.name }}</option>
+          }
+        </select>
+      </div>
+    </div>
+    <div class="mobile-filter-actions">
+      @if (hasReportFilters) {
+        <button class="btn btn-ghost btn-sm" (click)="resetReportFilters()">Reset</button>
+      }
+      @if (session.can('DOWNLOAD_CONTRIBUTION_REPORT') && reportItems.length > 0) {
+        <button class="btn btn-primary btn-sm" (click)="downloadReportPdf()" [disabled]="downloadingReport()">
+          <app-icon name="download"></app-icon>
+          {{ downloadingReport() ? 'Downloading...' : 'Download' }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Report Content -->
+  @if (loadingReport()) {
+    <div class="empty-state">
+      <div class="spinner-sm"></div>
+      <span style="margin-left: 8px;">Loading report...</span>
+    </div>
+  } @else if (reportItems.length === 0 && !hasReportFilters) {
+    <div class="empty-state">
+      <app-icon name="file-text" style="font-size: 32px; opacity: 0.4; margin-bottom: 8px;"></app-icon>
+      <p>No contribution data available.</p>
+      <p style="color: var(--color-text-muted); font-size: 10px;">Adjust the date range to find contributions.</p>
+    </div>
+  } @else if (reportItems.length === 0 && hasReportFilters) {
+    <div class="empty-state">
+      <app-icon name="search" style="font-size: 18px; opacity: 0.5; margin-bottom: 6px;"></app-icon>
+      <p>No contributions match your filters.</p>
+      <button class="btn btn-outline btn-sm" style="margin-top: 8px;" (click)="resetReportFilters()">Reset filters</button>
+    </div>
+  } @else {
+    <!-- Mobile Report List -->
+    <div class="mobile-report-list">
+      @for (item of reportItems; track item.id) {
+        <div class="mobile-report-row">
+          <div class="mobile-report-top">
+            <div class="mobile-report-member">
+              <div class="mobile-report-name">{{ item.memberName }}</div>
+              <div class="mobile-report-no">{{ item.memberNo }}</div>
+            </div>
+            <span class="badge" [ngClass]="getStatusBadgeClass(item.status)">{{ item.status }}</span>
+          </div>
+          <div class="mobile-report-details">
+            <span class="mobile-report-type">{{ item.contributionTypeName }}</span>
+            <span class="mobile-report-period">{{ formatMonth(item.month) }}</span>
+          </div>
+          <div class="mobile-report-bottom">
+            <div class="mobile-report-amounts">
+              Due <strong>{{ item.amountDue | number }}</strong> · Paid <strong>{{ item.amountPaid | number }}</strong>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table -->
+    <div class="card desktop-report-table">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Member</th>
+            <th>Type</th>
+            <th class="col-amount">Due</th>
+            <th class="col-amount">Paid</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of reportItems; track item.id) {
+            <tr>
+              <td>{{ formatMonth(item.month) }}</td>
+              <td>
+                <div class="member-name">{{ item.memberName }}</div>
+                <div class="member-no">{{ item.memberNo }}</div>
+              </td>
+              <td><span class="badge badge-neutral">{{ item.contributionTypeName }}</span></td>
+              <td class="col-amount">{{ item.amountDue | number }}</td>
+              <td class="col-amount">{{ item.amountPaid | number }}</td>
+              <td>
+                <span class="badge" [ngClass]="getStatusBadgeClass(item.status)">{{ item.status }}</span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Report Pagination -->
+    @if (reportTotalPages > 1) {
+      <div class="pagination">
+        <div class="pagination-info">
+          Showing {{ reportPage * reportPageSize + 1 }} - {{ Math.min((reportPage + 1) * reportPageSize, reportTotalElements) }} of {{ reportTotalElements }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" (click)="prevReportPage()" [disabled]="reportIsFirst">
+            <app-icon name="chevron-left"></app-icon>
+          </button>
+          @for (page of reportPageNumbers; track page) {
+            <button class="pagination-btn" [class.active]="page === reportPage" (click)="goToReportPage(page)">
+              {{ page + 1 }}
+            </button>
+          }
+          <button class="pagination-btn" (click)="nextReportPage()" [disabled]="reportIsLast">
+            <app-icon name="chevron-right"></app-icon>
+          </button>
+        </div>
+        <div class="pagination-page-info">
+          Page {{ reportPage + 1 }} of {{ reportTotalPages }}
         </div>
       </div>
     }

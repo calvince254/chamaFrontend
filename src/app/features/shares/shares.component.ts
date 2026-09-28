@@ -42,7 +42,7 @@ export class SharesComponent implements OnInit {
   calculation: ShareCalculation | null = null;
   loading = signal(false);
   error = signal<string | null>(null);
-  showInfoModal = false;
+  showInfoModal = signal(false);
 
   // Member Ownership pagination
   paginatedMemberShares: MemberShare[] = [];

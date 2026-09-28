@@ -377,6 +377,7 @@ export interface ContributionType {
   id: number;
   name: string;
   description?: string;
+  category?: 'NORMAL' | 'WELFARE' | 'EMERGENCY' | 'OTHER';
   amount: number;
   frequency: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
   dueDay?: number;

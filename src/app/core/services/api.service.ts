@@ -595,6 +595,79 @@ export class ApiService {
     return this.http.post<any>(`${this.baseUrl}/contributions/check-penalties?month=${month}`, {});
   }
 
+  // ==================== CONTRIBUTION REPORTS ====================
+  
+  /**
+   * Get contribution report with filters and pagination.
+   */
+  getContributionReport(
+    page: number = 0, 
+    size: number = 10, 
+    startDate?: string, 
+    endDate?: string, 
+    memberId?: number, 
+    contributionTypeId?: number
+  ): Observable<PageResponse<Contribution>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
+    
+    return this.http.get<any>(`${this.baseUrl}/contributions/reports`, { params }).pipe(
+      map(response => ({
+        ...response,
+        content: response.content.map((c: any) => ({
+          id: c.id,
+          memberId: c.memberId,
+          memberName: c.memberName || '',
+          memberNo: c.memberNo || '',
+          month: c.month,
+          amountDue: c.amountDue || 0,
+          amountPaid: c.amountPaid || 0,
+          status: c.status,
+          paidOn: c.paidOn,
+          dueDate: c.dueDate,
+          contributionTypeId: c.contributionTypeId,
+          contributionTypeName: c.contributionTypeName
+        }))
+      }))
+    );
+  }
+
+  /**
+   * Download contribution report as PDF.
+   */
+  downloadContributionReportPdf(
+    startDate?: string, 
+    endDate?: string, 
+    memberId?: number, 
+    contributionTypeId?: number
+  ): Observable<Blob> {
+    let params = new HttpParams();
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
+    
+    return this.http.get(`${this.baseUrl}/contributions/reports/pdf`, { 
+      params, 
+      responseType: 'blob' 
+    });
+  }
+
+  /**
+   * Search members by name (lightweight for typeahead).
+   */
+  searchMembers(query: string, limit: number = 10): Observable<{id: number, name: string, memberNo: string}[]> {
+    const params = new HttpParams()
+      .set('query', query)
+      .set('limit', limit.toString());
+    return this.http.get<{id: number, name: string, memberNo: string}[]>(`${this.baseUrl}/members/search`, { params });
+  }
+
   // ==================== LOANS ====================
   getLoans(): Observable<Loan[]> {
     return this.http.get<any[]>(`${this.baseUrl}/loans`).pipe(

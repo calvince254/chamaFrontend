@@ -429,6 +429,7 @@ export class SettingsComponent implements OnInit {
     this.editingContributionType = {
       name: '',
       description: '',
+      category: 'NORMAL',
       amount: 0,
       frequency: 'MONTHLY',
       dueDay: 5,
@@ -545,6 +546,25 @@ export class SettingsComponent implements OnInit {
   getFrequencyLabel(frequency: string): string {
     const option = this.frequencyOptions.find(o => o.value === frequency);
     return option?.label || frequency;
+  }
+
+  getCategoryLabel(category: string | undefined): string {
+    switch (category) {
+      case 'NORMAL': return 'Normal';
+      case 'WELFARE': return 'Welfare';
+      case 'EMERGENCY': return 'Emergency';
+      case 'OTHER': return 'Other';
+      default: return 'Normal';
+    }
+  }
+
+  getCategoryBadgeClass(category: string | undefined): string {
+    switch (category) {
+      case 'WELFARE': return 'badge-info';
+      case 'EMERGENCY': return 'badge-warning';
+      case 'OTHER': return 'badge-neutral';
+      default: return 'badge-success';
+    }
   }
 
   // ==================== Loan Products ====================

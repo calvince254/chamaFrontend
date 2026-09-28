@@ -350,6 +350,7 @@
           <thead>
             <tr>
               <th>Name</th>
+              <th>Category</th>
               <th>Amount (KES)</th>
               <th>Frequency</th>
               <th>Due Day</th>
@@ -366,6 +367,11 @@
                   @if (ct.description) {
                     <div style="font-size: 10px; color: var(--color-text-muted);">{{ ct.description }}</div>
                   }
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="getCategoryBadgeClass(ct.category)">
+                    {{ getCategoryLabel(ct.category) }}
+                  </span>
                 </td>
                 <td>{{ ct.amount | number }}</td>
                 <td>
@@ -425,6 +431,12 @@
                 }
               </div>
               <div class="settings-card-stats">
+                <div class="settings-stat">
+                  <span class="settings-stat-label">Category</span>
+                  <span class="settings-stat-value">
+                    <span class="badge" [ngClass]="getCategoryBadgeClass(ct.category)">{{ getCategoryLabel(ct.category) }}</span>
+                  </span>
+                </div>
                 <div class="settings-stat">
                   <span class="settings-stat-label">Amount</span>
                   <span class="settings-stat-value">{{ ct.amount | number }} KES</span>
@@ -494,6 +506,16 @@
           <div class="form-field">
             <label>Description</label>
             <input type="text" [(ngModel)]="editingContributionType.description" placeholder="Optional description" />
+          </div>
+          
+          <div class="form-field">
+            <label>Category</label>
+            <select [(ngModel)]="editingContributionType.category">
+              <option value="NORMAL">Normal</option>
+              <option value="WELFARE">Welfare</option>
+              <option value="EMERGENCY">Emergency</option>
+              <option value="OTHER">Other</option>
+            </select>
           </div>
           
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">

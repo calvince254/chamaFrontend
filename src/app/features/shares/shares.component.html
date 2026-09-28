@@ -113,7 +113,7 @@
       }
 
       <!-- How shares are calculated button -->
-      <button class="shares-info-btn" (click)="showInfoModal = true">
+      <button class="shares-info-btn" (click)="showInfoModal.set(true)">
         <app-icon name="info"></app-icon>
         How shares are calculated
       </button>
@@ -367,7 +367,7 @@
       </app-stat-strip>
 
       <!-- Mobile Info Button -->
-      <button class="mobile-info-btn" (click)="showInfoModal = true">
+      <button class="mobile-info-btn" (click)="showInfoModal.set(true)">
         <app-icon name="info"></app-icon>
         <span>How shares are calculated</span>
       </button>
@@ -504,12 +504,12 @@
 <!-- ==================== MODALS ==================== -->
 
 <!-- How Shares Are Calculated Modal -->
-@if (showInfoModal) {
-  <div class="modal-backdrop" (click)="showInfoModal = false">
+@if (showInfoModal()) {
+  <div class="modal-backdrop" (click)="showInfoModal.set(false)">
     <div class="modal shares-info-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>How shares are calculated</h3>
-        <button class="icon-btn" (click)="showInfoModal = false"><app-icon name="close"></app-icon></button>
+        <button class="icon-btn" (click)="showInfoModal.set(false)"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
         <div class="shares-info-section">
@@ -532,7 +532,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-primary" (click)="showInfoModal = false">Got it</button>
+        <button class="btn btn-primary" (click)="showInfoModal.set(false)">Got it</button>
       </div>
     </div>
   </div>

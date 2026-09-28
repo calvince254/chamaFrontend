@@ -16,6 +16,21 @@ interface AvailableMember {
   selected?: boolean;
 }
 
+interface ReportItem {
+  id: number;
+  memberId: number;
+  memberName: string;
+  memberNo: string;
+  contributionTypeName: string;
+  contributionTypeId: number;
+  month: string;
+  amountDue: number;
+  amountPaid: number;
+  status: string;
+  paidOn?: string;
+  dueDate?: string;
+}
+
 @Component({
   selector: 'app-contributions',
   standalone: true,
@@ -31,7 +46,7 @@ export class ContributionsComponent implements OnInit {
   penalties: Penalty[] = [];
   
   // Filters and state
-  activeTab: 'contributions' | 'penalties' | 'topups' = 'contributions';
+  activeTab: 'contributions' | 'penalties' | 'topups' | 'reports' = 'contributions';
   selectedContributionTypeId: number | null = null;
   selectedMonth: string = '';
   selectedYear: number = new Date().getFullYear();
@@ -130,6 +145,32 @@ export class ContributionsComponent implements OnInit {
   // Track available members count for current filter month (to control Generate button visibility)
   availableMembersForFilterMonth = signal(0);
   loadingAvailableMembersCount = signal(false);
+
+  // ==================== REPORTS TAB STATE ====================
+  reportItems: ReportItem[] = [];
+  loadingReport = signal(false);
+  downloadingReport = signal(false);
+  
+  // Report filters (using date format)
+  reportStartDate = '';
+  reportEndDate = '';
+  reportMemberId: number | null = null;
+  reportContributionTypeId: number | null = null;
+  
+  // Member search for reports
+  reportMemberSearch = '';
+  reportMemberSearchResults: {id: number, name: string, memberNo: string}[] = [];
+  loadingMemberSearch = signal(false);
+  showMemberSearchDropdown = false;
+  selectedMemberName = '';
+  
+  // Report pagination
+  reportPage = 0;
+  reportPageSize = 10;
+  reportTotalElements = 0;
+  reportTotalPages = 0;
+  reportIsFirst = true;
+  reportIsLast = true;
 
   constructor(
     private api: ApiService,
@@ -1121,6 +1162,276 @@ export class ContributionsComponent implements OnInit {
         ', ' + date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     } catch {
       return dateStr;
+    }
+  }
+
+  // ==================== CONTRIBUTION REPORTS ====================
+  
+  onTabChange(tab: 'contributions' | 'penalties' | 'topups' | 'reports') {
+    this.activeTab = tab;
+    if (tab === 'reports') {
+      this.initReportFilters();
+      this.loadReport();
+    } else if (tab === 'topups') {
+      this.loadTopUps();
+    }
+  }
+
+  initReportFilters() {
+    // Default to last 3 months
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of current month
+    
+    // Format as YYYY-MM-DD for date input
+    this.reportStartDate = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+    this.reportEndDate = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+    this.reportMemberId = null;
+    this.reportContributionTypeId = null;
+    this.reportPage = 0;
+    
+    // Reset member search
+    this.reportMemberSearch = '';
+    this.reportMemberSearchResults = [];
+    this.selectedMemberName = '';
+    this.showMemberSearchDropdown = false;
+  }
+
+  loadReport() {
+    this.loadingReport.set(true);
+    
+    this.api.getContributionReport(
+      this.reportPage,
+      this.reportPageSize,
+      this.reportStartDate || undefined,
+      this.reportEndDate || undefined,
+      this.reportMemberId || undefined,
+      this.reportContributionTypeId || undefined
+    ).subscribe({
+      next: (response) => {
+        this.reportItems = response.content.map((c: any) => ({
+          id: c.id,
+          memberId: c.memberId,
+          memberName: c.memberName,
+          memberNo: c.memberNo,
+          contributionTypeName: c.contributionTypeName,
+          contributionTypeId: c.contributionTypeId,
+          month: c.month,
+          amountDue: c.amountDue,
+          amountPaid: c.amountPaid,
+          status: c.status,
+          paidOn: c.paidOn,
+          dueDate: c.dueDate
+        }));
+        this.reportTotalElements = response.totalElements;
+        this.reportTotalPages = response.totalPages;
+        this.reportIsFirst = response.first;
+        this.reportIsLast = response.last;
+        this.loadingReport.set(false);
+      },
+      error: (err) => {
+        this.loadingReport.set(false);
+        if (err.status !== 403) {
+          console.error('Failed to load report:', err);
+          this.toast.error('Error', 'Failed to load contribution report');
+        }
+      }
+    });
+  }
+
+  onReportFilterChange() {
+    this.reportPage = 0;
+    this.loadReport();
+  }
+
+  resetReportFilters() {
+    this.initReportFilters();
+    this.loadReport();
+  }
+  
+  // Member search for reports
+  onMemberSearchInput() {
+    const query = this.reportMemberSearch.trim();
+    if (query.length < 2) {
+      this.reportMemberSearchResults = [];
+      this.showMemberSearchDropdown = false;
+      return;
+    }
+    
+    this.loadingMemberSearch.set(true);
+    this.showMemberSearchDropdown = true;
+    
+    this.api.searchMembers(query, 10).subscribe({
+      next: (results) => {
+        this.reportMemberSearchResults = results;
+        this.loadingMemberSearch.set(false);
+      },
+      error: () => {
+        this.reportMemberSearchResults = [];
+        this.loadingMemberSearch.set(false);
+      }
+    });
+  }
+  
+  selectReportMember(member: {id: number, name: string, memberNo: string}) {
+    this.reportMemberId = member.id;
+    this.selectedMemberName = member.name;
+    this.reportMemberSearch = '';
+    this.showMemberSearchDropdown = false;
+    this.reportMemberSearchResults = [];
+    this.onReportFilterChange();
+  }
+  
+  clearReportMember() {
+    this.reportMemberId = null;
+    this.selectedMemberName = '';
+    this.reportMemberSearch = '';
+    this.showMemberSearchDropdown = false;
+    this.reportMemberSearchResults = [];
+    this.onReportFilterChange();
+  }
+  
+  onMemberSearchBlur() {
+    // Delay hiding to allow click on dropdown items
+    setTimeout(() => {
+      this.showMemberSearchDropdown = false;
+    }, 200);
+  }
+
+  // Searchable dropdown methods
+  get filteredMembers(): Member[] {
+    if (!this.reportMemberSearch.trim()) {
+      return this.members;
+    }
+    const search = this.reportMemberSearch.toLowerCase().trim();
+    return this.members.filter(m => 
+      m.name.toLowerCase().includes(search) || 
+      (m.memberNo && m.memberNo.toLowerCase().includes(search))
+    );
+  }
+
+  onMemberInputChange(value: string) {
+    this.reportMemberSearch = value;
+    // If user clears the field or starts typing, clear selection
+    if (this.reportMemberId && value !== this.selectedMemberName) {
+      this.reportMemberId = null;
+      this.selectedMemberName = '';
+    }
+    this.showMemberSearchDropdown = true;
+  }
+
+  selectMemberOption(id: number | null, name: string) {
+    this.reportMemberId = id;
+    this.selectedMemberName = id ? name : '';
+    this.reportMemberSearch = '';
+    this.showMemberSearchDropdown = false;
+    this.onReportFilterChange();
+  }
+
+  // Report pagination
+  goToReportPage(page: number) {
+    if (page >= 0 && page < this.reportTotalPages) {
+      this.reportPage = page;
+      this.loadReport();
+    }
+  }
+
+  nextReportPage() {
+    if (!this.reportIsLast) {
+      this.reportPage++;
+      this.loadReport();
+    }
+  }
+
+  prevReportPage() {
+    if (!this.reportIsFirst) {
+      this.reportPage--;
+      this.loadReport();
+    }
+  }
+
+  get reportPageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    let start = Math.max(0, this.reportPage - Math.floor(maxVisible / 2));
+    let end = Math.min(this.reportTotalPages, start + maxVisible);
+    if (end - start < maxVisible) {
+      start = Math.max(0, end - maxVisible);
+    }
+    for (let i = start; i < end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  // Report totals
+  get reportTotalDue(): number {
+    return this.reportItems.reduce((sum, item) => sum + (item.amountDue || 0), 0);
+  }
+
+  get reportTotalPaid(): number {
+    return this.reportItems.reduce((sum, item) => sum + (item.amountPaid || 0), 0);
+  }
+
+  get reportPaidCount(): number {
+    return this.reportItems.filter(item => item.status === 'PAID').length;
+  }
+
+  get hasReportFilters(): boolean {
+    return !!(this.reportStartDate || this.reportEndDate || this.reportMemberId || this.reportContributionTypeId);
+  }
+
+  // Download PDF
+  downloadReportPdf() {
+    this.downloadingReport.set(true);
+    
+    this.api.downloadContributionReportPdf(
+      this.reportStartDate || undefined,
+      this.reportEndDate || undefined,
+      this.reportMemberId || undefined,
+      this.reportContributionTypeId || undefined
+    ).subscribe({
+      next: (blob) => {
+        this.downloadingReport.set(false);
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Generate filename
+        let filename = 'Contribution_Report';
+        if (this.reportStartDate && this.reportEndDate) {
+          filename += `_${this.reportStartDate}_to_${this.reportEndDate}`;
+        } else if (this.reportStartDate) {
+          filename += `_from_${this.reportStartDate}`;
+        } else if (this.reportEndDate) {
+          filename += `_until_${this.reportEndDate}`;
+        }
+        filename += '.pdf';
+        
+        link.download = filename;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        
+        this.toast.success('Download complete', 'Report downloaded successfully');
+      },
+      error: (err) => {
+        this.downloadingReport.set(false);
+        this.toast.error('Download failed', err.error?.message || 'Could not download report');
+      }
+    });
+  }
+
+  // Format month for display
+  formatMonth(monthStr: string): string {
+    if (!monthStr) return '—';
+    try {
+      const [year, month] = monthStr.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+    } catch {
+      return monthStr;
     }
   }
 }
