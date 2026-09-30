@@ -252,6 +252,35 @@
             <p class="selection-count">{{ editing.involvedMemberIds.length }} member(s) selected</p>
           }
         }
+
+        <!-- Funding Sources Section -->
+        <div class="section-divider"></div>
+        <h4>Funding Sources</h4>
+        <p style="font-size: 10px; color: var(--color-text-muted); margin-bottom: 12px;">
+          Select which contribution pools can be used to fund this welfare event. Members can pay from these pools.
+        </p>
+        
+        <div class="contribution-type-selection">
+          @for (ct of contributionTypes; track ct.id) {
+            <div class="contribution-type-checkbox" 
+                 [class.selected]="isFundingSourceSelected(ct.id)" 
+                 (click)="toggleFundingSource(ct.id)">
+              <input type="checkbox" 
+                     [checked]="isFundingSourceSelected(ct.id)" 
+                     (click)="$event.stopPropagation()" 
+                     (change)="toggleFundingSource(ct.id)" />
+              <div class="ct-info">
+                <span class="ct-name">{{ ct.name }}</span>
+                <span class="ct-category badge" [ngClass]="ct.category === 'WELFARE' ? 'badge-info' : 'badge-neutral'">{{ ct.category }}</span>
+              </div>
+            </div>
+          }
+        </div>
+        @if (editing.fundingContributionTypeIds && editing.fundingContributionTypeIds.length > 0) {
+          <p class="selection-count">{{ editing.fundingContributionTypeIds.length }} funding source(s) selected</p>
+        } @else {
+          <p class="selection-count" style="color: var(--color-text-muted);">No funding sources selected (members will pay cash/direct)</p>
+        }
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="close()" [disabled]="saving()">Cancel</button>
@@ -385,8 +414,16 @@
                           <app-icon name="close"></app-icon> Mark Unpaid
                         </button>
                       }
-                      @if (c.paidFromContribution) {
-                        <span class="badge badge-info" style="margin-left: 4px; font-size: 8px;">From {{ c.sourceContributionTypeName }}</span>
+                      <!-- Payment breakdown badges -->
+                      @if (c.paymentMethod === 'MIXED') {
+                        <div style="display: flex; flex-direction: column; gap: 2px; margin-left: 4px;">
+                          <span class="badge badge-info" style="font-size: 8px;">Fund: KES {{ c.amountFromFund | number:'1.0-0' }}</span>
+                          <span class="badge badge-neutral" style="font-size: 8px;">Cash: KES {{ c.amountFromCash | number:'1.0-0' }}</span>
+                        </div>
+                      } @else if (c.paidFromContribution && c.amountFromFund) {
+                        <span class="badge badge-info" style="margin-left: 4px; font-size: 8px;">Fund: KES {{ c.amountFromFund | number:'1.0-0' }}</span>
+                      } @else if (c.amountFromCash && c.amountFromCash > 0) {
+                        <span class="badge badge-neutral" style="margin-left: 4px; font-size: 8px;">Cash: KES {{ c.amountFromCash | number:'1.0-0' }}</span>
                       }
                     } @else if (c.hasPendingClaim) {
                       @if (session.can('VERIFY_PAYMENTS') && c.payableId) {
@@ -492,118 +529,130 @@
   </div>
 }
 
-<!-- Pay from Contribution Fund Modal -->
+<!-- Pay from Contribution Fund Modal (Admin) -->
 @if (showFundPaymentModal && selectedContribution) {
   <div class="modal-backdrop" (click)="closeFundPaymentModal()">
     <div class="modal" style="max-width: 420px;" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div>
           <h3>Mark Payment</h3>
-          <p class="modal-subtitle">{{ selectedContribution.memberName }} · KES {{ selectedContribution.amountExpected | number }}</p>
+          <p class="modal-subtitle">{{ selectedContribution.memberName }}</p>
         </div>
         <button class="icon-btn" (click)="closeFundPaymentModal()"><app-icon name="close"></app-icon></button>
       </div>
       <div class="modal-body">
-        <!-- Payment Method Selection -->
-        <div class="form-field">
-          <label style="margin-bottom: 10px; display: block;">How is this payment being made?</label>
-          
-          <div class="payment-method-options" style="display: flex; flex-direction: column; gap: 10px;">
-            <!-- Cash Option -->
-            <label class="payment-method-option" 
-                   [class.selected]="paymentMethod === 'CASH'"
-                   style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s;"
-                   [style.borderColor]="paymentMethod === 'CASH' ? 'var(--color-primary)' : 'var(--color-border)'"
-                   [style.background]="paymentMethod === 'CASH' ? '#eaf4f2' : 'white'">
-              <input type="radio" name="paymentMethod" value="CASH" [(ngModel)]="paymentMethod" style="width: 16px; height: 16px;" />
-              <div style="flex: 1;">
-                <div style="font-size: 12px; font-weight: 600; color: var(--color-text);">
-                  <app-icon name="cash" style="margin-right: 6px;"></app-icon> Cash / Direct Payment
-                </div>
-                <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">Member paid cash, M-Pesa, or bank transfer</div>
-              </div>
-            </label>
-
-            <!-- From Savings Option -->
-            <label class="payment-method-option" 
-                   [class.selected]="paymentMethod === 'CONTRIBUTION_FUND'"
-                   style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 2px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s;"
-                   [style.borderColor]="paymentMethod === 'CONTRIBUTION_FUND' ? 'var(--color-primary)' : 'var(--color-border)'"
-                   [style.background]="paymentMethod === 'CONTRIBUTION_FUND' ? '#eaf4f2' : 'white'">
-              <input type="radio" name="paymentMethod" value="CONTRIBUTION_FUND" [(ngModel)]="paymentMethod" (change)="loadContributionBalances(selectedContribution.memberId)" style="width: 16px; height: 16px;" />
-              <div style="flex: 1;">
-                <div style="font-size: 12px; font-weight: 600; color: var(--color-text);">
-                  <app-icon name="wallet" style="margin-right: 6px;"></app-icon> From Contribution Savings
-                </div>
-                <div style="font-size: 10px; color: var(--color-text-muted); margin-top: 2px;">Deduct from member's contribution pool</div>
-              </div>
-            </label>
+        <!-- Payment Summary -->
+        <div class="payment-summary" style="background: var(--color-bg-muted); padding: 14px; border-radius: 8px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--color-text-muted); font-size: 11px;">Amount Due:</span>
+            <span style="font-weight: 600; color: var(--color-danger);">KES {{ selectedContribution.amountExpected | number }}</span>
           </div>
+          @if (selectedContribution.amountPaid && selectedContribution.amountPaid > 0) {
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="color: var(--color-text-muted); font-size: 11px;">Already Paid:</span>
+              <span style="font-weight: 500; color: var(--color-success);">KES {{ selectedContribution.amountPaid | number }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px dashed var(--color-border); padding-top: 6px;">
+              <span style="color: var(--color-text-muted); font-size: 11px;">Balance:</span>
+              <span style="font-weight: 600; color: var(--color-danger);">KES {{ selectedContribution.amountExpected - (selectedContribution.amountPaid || 0) | number }}</span>
+            </div>
+          }
         </div>
 
-        <!-- Contribution Pool Selection (only when From Savings is selected) -->
-        @if (paymentMethod === 'CONTRIBUTION_FUND') {
-          <div class="form-field" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
-            <label style="margin-bottom: 8px; display: block;">Select contribution pool to deduct from:</label>
-            
-            @if (loadingBalances()) {
-              <div class="loading-state" style="padding: 16px; text-align: center;">
-                <div class="spinner-sm"></div>
-                <p style="font-size: 10px; margin-top: 8px;">Loading balances...</p>
-              </div>
-            } @else if (contributionBalances.length === 0) {
-              <div class="empty-state" style="padding: 16px; text-align: center; background: #fef2f2; border-radius: 8px;">
-                <app-icon name="alert-circle" style="font-size: 20px; color: var(--color-danger); margin-bottom: 6px;"></app-icon>
-                <p style="font-size: 10px; color: var(--color-danger);">No contribution balances available for this member.</p>
-              </div>
-            } @else {
-              <div class="contribution-options" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
-                @for (balance of contributionBalances; track balance.contributionTypeId) {
-                  <label class="contribution-option" 
-                         [class.selected]="selectedContributionTypeId === balance.contributionTypeId"
-                         [class.insufficient]="balance.balance < selectedContribution.amountExpected"
-                         style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer;"
-                         [style.borderColor]="selectedContributionTypeId === balance.contributionTypeId ? 'var(--color-primary)' : 'var(--color-border)'"
-                         [style.background]="selectedContributionTypeId === balance.contributionTypeId ? '#f0fdf4' : 'white'"
-                         [style.opacity]="balance.balance < selectedContribution.amountExpected ? '0.6' : '1'">
-                    <input type="radio" 
-                           name="contributionType" 
-                           [value]="balance.contributionTypeId" 
-                           [(ngModel)]="selectedContributionTypeId"
-                           [disabled]="balance.balance < selectedContribution.amountExpected" />
-                    <div style="flex: 1;">
-                      <div style="font-size: 11px; font-weight: 500;">{{ balance.contributionTypeName }}</div>
-                      <div style="font-size: 10px;">
-                        Balance: 
-                        <span [style.color]="balance.balance >= selectedContribution.amountExpected ? 'var(--color-success)' : 'var(--color-danger)'"
-                              style="font-weight: 600;">
-                          KES {{ balance.balance | number }}
-                        </span>
-                        @if (balance.balance < selectedContribution.amountExpected) {
-                          <span style="color: var(--color-danger); font-size: 9px;"> (Insufficient)</span>
-                        }
-                      </div>
-                    </div>
-                  </label>
-                }
-              </div>
+        <!-- Pay from Contribution Fund Option -->
+        <div class="fund-option" style="border: 2px solid var(--color-border); border-radius: 10px; padding: 14px; margin-bottom: 16px;"
+             [style.borderColor]="paymentMethod === 'CONTRIBUTION_FUND' ? 'var(--color-primary)' : 'var(--color-border)'"
+             [style.background]="paymentMethod === 'CONTRIBUTION_FUND' ? '#f0fdf4' : 'white'">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <input type="checkbox" [checked]="paymentMethod === 'CONTRIBUTION_FUND'" 
+                   (change)="paymentMethod = paymentMethod === 'CONTRIBUTION_FUND' ? 'CASH' : 'CONTRIBUTION_FUND'; paymentMethod === 'CONTRIBUTION_FUND' && loadContributionBalances(selectedContribution.memberId)"
+                   style="width: 18px; height: 18px;" />
+            <div>
+              <div style="font-size: 12px; font-weight: 600;">Pay from Contribution Fund</div>
+              <div style="font-size: 10px; color: var(--color-text-muted);">Deduct from member's contribution savings</div>
+            </div>
+          </label>
 
-              @if (selectedContributionTypeId && getSelectedBalance()) {
-                <div class="summary-box" style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 10px; border-radius: 6px; margin-top: 10px;">
-                  <div style="font-size: 9px; color: #15803d;">
-                    After deduction: <strong>KES {{ (getSelectedBalance()?.balance || 0) - selectedContribution.amountExpected | number }}</strong>
-                  </div>
+          <!-- Fund Details (when checked) -->
+          @if (paymentMethod === 'CONTRIBUTION_FUND') {
+            <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-border);">
+              @if (loadingBalances()) {
+                <div style="text-align: center; padding: 12px;">
+                  <div class="spinner-sm"></div>
+                  <p style="font-size: 10px; margin-top: 6px;">Loading balances...</p>
                 </div>
+              } @else if (contributionBalances.length === 0) {
+                <div style="text-align: center; padding: 12px; background: #fef2f2; border-radius: 6px;">
+                  <app-icon name="alert-circle" style="color: var(--color-danger);"></app-icon>
+                  <p style="font-size: 10px; color: var(--color-danger); margin-top: 4px;">No contribution balances available</p>
+                </div>
+              } @else {
+                <!-- Select Contribution Type -->
+                <div class="form-field" style="margin-bottom: 12px;">
+                  <label style="font-size: 10px; margin-bottom: 6px; display: block;">Select contribution pool:</label>
+                  <select [(ngModel)]="selectedContributionTypeId" style="width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 11px;">
+                    <option [ngValue]="null">-- Select --</option>
+                    @for (balance of contributionBalances; track balance.contributionTypeId) {
+                      <option [ngValue]="balance.contributionTypeId">
+                        {{ balance.contributionTypeName }} (KES {{ balance.balance | number }})
+                      </option>
+                    }
+                  </select>
+                </div>
+
+                <!-- Amount from Fund -->
+                @if (selectedContributionTypeId) {
+                  <div class="form-field">
+                    <label style="font-size: 10px; margin-bottom: 6px; display: block;">Amount from fund:</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 11px; color: var(--color-text-muted);">KES</span>
+                      <input type="number" [(ngModel)]="adminAmountFromFund" 
+                             [max]="Math.min(getSelectedBalance()?.balance || 0, selectedContribution.amountExpected - (selectedContribution.amountPaid || 0))"
+                             min="0"
+                             style="flex: 1; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 11px;" />
+                    </div>
+                    <div style="font-size: 9px; color: var(--color-text-muted); margin-top: 4px;">
+                      Available: KES {{ getSelectedBalance()?.balance | number }}
+                      @if ((getSelectedBalance()?.balance || 0) < (selectedContribution.amountExpected - (selectedContribution.amountPaid || 0))) {
+                        <span style="color: var(--color-warning);"> (not enough for full payment)</span>
+                      }
+                    </div>
+                  </div>
+                }
               }
-            }
+            </div>
+          }
+        </div>
+
+        <!-- Cash Payment Section -->
+        <div class="cash-section" style="border: 1px solid var(--color-border); border-radius: 10px; padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 12px; font-weight: 600;">
+              <app-icon name="cash" style="margin-right: 6px;"></app-icon>
+              Cash Payment
+            </span>
+            <span style="font-size: 12px; font-weight: 700; color: var(--color-primary);">
+              KES {{ getAdminRemainingCashAmount() | number }}
+            </span>
           </div>
-        }
+          
+          @if (getAdminRemainingCashAmount() > 0) {
+            <p style="font-size: 10px; color: var(--color-text-muted); margin: 0;">
+              {{ paymentMethod === 'CONTRIBUTION_FUND' && adminAmountFromFund > 0 ? 'Remaining amount to be paid in cash/direct payment' : 'Full amount to be paid in cash/direct payment' }}
+            </p>
+          } @else {
+            <p style="font-size: 10px; color: var(--color-success); margin: 0;">
+              <app-icon name="check" style="margin-right: 4px;"></app-icon>
+              Fully covered by contribution fund
+            </p>
+          }
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeFundPaymentModal()" [disabled]="processingFundPayment()">Cancel</button>
         <button class="btn btn-primary" 
-                (click)="submitFundPayment()" 
-                [disabled]="processingFundPayment() || (paymentMethod === 'CONTRIBUTION_FUND' && (!selectedContributionTypeId || !hasSufficientBalance()))">
+                (click)="submitAdminPayment()" 
+                [disabled]="processingFundPayment() || !canSubmitAdminPayment()">
           {{ processingFundPayment() ? 'Processing...' : 'Confirm Payment' }}
         </button>
       </div>
@@ -614,7 +663,7 @@
 <!-- Member Welfare Payment Modal (Unified Payment) -->
 @if (showWelfarePaymentModal && contributionToPay) {
   <div class="modal-backdrop" (click)="closeWelfarePaymentModal()">
-    <div class="modal" style="max-width: 480px;" (click)="$event.stopPropagation()">
+    <div class="modal" style="max-width: 500px;" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>Pay Welfare Contribution</h3>
         <button class="icon-btn" (click)="closeWelfarePaymentModal()"><app-icon name="close"></app-icon></button>
@@ -636,77 +685,169 @@
           </div>
         </div>
 
-        @if (loadingWelfarePaymentMethods()) {
-          <div style="text-align: center; padding: 12px;">
-            <div class="spinner-sm"></div>
-          </div>
-        } @else if (welfarePaymentMethods) {
-          <!-- Payment Method Selection -->
-          <div class="form-field">
-            <label>Payment Method *</label>
-            <div class="payment-methods">
-              @if (welfarePaymentMethods.manualEnabled) {
-                <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'MANUAL'">
-                  <input type="radio" name="welfarePaymentMethod" value="MANUAL" [(ngModel)]="selectedWelfarePaymentMethod" />
-                  <div class="method-content">
-                    <app-icon name="file-text"></app-icon>
-                    <div>
-                      <div class="method-title">Manual Verification</div>
-                      <div class="method-desc">Enter M-PESA or bank reference</div>
-                    </div>
+        <!-- Funding Source Option (if welfare has funding sources) -->
+        @if (fundingSourceBalances.length > 0) {
+          <div class="funding-source-section" style="margin: 16px 0; padding: 16px; background: var(--color-surface); border-radius: 10px; border: 1px solid var(--color-border);">
+            <label class="funding-toggle" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 12px;">
+              <input type="checkbox" [(ngModel)]="useFundingSource" (change)="toggleUseFundingSource()" style="width: 18px; height: 18px;" />
+              <span style="font-weight: 600; font-size: 13px;">Pay from Welfare Fund</span>
+            </label>
+            
+            @if (useFundingSource) {
+              <div class="funding-source-options" style="margin-top: 12px;">
+                @if (fundingSourceBalances.length > 1) {
+                  <div class="form-field" style="margin-bottom: 12px;">
+                    <label style="font-size: 11px;">Select Contribution Pool</label>
+                    <select [(ngModel)]="selectedFundingSourceId" (change)="onFundingSourceSelected()" style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--color-border);">
+                      <option [ngValue]="null">-- Select --</option>
+                      @for (source of fundingSourceBalances; track source.contributionTypeId) {
+                        <option [ngValue]="source.contributionTypeId">{{ source.contributionTypeName }}</option>
+                      }
+                    </select>
                   </div>
-                </label>
-              }
-              @if (welfarePaymentMethods.inAppSmsEnabled) {
-                <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'IN_APP_SMS'">
-                  <input type="radio" name="welfarePaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedWelfarePaymentMethod" />
-                  <div class="method-content">
-                    <app-icon name="message-square"></app-icon>
-                    <div>
-                      <div class="method-title">SMS Verification</div>
-                      <div class="method-desc">Capture confirmation SMS</div>
+                } @else {
+                  <!-- Auto-select single source -->
+                  <input type="hidden" [(ngModel)]="selectedFundingSourceId" [ngModel]="fundingSourceBalances[0]?.contributionTypeId" />
+                }
+                
+                @if (selectedFundingSourceId) {
+                  <div class="balance-info" style="padding: 12px; background: var(--color-success-subtle); border-radius: 8px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: 12px; color: var(--color-text-muted);">Your Balance:</span>
+                      <span style="font-weight: 700; font-size: 16px; color: var(--color-success);">KES {{ getSelectedFundingBalance() | number }}</span>
                     </div>
+                    @if (getSelectedFundingBalance() < (contributionToPay.amountExpected - (contributionToPay.amountPaid || 0))) {
+                      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border);">
+                        <span style="font-size: 11px; color: var(--color-warning);">
+                          <app-icon name="alert-triangle" style="width: 12px; height: 12px; margin-right: 4px;"></app-icon>
+                          Insufficient balance. You need KES {{ (contributionToPay.amountExpected - (contributionToPay.amountPaid || 0)) | number }} but have KES {{ getSelectedFundingBalance() | number }}.
+                        </span>
+                      </div>
+                    }
                   </div>
-                </label>
-              }
-              @if (welfarePaymentMethods.stkPushEnabled) {
-                <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'STK_PUSH'">
-                  <input type="radio" name="welfarePaymentMethod" value="STK_PUSH" [(ngModel)]="selectedWelfarePaymentMethod" />
-                  <div class="method-content">
-                    <app-icon name="smartphone"></app-icon>
-                    <div>
-                      <div class="method-title">M-PESA STK Push</div>
-                      <div class="method-desc">Receive prompt on your phone</div>
-                    </div>
-                  </div>
-                </label>
-              }
-            </div>
-          </div>
 
-          <!-- Reference code for MANUAL method -->
-          @if (selectedWelfarePaymentMethod === 'MANUAL') {
-            <div class="form-field">
-              <label>Payment Reference Number *</label>
-              <input type="text" [(ngModel)]="welfarePaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
-              <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+                  <!-- Amount from Fund Input -->
+                  <div class="form-field" style="margin-bottom: 12px;">
+                    <label style="font-size: 11px;">Amount to Use from Fund</label>
+                    <input type="number" [(ngModel)]="amountFromFund" 
+                           [max]="Math.min(getSelectedFundingBalance(), contributionToPay.amountExpected - (contributionToPay.amountPaid || 0))"
+                           min="0"
+                           style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--color-border);" />
+                    <small style="color: var(--color-text-muted); font-size: 10px;">Max: KES {{ Math.min(getSelectedFundingBalance(), contributionToPay.amountExpected - (contributionToPay.amountPaid || 0)) | number }}</small>
+                  </div>
+
+                  <!-- Summary -->
+                  @if (amountFromFund > 0) {
+                    <div class="payment-summary" style="padding: 12px; background: var(--color-info-subtle); border-radius: 8px;">
+                      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 12px;">From Fund:</span>
+                        <span style="font-weight: 600; color: var(--color-success);">KES {{ amountFromFund | number }}</span>
+                      </div>
+                      <div style="display: flex; justify-content: space-between;">
+                        <span style="font-size: 12px;">Remaining (Cash):</span>
+                        <span style="font-weight: 600; color: var(--color-warning);">KES {{ getRemainingCashAmount() | number }}</span>
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            }
+          </div>
+        } @else if (loadingFundingBalances()) {
+          <div style="text-align: center; padding: 12px; margin: 12px 0;">
+            <div class="spinner-sm"></div>
+            <span style="font-size: 11px; color: var(--color-text-muted); margin-left: 8px;">Loading funding options...</span>
+          </div>
+        }
+
+        <!-- Cash/External Payment Section (shown when there's remaining amount) -->
+        @if (getRemainingCashAmount() > 0 || !useFundingSource) {
+          @if (loadingWelfarePaymentMethods()) {
+            <div style="text-align: center; padding: 12px;">
+              <div class="spinner-sm"></div>
             </div>
-          }
-          
-          <!-- Phone number for STK Push -->
-          @if (selectedWelfarePaymentMethod === 'STK_PUSH') {
+          } @else if (welfarePaymentMethods) {
+            @if (useFundingSource && amountFromFund > 0 && getRemainingCashAmount() > 0) {
+              <div style="margin: 12px 0; padding: 10px; background: var(--color-warning-subtle); border-radius: 8px; font-size: 12px;">
+                <strong>Remaining KES {{ getRemainingCashAmount() | number }}</strong> to be paid via:
+              </div>
+            }
+            
+            <!-- Payment Method Selection -->
             <div class="form-field">
-              <label>Phone Number *</label>
-              <input type="tel" [(ngModel)]="welfarePaymentPhoneNumber" placeholder="e.g., 254712345678" />
-              <small style="color: var(--color-text-muted);">M-PESA registered phone number</small>
+              <label>Payment Method *</label>
+              <div class="payment-methods">
+                @if (welfarePaymentMethods.manualEnabled) {
+                  <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'MANUAL'">
+                    <input type="radio" name="welfarePaymentMethod" value="MANUAL" [(ngModel)]="selectedWelfarePaymentMethod" />
+                    <div class="method-content">
+                      <app-icon name="file-text"></app-icon>
+                      <div>
+                        <div class="method-title">Manual Verification</div>
+                        <div class="method-desc">Enter M-PESA or bank reference</div>
+                      </div>
+                    </div>
+                  </label>
+                }
+                @if (welfarePaymentMethods.inAppSmsEnabled) {
+                  <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'IN_APP_SMS'">
+                    <input type="radio" name="welfarePaymentMethod" value="IN_APP_SMS" [(ngModel)]="selectedWelfarePaymentMethod" />
+                    <div class="method-content">
+                      <app-icon name="message-square"></app-icon>
+                      <div>
+                        <div class="method-title">SMS Verification</div>
+                        <div class="method-desc">Capture confirmation SMS</div>
+                      </div>
+                    </div>
+                  </label>
+                }
+                @if (welfarePaymentMethods.stkPushEnabled) {
+                  <label class="payment-method-option" [class.selected]="selectedWelfarePaymentMethod === 'STK_PUSH'">
+                    <input type="radio" name="welfarePaymentMethod" value="STK_PUSH" [(ngModel)]="selectedWelfarePaymentMethod" />
+                    <div class="method-content">
+                      <app-icon name="smartphone"></app-icon>
+                      <div>
+                        <div class="method-title">M-PESA STK Push</div>
+                        <div class="method-desc">Receive prompt on your phone</div>
+                      </div>
+                    </div>
+                  </label>
+                }
+              </div>
             </div>
+
+            <!-- Reference code for MANUAL method -->
+            @if (selectedWelfarePaymentMethod === 'MANUAL') {
+              <div class="form-field">
+                <label>Payment Reference Number *</label>
+                <input type="text" [(ngModel)]="welfarePaymentReferenceCode" placeholder="e.g. QKJ123ABC (M-PESA code)" />
+                <small style="color: var(--color-text-muted);">Enter the transaction reference from your M-PESA or bank payment</small>
+              </div>
+            }
+            
+            <!-- Phone number for STK Push -->
+            @if (selectedWelfarePaymentMethod === 'STK_PUSH') {
+              <div class="form-field">
+                <label>Phone Number *</label>
+                <input type="tel" [(ngModel)]="welfarePaymentPhoneNumber" placeholder="e.g., 254712345678" />
+                <small style="color: var(--color-text-muted);">M-PESA registered phone number</small>
+              </div>
+            }
           }
         }
 
-        <div class="info-box" style="margin-top: 16px; padding: 12px; background: var(--color-info-subtle); border-radius: 8px; font-size: 12px;">
-          <app-icon name="info" style="margin-right: 6px; color: var(--color-info);"></app-icon>
-          Your payment will be submitted for admin verification before being marked as paid.
-        </div>
+        <!-- Info box for full fund payment -->
+        @if (useFundingSource && amountFromFund >= (contributionToPay.amountExpected - (contributionToPay.amountPaid || 0))) {
+          <div class="info-box" style="margin-top: 16px; padding: 12px; background: var(--color-success-subtle); border-radius: 8px; font-size: 12px;">
+            <app-icon name="check-circle" style="margin-right: 6px; color: var(--color-success);"></app-icon>
+            Full amount will be deducted from your contribution fund balance.
+          </div>
+        } @else if (getRemainingCashAmount() > 0) {
+          <div class="info-box" style="margin-top: 16px; padding: 12px; background: var(--color-info-subtle); border-radius: 8px; font-size: 12px;">
+            <app-icon name="info" style="margin-right: 6px; color: var(--color-info);"></app-icon>
+            Your payment will be submitted for admin verification before being marked as paid.
+          </div>
+        }
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" (click)="closeWelfarePaymentModal()" [disabled]="submittingWelfarePayment()">Cancel</button>

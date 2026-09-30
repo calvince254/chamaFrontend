@@ -526,3 +526,76 @@
     min-height: 44px;
   }
 }
+
+
+/* Contribution Type Selection for Funding Sources */
+.contribution-type-selection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.contribution-type-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.contribution-type-checkbox:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.contribution-type-checkbox.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+.contribution-type-checkbox input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.contribution-type-checkbox .ct-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.contribution-type-checkbox .ct-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contribution-type-checkbox .ct-category {
+  font-size: 9px;
+  align-self: flex-start;
+}
+
+.selection-count {
+  font-size: 11px;
+  color: var(--color-primary);
+  margin-top: 8px;
+  font-weight: 500;
+}

@@ -638,6 +638,26 @@ export class ApiService {
   }
 
   /**
+   * Get contribution report summary totals.
+   */
+  getContributionReportSummary(
+    startDate?: string, 
+    endDate?: string, 
+    memberId?: number, 
+    contributionTypeId?: number
+  ): Observable<{totalDue: number, totalPaid: number, balance: number, count: number}> {
+    let params = new HttpParams();
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
+    
+    return this.http.get<{totalDue: number, totalPaid: number, balance: number, count: number}>(
+      `${this.baseUrl}/contributions/reports/summary`, { params }
+    );
+  }
+
+  /**
    * Download contribution report as PDF.
    */
   downloadContributionReportPdf(
@@ -656,6 +676,52 @@ export class ApiService {
       params, 
       responseType: 'blob' 
     });
+  }
+
+  // ==================== TRANSACTION-BASED CONTRIBUTION REPORTS ====================
+  
+  /**
+   * Get contribution transactions report (credits and debits).
+   * Requires contributionTypeId.
+   */
+  getContributionTransactionsReport(
+    contributionTypeId: number | null,
+    page: number = 0, 
+    size: number = 10, 
+    startDate?: string, 
+    endDate?: string, 
+    memberId?: number
+  ): Observable<PageResponse<any>> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    
+    return this.http.get<any>(`${this.baseUrl}/contributions/reports/transactions`, { params });
+  }
+
+  /**
+   * Get contribution transactions summary (credits, debits, balance).
+   * Requires contributionTypeId.
+   */
+  getContributionTransactionsSummary(
+    contributionTypeId: number | null,
+    startDate?: string, 
+    endDate?: string, 
+    memberId?: number
+  ): Observable<{totalCredits: number, totalDebits: number, balance: number, count: number}> {
+    let params = new HttpParams();
+    if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    
+    return this.http.get<{totalCredits: number, totalDebits: number, balance: number, count: number}>(
+      `${this.baseUrl}/contributions/reports/transactions/summary`, { params }
+    );
   }
 
   /**
@@ -1739,8 +1805,8 @@ export class ApiService {
 
   // ==================== WELFARE CONTRIBUTION FUND PAYMENT ====================
 
-  payWelfareFromContributionFund(eventId: number, memberId: number, contributionTypeId: number): Observable<any> {
-    return this.http.post(`${this.baseUrl}/welfare/${eventId}/contributions/${memberId}/pay-from-fund`, { contributionTypeId });
+  payWelfareFromContributionFund(eventId: number, memberId: number, contributionTypeId: number, amount?: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/welfare/${eventId}/contributions/${memberId}/pay-from-fund`, { contributionTypeId, amount });
   }
 
   getMemberContributionBalances(memberId: number): Observable<{ contributionTypeId: number; contributionTypeName: string; balance: number }[]> {

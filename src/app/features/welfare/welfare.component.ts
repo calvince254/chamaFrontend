@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { WelfareEvent, WelfareContribution, Member, PageResponse, ContributionBalance, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods } from '../../core/models/models';
+import { WelfareEvent, WelfareContribution, Member, PageResponse, ContributionBalance, InitiatePaymentRequest, InitiatePaymentResponse, EnabledPaymentMethods, ContributionType } from '../../core/models/models';
 import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
@@ -29,6 +29,7 @@ import {
 export class WelfareComponent implements OnInit {
   events: WelfareEvent[] = [];
   members: Member[] = [];
+  contributionTypes: ContributionType[] = [];
   loading = signal(false);
   saving = signal(false);
   showForm = false;
@@ -80,6 +81,13 @@ export class WelfareComponent implements OnInit {
   welfarePaymentResponse: InitiatePaymentResponse | null = null;
   welfarePaymentMethods: EnabledPaymentMethods | null = null;
   loadingWelfarePaymentMethods = signal(false);
+  
+  // Funding source payment options
+  useFundingSource = false;
+  selectedFundingSourceId: number | null = null;
+  fundingSourceBalances: { contributionTypeId: number; contributionTypeName: string; balance: number }[] = [];
+  loadingFundingBalances = signal(false);
+  amountFromFund = 0;
 
   constructor(private api: ApiService, public session: SessionService, private toast: ToastService) {}
 
@@ -88,7 +96,18 @@ export class WelfareComponent implements OnInit {
     if (this.session.can('VIEW_WELFARE_EVENTS') || this.session.can('CREATE_WELFARE_EVENT')) {
       this.loadEvents();
       this.loadMembers();
+      this.loadContributionTypes();
     }
+  }
+
+  loadContributionTypes() {
+    this.api.getContributionTypes().subscribe({
+      next: (types) => {
+        // Only show active contribution types with WELFARE category
+        this.contributionTypes = types.filter(t => t.active && t.category === 'WELFARE');
+      },
+      error: () => this.contributionTypes = []
+    });
   }
 
   loadEvents() {
@@ -159,9 +178,27 @@ export class WelfareComponent implements OnInit {
       status: 'OPEN',
       dateReported: new Date().toISOString().split('T')[0],
       allMembersInvolved: true,
-      involvedMemberIds: []
+      involvedMemberIds: [],
+      fundingContributionTypeIds: []
     };
     this.showForm = true;
+  }
+
+  // Funding source selection methods
+  isFundingSourceSelected(typeId: number): boolean {
+    return this.editing.fundingContributionTypeIds?.includes(typeId) || false;
+  }
+
+  toggleFundingSource(typeId: number) {
+    if (!this.editing.fundingContributionTypeIds) {
+      this.editing.fundingContributionTypeIds = [];
+    }
+    const idx = this.editing.fundingContributionTypeIds.indexOf(typeId);
+    if (idx === -1) {
+      this.editing.fundingContributionTypeIds.push(typeId);
+    } else {
+      this.editing.fundingContributionTypeIds.splice(idx, 1);
+    }
   }
 
   toggleAllMembers() {
@@ -360,14 +397,98 @@ export class WelfareComponent implements OnInit {
     this.welfarePaymentReferenceCode = '';
     this.welfarePaymentPhoneNumber = '';
     this.welfarePaymentResponse = null;
+    // Reset funding source state
+    this.useFundingSource = false;
+    this.selectedFundingSourceId = null;
+    this.fundingSourceBalances = [];
+    this.amountFromFund = 0;
+    
     this.showWelfarePaymentModal = true;
     this.loadWelfarePaymentMethods();
+    this.loadFundingSourceBalances(contribution.memberId);
+  }
+
+  /**
+   * Load member's balances in the welfare's funding source contribution types
+   */
+  loadFundingSourceBalances(memberId: number) {
+    // Only load if the welfare event has funding sources
+    if (!this.selectedEvent?.fundingSources || this.selectedEvent.fundingSources.length === 0) {
+      this.fundingSourceBalances = [];
+      return;
+    }
+    
+    this.loadingFundingBalances.set(true);
+    this.api.getMemberContributionBalances(memberId).subscribe({
+      next: (balances) => {
+        // Filter to only show balances for the welfare's funding sources
+        const fundingTypeIds = this.selectedEvent!.fundingSources!.map(fs => fs.contributionTypeId);
+        this.fundingSourceBalances = balances.filter(b => fundingTypeIds.includes(b.contributionTypeId));
+        this.loadingFundingBalances.set(false);
+      },
+      error: () => {
+        this.fundingSourceBalances = [];
+        this.loadingFundingBalances.set(false);
+      }
+    });
+  }
+
+  /**
+   * Get the selected funding source balance
+   */
+  getSelectedFundingBalance(): number {
+    if (!this.selectedFundingSourceId) return 0;
+    const source = this.fundingSourceBalances.find(b => b.contributionTypeId === this.selectedFundingSourceId);
+    return source?.balance || 0;
+  }
+
+  /**
+   * Get remaining amount to pay via cash/other method
+   */
+  getRemainingCashAmount(): number {
+    if (!this.contributionToPay) return 0;
+    const totalDue = this.contributionToPay.amountExpected - (this.contributionToPay.amountPaid || 0);
+    if (!this.useFundingSource || !this.amountFromFund) return totalDue;
+    return Math.max(0, totalDue - this.amountFromFund);
+  }
+
+  /**
+   * When funding source is selected, auto-fill amount
+   */
+  onFundingSourceSelected() {
+    if (this.selectedFundingSourceId && this.contributionToPay) {
+      const balance = this.getSelectedFundingBalance();
+      const totalDue = this.contributionToPay.amountExpected - (this.contributionToPay.amountPaid || 0);
+      // Default to the minimum of balance and amount due
+      this.amountFromFund = Math.min(balance, totalDue);
+    } else {
+      this.amountFromFund = 0;
+    }
+  }
+
+  /**
+   * Toggle using funding source
+   */
+  toggleUseFundingSource() {
+    if (!this.useFundingSource) {
+      this.selectedFundingSourceId = null;
+      this.amountFromFund = 0;
+    } else if (this.fundingSourceBalances.length === 1) {
+      // Auto-select if only one funding source
+      this.selectedFundingSourceId = this.fundingSourceBalances[0].contributionTypeId;
+      this.onFundingSourceSelected();
+    }
   }
 
   closeWelfarePaymentModal() {
     this.showWelfarePaymentModal = false;
     this.contributionToPay = null;
     this.welfarePaymentResponse = null;
+    // Reset funding source state
+    this.useFundingSource = false;
+    this.selectedFundingSourceId = null;
+    this.fundingSourceBalances = [];
+    this.amountFromFund = 0;
   }
 
   loadWelfarePaymentMethods() {
@@ -392,32 +513,100 @@ export class WelfareComponent implements OnInit {
 
   canSubmitWelfarePayment(): boolean {
     if (!this.contributionToPay) return false;
-    if (this.selectedWelfarePaymentMethod === 'MANUAL' && !this.welfarePaymentReferenceCode.trim()) return false;
-    if (this.selectedWelfarePaymentMethod === 'STK_PUSH' && !this.welfarePaymentPhoneNumber.trim()) return false;
+    
+    const totalDue = this.contributionToPay.amountExpected - (this.contributionToPay.amountPaid || 0);
+    
+    // If using funding source
+    if (this.useFundingSource && this.selectedFundingSourceId && this.amountFromFund > 0) {
+      // Check if amount from fund is valid
+      const balance = this.getSelectedFundingBalance();
+      if (this.amountFromFund > balance) return false;
+      if (this.amountFromFund > totalDue) return false;
+      
+      // If fully paying from fund, no need for payment method
+      if (this.amountFromFund >= totalDue) return true;
+    }
+    
+    // If there's remaining cash amount, need payment method details
+    const cashAmount = this.getRemainingCashAmount();
+    if (cashAmount > 0) {
+      if (this.selectedWelfarePaymentMethod === 'MANUAL' && !this.welfarePaymentReferenceCode.trim()) return false;
+      if (this.selectedWelfarePaymentMethod === 'STK_PUSH' && !this.welfarePaymentPhoneNumber.trim()) return false;
+    }
+    
     return true;
   }
 
   submitWelfarePayment() {
-    if (!this.contributionToPay) return;
+    if (!this.contributionToPay || !this.selectedEvent) return;
 
-    if (this.selectedWelfarePaymentMethod === 'MANUAL' && !this.welfarePaymentReferenceCode.trim()) {
-      this.toast.warning('Reference required', 'Please enter a payment reference number.');
-      return;
-    }
-    if (this.selectedWelfarePaymentMethod === 'STK_PUSH' && !this.welfarePaymentPhoneNumber.trim()) {
-      this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
-      return;
+    const totalDue = this.contributionToPay.amountExpected - (this.contributionToPay.amountPaid || 0);
+    const cashAmount = this.getRemainingCashAmount();
+
+    // Validate cash payment requirements
+    if (cashAmount > 0) {
+      if (this.selectedWelfarePaymentMethod === 'MANUAL' && !this.welfarePaymentReferenceCode.trim()) {
+        this.toast.warning('Reference required', 'Please enter a payment reference number.');
+        return;
+      }
+      if (this.selectedWelfarePaymentMethod === 'STK_PUSH' && !this.welfarePaymentPhoneNumber.trim()) {
+        this.toast.warning('Phone required', 'Please enter the phone number for M-PESA.');
+        return;
+      }
     }
 
     this.submittingWelfarePayment.set(true);
 
-    const balance = this.contributionToPay.amountExpected - (this.contributionToPay.amountPaid || 0);
+    // If paying from fund
+    if (this.useFundingSource && this.selectedFundingSourceId && this.amountFromFund > 0) {
+      // First, pay from contribution fund
+      this.api.payWelfareFromContributionFund(
+        this.selectedEvent.id,
+        this.contributionToPay.memberId,
+        this.selectedFundingSourceId,
+        this.amountFromFund
+      ).subscribe({
+        next: (updated) => {
+          // Update in list
+          const idx = this.contributions.findIndex(c => c.id === updated.id);
+          if (idx !== -1) {
+            this.contributions[idx] = updated;
+          }
+
+          // If there's remaining cash amount, proceed with cash payment
+          if (cashAmount > 0) {
+            this.submitCashPaymentPortion(cashAmount);
+          } else {
+            // Full payment from fund completed
+            this.submittingWelfarePayment.set(false);
+            this.toast.success('Payment complete', 'Welfare contribution paid from your contribution fund.');
+            this.closeWelfarePaymentModal();
+            this.loadContributions(this.selectedEvent!.id);
+            this.loadEvents();
+          }
+        },
+        error: (err) => {
+          this.submittingWelfarePayment.set(false);
+          this.toast.error('Payment failed', err.error?.message || 'Failed to process payment from fund.');
+        }
+      });
+    } else {
+      // Cash only payment
+      this.submitCashPaymentPortion(totalDue);
+    }
+  }
+
+  /**
+   * Submit the cash portion of the payment
+   */
+  private submitCashPaymentPortion(amount: number) {
+    if (!this.contributionToPay) return;
 
     const request: InitiatePaymentRequest = {
       paymentType: 'WELFARE_DUE',
       referenceId: this.contributionToPay.id,
       payerMemberId: this.contributionToPay.memberId,
-      amount: balance,
+      amount: amount,
       paymentMethod: this.selectedWelfarePaymentMethod,
       referenceCode: this.selectedWelfarePaymentMethod === 'MANUAL' ? this.welfarePaymentReferenceCode.trim() : undefined,
       phoneNumber: this.selectedWelfarePaymentMethod === 'STK_PUSH' ? this.welfarePaymentPhoneNumber.trim() : undefined
@@ -429,7 +618,9 @@ export class WelfareComponent implements OnInit {
         this.welfarePaymentResponse = response;
 
         if (response.awaitingVerification) {
-          this.toast.success('Payment submitted', 'Your welfare contribution has been submitted and is awaiting admin verification.');
+          const fundMsg = this.useFundingSource && this.amountFromFund > 0 
+            ? `KES ${this.amountFromFund.toLocaleString()} paid from fund. ` : '';
+          this.toast.success('Payment submitted', fundMsg + 'Your cash payment is awaiting admin verification.');
           this.closeWelfarePaymentModal();
           if (this.selectedEvent) {
             this.loadContributions(this.selectedEvent.id);
@@ -462,13 +653,124 @@ export class WelfareComponent implements OnInit {
   selectedContributionTypeId: number | null = null;
   processingFundPayment = signal(false);
   paymentMethod: 'CASH' | 'CONTRIBUTION_FUND' = 'CASH';
+  adminAmountFromFund = 0;
 
   openPaymentMethodModal(contribution: WelfareContribution) {
     this.selectedContribution = contribution;
     this.selectedContributionTypeId = null;
     this.paymentMethod = 'CASH';
     this.contributionBalances = [];
+    this.adminAmountFromFund = 0;
     this.showFundPaymentModal = true;
+  }
+
+  /**
+   * Get remaining amount to pay in cash for admin modal
+   */
+  getAdminRemainingCashAmount(): number {
+    if (!this.selectedContribution) return 0;
+    const totalDue = this.selectedContribution.amountExpected - (this.selectedContribution.amountPaid || 0);
+    if (this.paymentMethod !== 'CONTRIBUTION_FUND' || !this.adminAmountFromFund) return totalDue;
+    return Math.max(0, totalDue - this.adminAmountFromFund);
+  }
+
+  /**
+   * Check if admin can submit payment
+   */
+  canSubmitAdminPayment(): boolean {
+    if (!this.selectedContribution) return false;
+    
+    const totalDue = this.selectedContribution.amountExpected - (this.selectedContribution.amountPaid || 0);
+    
+    // If using contribution fund
+    if (this.paymentMethod === 'CONTRIBUTION_FUND') {
+      if (!this.selectedContributionTypeId) return false;
+      if (this.adminAmountFromFund <= 0) return false;
+      
+      // Check if amount from fund is valid
+      const balance = this.getSelectedBalance();
+      if (!balance || this.adminAmountFromFund > balance.balance) return false;
+      if (this.adminAmountFromFund > totalDue) return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Submit admin payment (hybrid: fund + cash)
+   */
+  submitAdminPayment() {
+    if (!this.selectedEvent || !this.selectedContribution) return;
+
+    const totalDue = this.selectedContribution.amountExpected - (this.selectedContribution.amountPaid || 0);
+    const cashAmount = this.getAdminRemainingCashAmount();
+
+    this.processingFundPayment.set(true);
+
+    // If paying from fund
+    if (this.paymentMethod === 'CONTRIBUTION_FUND' && this.selectedContributionTypeId && this.adminAmountFromFund > 0) {
+      // First, pay from contribution fund
+      this.api.payWelfareFromContributionFund(
+        this.selectedEvent.id,
+        this.selectedContribution.memberId,
+        this.selectedContributionTypeId,
+        this.adminAmountFromFund
+      ).subscribe({
+        next: (updated) => {
+          // Update in list
+          const idx = this.contributions.findIndex(c => c.id === updated.id);
+          if (idx !== -1) {
+            this.contributions[idx] = updated;
+          }
+
+          // If there's remaining cash amount, mark as paid
+          if (cashAmount > 0) {
+            this.markRemainingAsPaid();
+          } else {
+            // Full payment from fund completed
+            this.processingFundPayment.set(false);
+            this.toast.success('Payment complete', 'Welfare contribution paid from member\'s contribution fund.');
+            this.closeFundPaymentModal();
+            this.loadContributions(this.selectedEvent!.id);
+            this.loadEvents();
+          }
+        },
+        error: (err) => {
+          this.processingFundPayment.set(false);
+          this.toast.error('Payment failed', err.error?.message || 'Failed to process payment from fund.');
+        }
+      });
+    } else {
+      // Cash only payment - mark as fully paid
+      this.confirmCashPayment();
+    }
+  }
+
+  /**
+   * Mark remaining amount as paid (cash portion after fund deduction)
+   */
+  private markRemainingAsPaid() {
+    if (!this.selectedEvent || !this.selectedContribution) return;
+
+    this.api.updateWelfareContributionPayment(this.selectedEvent.id, this.selectedContribution.memberId, true).subscribe({
+      next: (updated) => {
+        this.processingFundPayment.set(false);
+        
+        const idx = this.contributions.findIndex(c => c.id === updated.id);
+        if (idx !== -1) {
+          this.contributions[idx] = updated;
+        }
+        
+        this.toast.success('Payment complete', `KES ${this.adminAmountFromFund.toLocaleString()} from fund + KES ${this.getAdminRemainingCashAmount().toLocaleString()} cash`);
+        this.closeFundPaymentModal();
+        this.loadContributions(this.selectedEvent!.id);
+        this.loadEvents();
+      },
+      error: (err) => {
+        this.processingFundPayment.set(false);
+        this.toast.error('Failed', err.error?.message || 'Could not mark cash payment');
+      }
+    });
   }
 
   /**
@@ -496,17 +798,26 @@ export class WelfareComponent implements OnInit {
     this.contributionBalances = [];
     this.selectedContributionTypeId = null;
     this.paymentMethod = 'CASH';
+    this.adminAmountFromFund = 0;
   }
 
   loadContributionBalances(memberId: number) {
+    // Only load if the welfare event has funding sources
+    if (!this.selectedEvent?.fundingSources || this.selectedEvent.fundingSources.length === 0) {
+      this.contributionBalances = [];
+      return;
+    }
+    
     this.loadingBalances.set(true);
     this.api.getMemberContributionBalances(memberId).subscribe({
       next: (balances) => {
-        this.contributionBalances = balances;
+        // Filter to only show balances for the welfare's funding sources
+        const fundingTypeIds = this.selectedEvent!.fundingSources!.map(fs => fs.contributionTypeId);
+        this.contributionBalances = balances.filter(b => fundingTypeIds.includes(b.contributionTypeId));
         this.loadingBalances.set(false);
         // Auto-select first option with sufficient balance
         if (this.selectedContribution) {
-          const sufficient = balances.find(b => b.balance >= this.selectedContribution!.amountExpected);
+          const sufficient = this.contributionBalances.find(b => b.balance >= this.selectedContribution!.amountExpected);
           if (sufficient) {
             this.selectedContributionTypeId = sufficient.contributionTypeId;
           }

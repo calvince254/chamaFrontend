@@ -763,6 +763,30 @@
     </div>
   </div>
 
+  <!-- Report Summary Stats -->
+  @if (!loadingReport() && reportItems.length > 0) {
+    <div class="stat-grid" style="margin-bottom: 16px;">
+      <div class="stat-card">
+        <div class="stat-label">Records</div>
+        <div class="stat-value">{{ reportTotalElements }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Credits</div>
+        <div class="stat-value" style="color: var(--color-success);">KES {{ reportSummaryTotalCredits | number }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Debits</div>
+        <div class="stat-value" style="color: var(--color-danger);">KES {{ reportSummaryTotalDebits | number }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Balance</div>
+        <div class="stat-value" style="color: var(--color-primary);">
+          KES {{ reportSummaryBalance | number }}
+        </div>
+      </div>
+    </div>
+  }
+
   <!-- Report Content -->
   @if (loadingReport()) {
     <div class="empty-state">
@@ -772,13 +796,13 @@
   } @else if (reportItems.length === 0 && !hasReportFilters) {
     <div class="empty-state">
       <app-icon name="file-text" style="font-size: 32px; opacity: 0.4; margin-bottom: 8px;"></app-icon>
-      <p>No contribution data available.</p>
-      <p style="color: var(--color-text-muted); font-size: 10px;">Adjust the date range to find contributions.</p>
+      <p>No transactions found.</p>
+      <p style="color: var(--color-text-muted); font-size: 10px;">Adjust the date range, member, or contribution type filter to find transactions.</p>
     </div>
   } @else if (reportItems.length === 0 && hasReportFilters) {
     <div class="empty-state">
       <app-icon name="search" style="font-size: 18px; opacity: 0.5; margin-bottom: 6px;"></app-icon>
-      <p>No contributions match your filters.</p>
+      <p>No transactions match your filters.</p>
       <button class="btn btn-outline btn-sm" style="margin-top: 8px;" (click)="resetReportFilters()">Reset filters</button>
     </div>
   } @else {
@@ -791,15 +815,20 @@
               <div class="mobile-report-name">{{ item.memberName }}</div>
               <div class="mobile-report-no">{{ item.memberNo }}</div>
             </div>
-            <span class="badge" [ngClass]="getStatusBadgeClass(item.status)">{{ item.status }}</span>
+            <span class="badge" [ngClass]="item.direction === 'CREDIT' ? 'badge-success' : 'badge-danger'">
+              {{ item.direction }}
+            </span>
           </div>
           <div class="mobile-report-details">
             <span class="mobile-report-type">{{ item.contributionTypeName }}</span>
-            <span class="mobile-report-period">{{ formatMonth(item.month) }}</span>
+            <span class="mobile-report-period">{{ item.date }}</span>
           </div>
           <div class="mobile-report-bottom">
             <div class="mobile-report-amounts">
-              Due <strong>{{ item.amountDue | number }}</strong> · Paid <strong>{{ item.amountPaid | number }}</strong>
+              <strong [style.color]="item.direction === 'CREDIT' ? 'var(--color-success)' : 'var(--color-danger)'">
+                {{ item.direction === 'CREDIT' ? '+' : '-' }}{{ item.amount | number }}
+              </strong>
+              <span style="margin-left: 8px; color: var(--color-text-muted); font-size: 10px;">{{ item.description }}</span>
             </div>
           </div>
         </div>
@@ -808,30 +837,36 @@
 
     <!-- Desktop Table -->
     <div class="card desktop-report-table">
-      <table class="data-table">
+      <table class="data-table" style="width: 100%; table-layout: fixed;">
         <thead>
           <tr>
-            <th>Period</th>
-            <th>Member</th>
-            <th>Type</th>
-            <th class="col-amount">Due</th>
-            <th class="col-amount">Paid</th>
-            <th>Status</th>
+            <th style="width: 10%;">Date</th>
+            <th style="width: 18%;">Member</th>
+            <th style="width: 12%;">Type</th>
+            <th style="width: 10%;">Direction</th>
+            <th class="col-amount" style="width: 12%;">Amount</th>
+            <th style="width: 38%;">Description</th>
           </tr>
         </thead>
         <tbody>
           @for (item of reportItems; track item.id) {
             <tr>
-              <td>{{ formatMonth(item.month) }}</td>
+              <td style="white-space: nowrap;">{{ item.date }}</td>
               <td>
                 <div class="member-name">{{ item.memberName }}</div>
                 <div class="member-no">{{ item.memberNo }}</div>
               </td>
-              <td><span class="badge badge-neutral">{{ item.contributionTypeName }}</span></td>
-              <td class="col-amount">{{ item.amountDue | number }}</td>
-              <td class="col-amount">{{ item.amountPaid | number }}</td>
+              <td><span class="badge badge-neutral" style="font-size: 9px;">{{ item.contributionTypeName }}</span></td>
               <td>
-                <span class="badge" [ngClass]="getStatusBadgeClass(item.status)">{{ item.status }}</span>
+                <span class="badge" [ngClass]="item.direction === 'CREDIT' ? 'badge-success' : 'badge-danger'" style="font-size: 9px;">
+                  {{ item.direction }}
+                </span>
+              </td>
+              <td class="col-amount" [style.color]="item.direction === 'CREDIT' ? 'var(--color-success)' : 'var(--color-danger)'">
+                {{ item.direction === 'CREDIT' ? '+' : '-' }}{{ item.amount | number }}
+              </td>
+              <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ item.description }}">
+                {{ item.description }}
               </td>
             </tr>
           }

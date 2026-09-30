@@ -140,6 +140,17 @@ export interface Contribution {
   contributionTypeName?: string;
   hasPendingClaim?: boolean; // True if there's a payment claim awaiting admin confirmation
   payableId?: number; // ID of the Payable record for confirming payments
+  // Welfare deductions from this contribution
+  totalWelfareDeductions?: number;
+  welfareDeductions?: WelfareDeduction[];
+}
+
+export interface WelfareDeduction {
+  welfareEventId: number;
+  welfareEventType: string;
+  beneficiaryName: string;
+  amount: number;
+  date?: string;
 }
 
 export interface Loan {
@@ -194,6 +205,9 @@ export interface WelfareEvent {
   // Stats
   totalInvolved?: number;
   paidCount?: number;
+  // Funding sources - which contribution pools can fund this welfare
+  fundingContributionTypeIds?: number[];
+  fundingSources?: { contributionTypeId: number; contributionTypeName: string }[];
 }
 
 export interface WelfareContribution {
@@ -209,10 +223,12 @@ export interface WelfareContribution {
   paymentReference?: string;
   // Contribution fund payment fields
   paidFromContribution?: boolean;
+  amountFromFund?: number;
+  amountFromCash?: number;
   sourceContributionTypeId?: number;
   sourceContributionTypeName?: string;
   sourceContributionId?: number;
-  paymentMethod?: 'CASH' | 'CONTRIBUTION_FUND';
+  paymentMethod?: 'CASH' | 'CONTRIBUTION_FUND' | 'MIXED';
   // Payment tracking
   hasPendingClaim?: boolean;
   payableId?: number; // ID of the Payable record for confirming payments

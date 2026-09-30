@@ -18,17 +18,19 @@ interface AvailableMember {
 
 interface ReportItem {
   id: number;
+  date: string;
   memberId: number;
   memberName: string;
   memberNo: string;
-  contributionTypeName: string;
   contributionTypeId: number;
-  month: string;
-  amountDue: number;
-  amountPaid: number;
-  status: string;
-  paidOn?: string;
-  dueDate?: string;
+  contributionTypeName: string;
+  direction: 'CREDIT' | 'DEBIT';
+  amount: number;
+  description: string;
+  transactionType: string;
+  referenceId?: number;
+  referenceType?: string;
+  month?: string;
 }
 
 @Component({
@@ -156,6 +158,12 @@ export class ContributionsComponent implements OnInit {
   reportEndDate = '';
   reportMemberId: number | null = null;
   reportContributionTypeId: number | null = null;
+  
+  // Report summary totals (transaction-based: credits - debits = balance)
+  reportSummaryTotalCredits = 0;
+  reportSummaryTotalDebits = 0;
+  reportSummaryBalance = 0;
+  loadingReportSummary = signal(false);
   
   // Member search for reports
   reportMemberSearch = '';
@@ -1178,14 +1186,9 @@ export class ContributionsComponent implements OnInit {
   }
 
   initReportFilters() {
-    // Default to last 3 months
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of current month
-    
-    // Format as YYYY-MM-DD for date input
-    this.reportStartDate = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
-    this.reportEndDate = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+    // Start with empty dates to show all-time data by default
+    this.reportStartDate = '';
+    this.reportEndDate = '';
     this.reportMemberId = null;
     this.reportContributionTypeId = null;
     this.reportPage = 0;
@@ -1200,28 +1203,33 @@ export class ContributionsComponent implements OnInit {
   loadReport() {
     this.loadingReport.set(true);
     
-    this.api.getContributionReport(
+    // Always load summary alongside the report
+    this.loadReportSummary();
+    
+    this.api.getContributionTransactionsReport(
+      this.reportContributionTypeId,
       this.reportPage,
       this.reportPageSize,
       this.reportStartDate || undefined,
       this.reportEndDate || undefined,
-      this.reportMemberId || undefined,
-      this.reportContributionTypeId || undefined
+      this.reportMemberId || undefined
     ).subscribe({
       next: (response) => {
-        this.reportItems = response.content.map((c: any) => ({
-          id: c.id,
-          memberId: c.memberId,
-          memberName: c.memberName,
-          memberNo: c.memberNo,
-          contributionTypeName: c.contributionTypeName,
-          contributionTypeId: c.contributionTypeId,
-          month: c.month,
-          amountDue: c.amountDue,
-          amountPaid: c.amountPaid,
-          status: c.status,
-          paidOn: c.paidOn,
-          dueDate: c.dueDate
+        this.reportItems = response.content.map((t: any) => ({
+          id: t.id,
+          date: t.date,
+          memberId: t.memberId,
+          memberName: t.memberName,
+          memberNo: t.memberNo,
+          contributionTypeId: t.contributionTypeId,
+          contributionTypeName: t.contributionTypeName,
+          direction: t.direction,
+          amount: t.amount,
+          description: t.description,
+          transactionType: t.transactionType,
+          referenceId: t.referenceId,
+          referenceType: t.referenceType,
+          month: t.month
         }));
         this.reportTotalElements = response.totalElements;
         this.reportTotalPages = response.totalPages;
@@ -1233,8 +1241,32 @@ export class ContributionsComponent implements OnInit {
         this.loadingReport.set(false);
         if (err.status !== 403) {
           console.error('Failed to load report:', err);
-          this.toast.error('Error', 'Failed to load contribution report');
+          this.toast.error('Error', 'Failed to load contribution transactions report');
         }
+      }
+    });
+  }
+  
+  loadReportSummary() {
+    this.loadingReportSummary.set(true);
+    
+    this.api.getContributionTransactionsSummary(
+      this.reportContributionTypeId,
+      this.reportStartDate || undefined,
+      this.reportEndDate || undefined,
+      this.reportMemberId || undefined
+    ).subscribe({
+      next: (summary) => {
+        this.reportSummaryTotalCredits = summary.totalCredits;
+        this.reportSummaryTotalDebits = summary.totalDebits;
+        this.reportSummaryBalance = summary.balance;
+        this.loadingReportSummary.set(false);
+      },
+      error: () => {
+        this.reportSummaryTotalCredits = 0;
+        this.reportSummaryTotalDebits = 0;
+        this.reportSummaryBalance = 0;
+        this.loadingReportSummary.set(false);
       }
     });
   }
@@ -1364,17 +1396,21 @@ export class ContributionsComponent implements OnInit {
     return pages;
   }
 
-  // Report totals
-  get reportTotalDue(): number {
-    return this.reportItems.reduce((sum, item) => sum + (item.amountDue || 0), 0);
+  // Report totals - now calculated from transaction amounts
+  get reportTotalCredits(): number {
+    return this.reportItems.filter(item => item.direction === 'CREDIT').reduce((sum, item) => sum + (item.amount || 0), 0);
   }
 
-  get reportTotalPaid(): number {
-    return this.reportItems.reduce((sum, item) => sum + (item.amountPaid || 0), 0);
+  get reportTotalDebits(): number {
+    return this.reportItems.filter(item => item.direction === 'DEBIT').reduce((sum, item) => sum + (item.amount || 0), 0);
   }
 
-  get reportPaidCount(): number {
-    return this.reportItems.filter(item => item.status === 'PAID').length;
+  get reportCreditCount(): number {
+    return this.reportItems.filter(item => item.direction === 'CREDIT').length;
+  }
+
+  get reportDebitCount(): number {
+    return this.reportItems.filter(item => item.direction === 'DEBIT').length;
   }
 
   get hasReportFilters(): boolean {
