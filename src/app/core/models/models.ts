@@ -197,7 +197,9 @@ export interface WelfareEvent {
   amountPerMember: number;
   totalExpected: number;
   totalCollected: number;
-  status: 'OPEN' | 'CLOSED';
+  totalDisbursed?: number;      // Amount already disbursed to beneficiary
+  availableToDisbure?: number;  // totalCollected - totalDisbursed
+  status: 'OPEN' | 'PARTIALLY_DISBURSED' | 'DISBURSED' | 'CLOSED' | 'CANCELLED';
   description?: string;
   // New fields for member selection
   allMembersInvolved?: boolean;

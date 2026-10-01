@@ -655,6 +655,11 @@ export class WelfareComponent implements OnInit {
   paymentMethod: 'CASH' | 'CONTRIBUTION_FUND' = 'CASH';
   adminAmountFromFund = 0;
 
+  // Disburse and Cancel state
+  processingDisburse = signal(false);
+  showCancelConfirm = false;
+  cancelReason = '';
+
   openPaymentMethodModal(contribution: WelfareContribution) {
     this.selectedContribution = contribution;
     this.selectedContributionTypeId = null;
@@ -672,6 +677,29 @@ export class WelfareComponent implements OnInit {
     const totalDue = this.selectedContribution.amountExpected - (this.selectedContribution.amountPaid || 0);
     if (this.paymentMethod !== 'CONTRIBUTION_FUND' || !this.adminAmountFromFund) return totalDue;
     return Math.max(0, totalDue - this.adminAmountFromFund);
+  }
+
+  /**
+   * Get max amount that can be used from contribution fund
+   */
+  getMaxAdminFundAmount(): number {
+    if (!this.selectedContribution) return 0;
+    const totalDue = this.selectedContribution.amountExpected - (this.selectedContribution.amountPaid || 0);
+    const balance = this.getSelectedBalance()?.balance || 0;
+    return Math.min(balance, totalDue);
+  }
+
+  /**
+   * Clamp the admin fund amount to valid range
+   */
+  clampAdminFundAmount(): void {
+    const max = this.getMaxAdminFundAmount();
+    if (this.adminAmountFromFund > max) {
+      this.adminAmountFromFund = max;
+    }
+    if (this.adminAmountFromFund < 0) {
+      this.adminAmountFromFund = 0;
+    }
   }
 
   /**
@@ -902,6 +930,71 @@ export class WelfareComponent implements OnInit {
       error: (err) => {
         this.processingFundPayment.set(false);
         this.toast.error('Failed', err.error?.message || 'Could not process payment from contribution fund');
+      }
+    });
+  }
+
+  // ==================== DISBURSE & CANCEL ====================
+
+  /**
+   * Disburse collected welfare funds to the beneficiary
+   */
+  disburseWelfare() {
+    if (!this.selectedEvent) return;
+    
+    this.processingDisburse.set(true);
+    this.api.disburseWelfare(this.selectedEvent.id).subscribe({
+      next: (updated) => {
+        this.processingDisburse.set(false);
+        
+        // Update the event in the list
+        const idx = this.events.findIndex(e => e.id === updated.id);
+        if (idx !== -1) {
+          this.events[idx] = updated;
+        }
+        this.selectedEvent = updated;
+        
+        this.toast.success('Disbursement complete', 
+          `KES ${updated.totalCollected?.toLocaleString() || 0} disbursed to ${updated.memberName}`);
+        this.loadEvents();
+      },
+      error: (err) => {
+        this.processingDisburse.set(false);
+        this.toast.error('Disbursement failed', err.error?.message || 'Could not disburse welfare funds');
+      }
+    });
+  }
+
+  /**
+   * Cancel the welfare event and reverse all transactions
+   */
+  cancelWelfare() {
+    if (!this.selectedEvent) return;
+    
+    this.processingDisburse.set(true);
+    this.api.cancelWelfare(this.selectedEvent.id, this.cancelReason || undefined).subscribe({
+      next: (updated) => {
+        this.processingDisburse.set(false);
+        this.showCancelConfirm = false;
+        this.cancelReason = '';
+        
+        // Update the event in the list
+        const idx = this.events.findIndex(e => e.id === updated.id);
+        if (idx !== -1) {
+          this.events[idx] = updated;
+        }
+        this.selectedEvent = updated;
+        
+        // Reload contributions to show reset state
+        this.loadContributions(updated.id);
+        
+        this.toast.success('Event cancelled', 
+          'Welfare event has been cancelled and all transactions reversed');
+        this.loadEvents();
+      },
+      error: (err) => {
+        this.processingDisburse.set(false);
+        this.toast.error('Cancellation failed', err.error?.message || 'Could not cancel welfare event');
       }
     });
   }

@@ -522,8 +522,60 @@
           }
         }
       </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; gap: 8px;">
+          @if (session.can('CANCEL_WELFARE') && selectedEvent?.status !== 'CANCELLED' && selectedEvent?.status !== 'DISBURSED' && selectedEvent?.status !== 'CLOSED') {
+            <button class="btn btn-danger btn-sm" (click)="showCancelConfirm = true" [disabled]="processingDisburse()">
+              <app-icon name="close"></app-icon> Cancel Event
+            </button>
+          }
+        </div>
+        <div style="display: flex; gap: 8px;">
+          @if (session.can('DISBURSE_WELFARE') && selectedEvent?.status !== 'CANCELLED' && selectedEvent?.status !== 'DISBURSED' && selectedEvent?.status !== 'CLOSED' && selectedEvent?.availableToDisbure && selectedEvent!.availableToDisbure! > 0) {
+            <button class="btn btn-success" (click)="disburseWelfare()" [disabled]="processingDisburse()">
+              @if (processingDisburse()) {
+                <span class="spinner-sm"></span> Disbursing...
+              } @else {
+                <app-icon name="check"></app-icon> Disburse KES {{ selectedEvent.availableToDisbure | number }}
+              }
+            </button>
+          }
+          <button class="btn btn-ghost" (click)="closePaymentsModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Cancel Welfare Confirmation Modal -->
+@if (showCancelConfirm && selectedEvent) {
+  <div class="modal-backdrop" (click)="showCancelConfirm = false">
+    <div class="modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="color: var(--color-danger);">Cancel Welfare Event</h3>
+        <button class="icon-btn" (click)="showCancelConfirm = false"><app-icon name="close"></app-icon></button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 16px;">
+          Are you sure you want to cancel <strong>{{ selectedEvent.eventType }}</strong> for <strong>{{ selectedEvent.memberName }}</strong>?
+        </p>
+        <p style="color: var(--color-text-muted); font-size: 12px; margin-bottom: 16px;">
+          This will reverse all fund transactions and credit the amounts back to members' contribution balances.
+        </p>
+        <div class="form-group">
+          <label>Reason for cancellation (optional)</label>
+          <textarea class="form-control" [(ngModel)]="cancelReason" rows="2" placeholder="Enter reason..."></textarea>
+        </div>
+      </div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" (click)="closePaymentsModal()">Close</button>
+        <button class="btn btn-ghost" (click)="showCancelConfirm = false">Go Back</button>
+        <button class="btn btn-danger" (click)="cancelWelfare()" [disabled]="processingDisburse()">
+          @if (processingDisburse()) {
+            <span class="spinner-sm"></span> Cancelling...
+          } @else {
+            Yes, Cancel Event
+          }
+        </button>
       </div>
     </div>
   </div>
@@ -607,7 +659,8 @@
                     <div style="display: flex; align-items: center; gap: 8px;">
                       <span style="font-size: 11px; color: var(--color-text-muted);">KES</span>
                       <input type="number" [(ngModel)]="adminAmountFromFund" 
-                             [max]="Math.min(getSelectedBalance()?.balance || 0, selectedContribution.amountExpected - (selectedContribution.amountPaid || 0))"
+                             (ngModelChange)="clampAdminFundAmount()"
+                             [max]="getMaxAdminFundAmount()"
                              min="0"
                              style="flex: 1; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 11px;" />
                     </div>

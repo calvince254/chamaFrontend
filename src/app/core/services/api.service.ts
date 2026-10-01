@@ -1098,6 +1098,16 @@ export class ApiService {
     return this.http.post<void>(`${this.baseUrl}/welfare/${eventId}/contributions/mark-all-paid`, {});
   }
 
+  disburseWelfare(eventId: number, amount?: number): Observable<WelfareEvent> {
+    const body = amount != null ? { amount } : {};
+    return this.http.post<WelfareEvent>(`${this.baseUrl}/welfare/${eventId}/disburse`, body);
+  }
+
+  cancelWelfare(eventId: number, reason?: string): Observable<WelfareEvent> {
+    const body = reason ? { reason } : {};
+    return this.http.post<WelfareEvent>(`${this.baseUrl}/welfare/${eventId}/cancel`, body);
+  }
+
   // ==================== INVESTMENTS ====================
   getInvestments(): Observable<Investment[]> {
     if (!this.isBrowser) return of([]);
