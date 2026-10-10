@@ -682,7 +682,7 @@ export class ApiService {
   
   /**
    * Get contribution transactions report (credits and debits).
-   * Requires contributionTypeId.
+   * Supports optional status filter: PENDING, PAID, PARTIAL, OVERDUE, DEFAULTED, or ALL (default).
    */
   getContributionTransactionsReport(
     contributionTypeId: number | null,
@@ -690,7 +690,8 @@ export class ApiService {
     size: number = 10, 
     startDate?: string, 
     endDate?: string, 
-    memberId?: number
+    memberId?: number,
+    status?: string
   ): Observable<PageResponse<any>> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -699,29 +700,57 @@ export class ApiService {
     if (startDate) params = params.set('startDate', startDate);
     if (endDate) params = params.set('endDate', endDate);
     if (memberId) params = params.set('memberId', memberId.toString());
+    if (status && status !== 'ALL') params = params.set('status', status);
     
     return this.http.get<any>(`${this.baseUrl}/contributions/reports/transactions`, { params });
   }
 
   /**
-   * Get contribution transactions summary (credits, debits, balance).
-   * Requires contributionTypeId.
+   * Get contributions report summary (due, paid, balance).
+   * Supports optional status filter: PENDING, PAID, PARTIAL, OVERDUE, DEFAULTED, or ALL (default).
    */
   getContributionTransactionsSummary(
     contributionTypeId: number | null,
     startDate?: string, 
     endDate?: string, 
-    memberId?: number
-  ): Observable<{totalCredits: number, totalDebits: number, balance: number, count: number}> {
+    memberId?: number,
+    status?: string
+  ): Observable<{totalDue: number, totalPaid: number, balance: number, count: number}> {
     let params = new HttpParams();
     if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
     if (startDate) params = params.set('startDate', startDate);
     if (endDate) params = params.set('endDate', endDate);
     if (memberId) params = params.set('memberId', memberId.toString());
+    if (status && status !== 'ALL') params = params.set('status', status);
     
-    return this.http.get<{totalCredits: number, totalDebits: number, balance: number, count: number}>(
+    return this.http.get<{totalDue: number, totalPaid: number, balance: number, count: number}>(
       `${this.baseUrl}/contributions/reports/transactions/summary`, { params }
     );
+  }
+
+  /**
+   * Download contribution transactions report as PDF.
+   * Downloads the same data shown in the UI transactions report.
+   * Supports optional status filter: PENDING, PAID, PARTIAL, OVERDUE, DEFAULTED, or ALL (default).
+   */
+  downloadContributionTransactionsPdf(
+    startDate?: string, 
+    endDate?: string, 
+    memberId?: number, 
+    contributionTypeId?: number,
+    status?: string
+  ): Observable<Blob> {
+    let params = new HttpParams();
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+    if (memberId) params = params.set('memberId', memberId.toString());
+    if (contributionTypeId) params = params.set('contributionTypeId', contributionTypeId.toString());
+    if (status && status !== 'ALL') params = params.set('status', status);
+    
+    return this.http.get(`${this.baseUrl}/contributions/reports/transactions/pdf`, { 
+      params, 
+      responseType: 'blob' 
+    });
   }
 
   /**

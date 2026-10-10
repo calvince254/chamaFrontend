@@ -18,19 +18,18 @@ interface AvailableMember {
 
 interface ReportItem {
   id: number;
-  date: string;
   memberId: number;
   memberName: string;
   memberNo: string;
   contributionTypeId: number;
   contributionTypeName: string;
-  direction: 'CREDIT' | 'DEBIT';
-  amount: number;
-  description: string;
-  transactionType: string;
-  referenceId?: number;
-  referenceType?: string;
-  month?: string;
+  month: string;
+  dueDate: string;
+  paidOn?: string;
+  amountDue: number;
+  amountPaid: number;
+  balance: number;
+  status: string;
 }
 
 @Component({
@@ -158,10 +157,11 @@ export class ContributionsComponent implements OnInit {
   reportEndDate = '';
   reportMemberId: number | null = null;
   reportContributionTypeId: number | null = null;
+  reportStatus = 'ALL'; // ALL, PENDING, PAID, PARTIAL, OVERDUE, DEFAULTED
   
-  // Report summary totals (transaction-based: credits - debits = balance)
-  reportSummaryTotalCredits = 0;
-  reportSummaryTotalDebits = 0;
+  // Report summary totals (contribution-based: due - paid = balance)
+  reportSummaryTotalDue = 0;
+  reportSummaryTotalPaid = 0;
   reportSummaryBalance = 0;
   loadingReportSummary = signal(false);
   
@@ -1191,6 +1191,7 @@ export class ContributionsComponent implements OnInit {
     this.reportEndDate = '';
     this.reportMemberId = null;
     this.reportContributionTypeId = null;
+    this.reportStatus = 'ALL';
     this.reportPage = 0;
     
     // Reset member search
@@ -1212,24 +1213,24 @@ export class ContributionsComponent implements OnInit {
       this.reportPageSize,
       this.reportStartDate || undefined,
       this.reportEndDate || undefined,
-      this.reportMemberId || undefined
+      this.reportMemberId || undefined,
+      this.reportStatus || undefined
     ).subscribe({
       next: (response) => {
-        this.reportItems = response.content.map((t: any) => ({
-          id: t.id,
-          date: t.date,
-          memberId: t.memberId,
-          memberName: t.memberName,
-          memberNo: t.memberNo,
-          contributionTypeId: t.contributionTypeId,
-          contributionTypeName: t.contributionTypeName,
-          direction: t.direction,
-          amount: t.amount,
-          description: t.description,
-          transactionType: t.transactionType,
-          referenceId: t.referenceId,
-          referenceType: t.referenceType,
-          month: t.month
+        this.reportItems = response.content.map((c: any) => ({
+          id: c.id,
+          memberId: c.memberId,
+          memberName: c.memberName,
+          memberNo: c.memberNo,
+          contributionTypeId: c.contributionTypeId,
+          contributionTypeName: c.contributionTypeName,
+          month: c.month,
+          dueDate: c.dueDate,
+          paidOn: c.paidOn,
+          amountDue: c.amountDue,
+          amountPaid: c.amountPaid,
+          balance: c.balance,
+          status: c.status
         }));
         this.reportTotalElements = response.totalElements;
         this.reportTotalPages = response.totalPages;
@@ -1241,7 +1242,7 @@ export class ContributionsComponent implements OnInit {
         this.loadingReport.set(false);
         if (err.status !== 403) {
           console.error('Failed to load report:', err);
-          this.toast.error('Error', 'Failed to load contribution transactions report');
+          this.toast.error('Error', 'Failed to load contributions report');
         }
       }
     });
@@ -1254,17 +1255,18 @@ export class ContributionsComponent implements OnInit {
       this.reportContributionTypeId,
       this.reportStartDate || undefined,
       this.reportEndDate || undefined,
-      this.reportMemberId || undefined
+      this.reportMemberId || undefined,
+      this.reportStatus || undefined
     ).subscribe({
       next: (summary) => {
-        this.reportSummaryTotalCredits = summary.totalCredits;
-        this.reportSummaryTotalDebits = summary.totalDebits;
+        this.reportSummaryTotalDue = summary.totalDue;
+        this.reportSummaryTotalPaid = summary.totalPaid;
         this.reportSummaryBalance = summary.balance;
         this.loadingReportSummary.set(false);
       },
       error: () => {
-        this.reportSummaryTotalCredits = 0;
-        this.reportSummaryTotalDebits = 0;
+        this.reportSummaryTotalDue = 0;
+        this.reportSummaryTotalPaid = 0;
         this.reportSummaryBalance = 0;
         this.loadingReportSummary.set(false);
       }
@@ -1396,36 +1398,61 @@ export class ContributionsComponent implements OnInit {
     return pages;
   }
 
-  // Report totals - now calculated from transaction amounts
-  get reportTotalCredits(): number {
-    return this.reportItems.filter(item => item.direction === 'CREDIT').reduce((sum, item) => sum + (item.amount || 0), 0);
+  // Report totals - now calculated from contribution amounts
+  get reportTotalDue(): number {
+    return this.reportItems.reduce((sum, item) => sum + (item.amountDue || 0), 0);
   }
 
-  get reportTotalDebits(): number {
-    return this.reportItems.filter(item => item.direction === 'DEBIT').reduce((sum, item) => sum + (item.amount || 0), 0);
+  get reportTotalPaidAmount(): number {
+    return this.reportItems.reduce((sum, item) => sum + (item.amountPaid || 0), 0);
   }
 
-  get reportCreditCount(): number {
-    return this.reportItems.filter(item => item.direction === 'CREDIT').length;
+  get reportPaidCount(): number {
+    return this.reportItems.filter(item => item.status === 'PAID').length;
   }
 
-  get reportDebitCount(): number {
-    return this.reportItems.filter(item => item.direction === 'DEBIT').length;
+  get reportPendingCount(): number {
+    return this.reportItems.filter(item => item.status === 'PENDING' || item.status === 'PARTIAL' || item.status === 'OVERDUE').length;
+  }
+
+  getStatusLabel(status: string | undefined): string {
+    if (!status) return '-';
+    switch (status.toUpperCase()) {
+      case 'PENDING': return 'Pending';
+      case 'PAID': return 'Paid';
+      case 'PARTIAL': return 'Partial';
+      case 'OVERDUE': return 'Overdue';
+      case 'DEFAULTED': return 'Defaulted';
+      default: return status;
+    }
+  }
+
+  getStatusClass(status: string | undefined): string {
+    if (!status) return '';
+    switch (status.toUpperCase()) {
+      case 'PENDING': return 'badge-warning';
+      case 'PAID': return 'badge-success';
+      case 'PARTIAL': return 'badge-primary';
+      case 'OVERDUE': return 'badge-orange';
+      case 'DEFAULTED': return 'badge-danger';
+      default: return '';
+    }
   }
 
   get hasReportFilters(): boolean {
-    return !!(this.reportStartDate || this.reportEndDate || this.reportMemberId || this.reportContributionTypeId);
+    return !!(this.reportStartDate || this.reportEndDate || this.reportMemberId || this.reportContributionTypeId || (this.reportStatus && this.reportStatus !== 'ALL'));
   }
 
-  // Download PDF
+  // Download PDF - uses transactions report matching the UI display
   downloadReportPdf() {
     this.downloadingReport.set(true);
     
-    this.api.downloadContributionReportPdf(
+    this.api.downloadContributionTransactionsPdf(
       this.reportStartDate || undefined,
       this.reportEndDate || undefined,
       this.reportMemberId || undefined,
-      this.reportContributionTypeId || undefined
+      this.reportContributionTypeId || undefined,
+      this.reportStatus || undefined
     ).subscribe({
       next: (blob) => {
         this.downloadingReport.set(false);
@@ -1436,7 +1463,7 @@ export class ContributionsComponent implements OnInit {
         link.href = url;
         
         // Generate filename
-        let filename = 'Contribution_Report';
+        let filename = 'Contribution_Transactions_Report';
         if (this.reportStartDate && this.reportEndDate) {
           filename += `_${this.reportStartDate}_to_${this.reportEndDate}`;
         } else if (this.reportStartDate) {
@@ -1458,6 +1485,7 @@ export class ContributionsComponent implements OnInit {
       }
     });
   }
+
 
   // Format month for display
   formatMonth(monthStr: string): string {

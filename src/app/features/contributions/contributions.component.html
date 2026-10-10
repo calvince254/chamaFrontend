@@ -679,6 +679,17 @@
         }
       </select>
     </div>
+    <div class="filter-group">
+      <label>Status:</label>
+      <select [(ngModel)]="reportStatus" (ngModelChange)="onReportFilterChange()">
+        <option value="ALL">All Status</option>
+        <option value="PENDING">Pending</option>
+        <option value="PAID">Paid</option>
+        <option value="PARTIAL">Partial</option>
+        <option value="OVERDUE">Overdue</option>
+        <option value="DEFAULTED">Defaulted</option>
+      </select>
+    </div>
     @if (hasReportFilters) {
       <button class="reset-filters" (click)="resetReportFilters()">Reset filters</button>
     }
@@ -750,6 +761,19 @@
         </select>
       </div>
     </div>
+    <div class="mobile-filter-row">
+      <div class="mobile-filter-item">
+        <label>Status</label>
+        <select [(ngModel)]="reportStatus" (ngModelChange)="onReportFilterChange()">
+          <option value="ALL">All</option>
+          <option value="PENDING">Pending</option>
+          <option value="PAID">Paid</option>
+          <option value="PARTIAL">Partial</option>
+          <option value="OVERDUE">Overdue</option>
+          <option value="DEFAULTED">Defaulted</option>
+        </select>
+      </div>
+    </div>
     <div class="mobile-filter-actions">
       @if (hasReportFilters) {
         <button class="btn btn-ghost btn-sm" (click)="resetReportFilters()">Reset</button>
@@ -771,16 +795,16 @@
         <div class="stat-value">{{ reportTotalElements }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Credits</div>
-        <div class="stat-value" style="color: var(--color-success);">KES {{ reportSummaryTotalCredits | number }}</div>
+        <div class="stat-label">Total Due</div>
+        <div class="stat-value">KES {{ reportSummaryTotalDue | number }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Debits</div>
-        <div class="stat-value" style="color: var(--color-danger);">KES {{ reportSummaryTotalDebits | number }}</div>
+        <div class="stat-label">Total Paid</div>
+        <div class="stat-value" style="color: var(--color-success);">KES {{ reportSummaryTotalPaid | number }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Balance</div>
-        <div class="stat-value" style="color: var(--color-primary);">
+        <div class="stat-value" [style.color]="reportSummaryBalance > 0 ? 'var(--color-danger)' : 'var(--color-success)'">
           KES {{ reportSummaryBalance | number }}
         </div>
       </div>
@@ -796,13 +820,13 @@
   } @else if (reportItems.length === 0 && !hasReportFilters) {
     <div class="empty-state">
       <app-icon name="file-text" style="font-size: 32px; opacity: 0.4; margin-bottom: 8px;"></app-icon>
-      <p>No transactions found.</p>
-      <p style="color: var(--color-text-muted); font-size: 10px;">Adjust the date range, member, or contribution type filter to find transactions.</p>
+      <p>No contributions found.</p>
+      <p style="color: var(--color-text-muted); font-size: 10px;">Adjust the date range, member, or contribution type filter to find contributions.</p>
     </div>
   } @else if (reportItems.length === 0 && hasReportFilters) {
     <div class="empty-state">
       <app-icon name="search" style="font-size: 18px; opacity: 0.5; margin-bottom: 6px;"></app-icon>
-      <p>No transactions match your filters.</p>
+      <p>No contributions match your filters.</p>
       <button class="btn btn-outline btn-sm" style="margin-top: 8px;" (click)="resetReportFilters()">Reset filters</button>
     </div>
   } @else {
@@ -815,20 +839,21 @@
               <div class="mobile-report-name">{{ item.memberName }}</div>
               <div class="mobile-report-no">{{ item.memberNo }}</div>
             </div>
-            <span class="badge" [ngClass]="item.direction === 'CREDIT' ? 'badge-success' : 'badge-danger'">
-              {{ item.direction }}
+            <span class="badge" [ngClass]="getStatusClass(item.status)" style="font-size: 9px;">
+              {{ getStatusLabel(item.status) }}
             </span>
           </div>
           <div class="mobile-report-details">
             <span class="mobile-report-type">{{ item.contributionTypeName }}</span>
-            <span class="mobile-report-period">{{ item.date }}</span>
+            <span class="mobile-report-period">{{ item.month }}</span>
           </div>
           <div class="mobile-report-bottom">
-            <div class="mobile-report-amounts">
-              <strong [style.color]="item.direction === 'CREDIT' ? 'var(--color-success)' : 'var(--color-danger)'">
-                {{ item.direction === 'CREDIT' ? '+' : '-' }}{{ item.amount | number }}
-              </strong>
-              <span style="margin-left: 8px; color: var(--color-text-muted); font-size: 10px;">{{ item.description }}</span>
+            <div class="mobile-report-amounts" style="display: flex; gap: 12px; font-size: 11px;">
+              <span>Due: <strong>{{ item.amountDue | number }}</strong></span>
+              <span style="color: var(--color-success);">Paid: <strong>{{ item.amountPaid | number }}</strong></span>
+              <span [style.color]="item.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'">
+                Bal: <strong>{{ item.balance | number }}</strong>
+              </span>
             </div>
           </div>
         </div>
@@ -840,33 +865,35 @@
       <table class="data-table" style="width: 100%; table-layout: fixed;">
         <thead>
           <tr>
-            <th style="width: 10%;">Date</th>
+            <th style="width: 10%;">Month</th>
             <th style="width: 18%;">Member</th>
-            <th style="width: 12%;">Type</th>
-            <th style="width: 10%;">Direction</th>
-            <th class="col-amount" style="width: 12%;">Amount</th>
-            <th style="width: 38%;">Description</th>
+            <th style="width: 14%;">Type</th>
+            <th style="width: 10%;">Due Date</th>
+            <th class="col-amount" style="width: 12%;">Due</th>
+            <th class="col-amount" style="width: 12%;">Paid</th>
+            <th class="col-amount" style="width: 12%;">Balance</th>
+            <th style="width: 12%;">Status</th>
           </tr>
         </thead>
         <tbody>
           @for (item of reportItems; track item.id) {
             <tr>
-              <td style="white-space: nowrap;">{{ item.date }}</td>
+              <td style="white-space: nowrap;">{{ item.month }}</td>
               <td>
                 <div class="member-name">{{ item.memberName }}</div>
                 <div class="member-no">{{ item.memberNo }}</div>
               </td>
               <td><span class="badge badge-neutral" style="font-size: 9px;">{{ item.contributionTypeName }}</span></td>
+              <td style="white-space: nowrap;">{{ item.dueDate }}</td>
+              <td class="col-amount">{{ item.amountDue | number }}</td>
+              <td class="col-amount" style="color: var(--color-success);">{{ item.amountPaid | number }}</td>
+              <td class="col-amount" [style.color]="item.balance > 0 ? 'var(--color-danger)' : 'var(--color-success)'">
+                {{ item.balance | number }}
+              </td>
               <td>
-                <span class="badge" [ngClass]="item.direction === 'CREDIT' ? 'badge-success' : 'badge-danger'" style="font-size: 9px;">
-                  {{ item.direction }}
+                <span class="badge" [ngClass]="getStatusClass(item.status)" style="font-size: 9px;">
+                  {{ getStatusLabel(item.status) }}
                 </span>
-              </td>
-              <td class="col-amount" [style.color]="item.direction === 'CREDIT' ? 'var(--color-success)' : 'var(--color-danger)'">
-                {{ item.direction === 'CREDIT' ? '+' : '-' }}{{ item.amount | number }}
-              </td>
-              <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ item.description }}">
-                {{ item.description }}
               </td>
             </tr>
           }

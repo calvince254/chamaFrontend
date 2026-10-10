@@ -531,7 +531,7 @@
           }
         </div>
         <div style="display: flex; gap: 8px;">
-          @if (session.can('DISBURSE_WELFARE') && selectedEvent?.status !== 'CANCELLED' && selectedEvent?.status !== 'DISBURSED' && selectedEvent?.status !== 'CLOSED' && selectedEvent?.availableToDisbure && selectedEvent!.availableToDisbure! > 0) {
+          @if (session.can('DISBURSE_WELFARE') && selectedEvent && selectedEvent.status !== 'CANCELLED' && selectedEvent.status !== 'DISBURSED' && selectedEvent.status !== 'CLOSED' && selectedEvent.availableToDisbure && selectedEvent.availableToDisbure > 0) {
             <button class="btn btn-success" (click)="disburseWelfare()" [disabled]="processingDisburse()">
               @if (processingDisburse()) {
                 <span class="spinner-sm"></span> Disbursing...

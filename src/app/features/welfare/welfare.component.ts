@@ -7,7 +7,6 @@ import { SessionService } from '../../core/services/session.service';
 import { IconComponent } from '../../shared/icon.component';
 import { ToastService } from '../../shared/toast.service';
 import {
-  StatStripComponent,
   StatusBadgeComponent,
   ListRowCardComponent,
   ListRowSecondaryDirective,
@@ -20,7 +19,7 @@ import {
   standalone: true,
   imports: [
     CommonModule, FormsModule, IconComponent,
-    StatStripComponent, StatusBadgeComponent, ListRowCardComponent,
+    StatusBadgeComponent, ListRowCardComponent,
     ListRowSecondaryDirective, ListRowFooterDirective, PaginationBarComponent
   ],
   templateUrl: './welfare.component.html',

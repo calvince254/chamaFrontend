@@ -132,6 +132,8 @@ button { font-family: inherit; cursor: pointer; }
 .badge-danger  { background: var(--color-danger-bg); color: var(--color-danger); }
 .badge-info    { background: var(--color-info-bg); color: var(--color-info); }
 .badge-neutral { background: #eef2f1; color: var(--color-text-muted); }
+.badge-orange  { background: #fff7ed; color: #ea580c; }
+.badge-primary { background: #eff6ff; color: #2563eb; }
 
 /* --- Tables ------------------------------------------------------------ */
 table.data-table {
